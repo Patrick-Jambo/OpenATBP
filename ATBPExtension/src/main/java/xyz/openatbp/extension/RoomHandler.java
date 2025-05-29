@@ -69,6 +69,7 @@ public abstract class RoomHandler implements Runnable {
     protected ScheduledFuture<?> scriptHandler;
     protected int dcWeight = 0;
     protected float FOUNTAIN_RADIUS = 4f;
+    protected ArrayList<Path2D> obstaclePaths;
 
     private enum PointLeadTeam {
         PURPLE,
@@ -102,6 +103,10 @@ public abstract class RoomHandler implements Runnable {
             players.add(Champion.getCharacterClass(u, parentExt));
         }
         this.campMonsters = new ArrayList<>();
+
+        ArrayList<Vector<Float>>[] colliders = parentExt.getColliders("main");
+        boolean practiceMap = GameManager.isPracticeMap(room.getGroupId());
+        this.obstaclePaths = parentExt.getObstacles(colliders, practiceMap);
 
         TaskScheduler scheduler = parentExt.getTaskScheduler();
         scriptHandler = scheduler.scheduleAtFixedRate(this, 100, 100, TimeUnit.MILLISECONDS);
@@ -152,6 +157,10 @@ public abstract class RoomHandler implements Runnable {
 
     public ScheduledFuture<?> getScriptHandler() {
         return this.scriptHandler;
+    }
+
+    public ArrayList<Path2D> getObstaclePaths() {
+        return this.obstaclePaths;
     }
 
     protected void logChampionData(int winningTeam) {

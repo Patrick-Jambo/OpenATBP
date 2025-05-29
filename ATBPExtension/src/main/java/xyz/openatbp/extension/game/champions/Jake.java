@@ -195,7 +195,7 @@ public class Jake extends UserActor {
 
     @Override
     public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
-        this.isDashing = true;
+        isDashingOrLeaping = true;
         if (movementDebug)
             ExtensionCommands.createWorldFX(
                     this.parentExt,
@@ -238,7 +238,7 @@ public class Jake extends UserActor {
         double time = dashPoint.distance(this.location) / dashSpeed;
         int timeMs = (int) (time * 1000d);
         this.stopMoving(timeMs);
-        Runnable setIsDashing = () -> this.isDashing = false;
+        Runnable setIsDashing = () -> isDashingOrLeaping = false;
         parentExt.getTaskScheduler().schedule(setIsDashing, timeMs, TimeUnit.MILLISECONDS);
         ExtensionCommands.moveActor(
                 this.parentExt,

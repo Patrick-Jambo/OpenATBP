@@ -7,7 +7,6 @@ import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class MoveActorHandler extends BaseClientRequestHandler {
@@ -26,27 +25,28 @@ public class MoveActorHandler extends BaseClientRequestHandler {
         }
         UserActor user = roomHandler.getPlayer(String.valueOf(sender.getId()));
         if (user != null) user.resetTarget();
-        if (user != null
-                && user.canMove()
-                && !user.getIsDashing()
-                && !user.getIsAutoAttacking()
-                && !user.getState(ActorState.CHARMED)) {
+        if (user != null && user.canPerformNewMove()) {
             user.resetIdleTime();
-            user.clearPath();
-            long timeSinceBasicAttack =
-                    sender.getVariable("stats").getSFSObjectValue().getLong("timeSinceBasicAttack");
-            if ((System.currentTimeMillis() - timeSinceBasicAttack) < 500)
-                return; // hard coded, this seems to be when the projectile should leave during
-            // the
-            // animation
+
+            String objValue = "timeSinceBasicAttack";
+            ISFSObject statsValue = sender.getVariable("stats").getSFSObjectValue();
+
+            long timeSinceBasicAttack = statsValue.getLong(objValue);
+            int BASIC_ATTACK_DELAY = UserActor.BASIC_ATTACK_DELAY;
+
+            if ((System.currentTimeMillis() - timeSinceBasicAttack) < BASIC_ATTACK_DELAY) {
+                return;
+            }
+
             float dx = params.getFloat("dest_x");
             float dz = params.getFloat("dest_z");
-            user.moveWithCollision(new Point2D.Float(dx, dz));
-            // Console.debugLog("dx: " + dx + " dz: " + dz);
+
+            Point2D destination = new Point2D.Float(dx, dz);
+
+            user.handleMovementRequest(destination);
+
         } else if (user != null && user.getIsAutoAttacking()) {
-            float dx = params.getFloat("dest_x");
-            float dz = params.getFloat("dest_z");
-            user.queueMovement(new Point2D.Float(dx, dz));
+            // queue the move
         }
     }
 }

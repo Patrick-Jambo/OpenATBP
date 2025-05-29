@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import com.smartfoxserver.v2.SmartFoxServer;
-import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
@@ -45,7 +44,7 @@ public class UserActor extends Actor {
     protected static final int ROBO_CD = 10000;
     protected static final int SIMON_GLASSES_RANGE = 5;
 
-    protected static final int BASIC_ATTACK_DELAY = 500;
+    public static final int BASIC_ATTACK_DELAY = 500;
     protected static final double DASH_SPEED = 20d;
     protected static final int HEALTH_PACK_REGEN = 15;
     protected static final float DC_AD_BUFF = 1.2f;
@@ -53,6 +52,7 @@ public class UserActor extends Actor {
     protected static final float DC_SPELL_RESIST_BUFF = 1.2f;
     protected static final float DC_SPEED_BUFF = 1.15f;
     protected static final float DC_PD_BUFF = 1.2f;
+    public static final int HP_DURATION = 60000;
 
     protected User player;
     protected boolean autoAttackEnabled = false;
@@ -74,18 +74,16 @@ public class UserActor extends Actor {
     protected Map<String, ScheduledFuture<?>> iconHandlers = new HashMap<>();
     protected int idleTime = 0;
     protected boolean changeTowerAggro = false;
-    protected boolean isDashing = false;
-    private long lastHit = 0;
-    protected boolean isAutoAttacking = false;
+
     // Set debugging options via config.properties next to the extension jar
     protected static boolean movementDebug;
     private static boolean invincibleDebug;
     private static boolean abilityDebug;
     private static boolean speedDebug;
     private static boolean damageDebug;
+
     protected double hits = 0;
-    private Point2D queuedDest = null;
-    protected boolean pickedUpHealthPack = false;
+    protected boolean hpPickup = false;
     protected long healthPackPickUpTime = 0;
     protected boolean hasKeeothBuff = false;
     protected boolean hasGooBuff = false;
@@ -120,77 +118,79 @@ public class UserActor extends Actor {
     // TODO: Add all stats into UserActor object instead of User Variables
     public UserActor(User u, ATBPExtension parentExt) {
         this.parentExt = parentExt;
-        this.id = String.valueOf(u.getId());
-        this.team = u.getVariable("player").getSFSObjectValue().getInt("team");
+        id = String.valueOf(u.getId());
+        team = u.getVariable("player").getSFSObjectValue().getInt("team");
         player = u;
-        this.avatar = u.getVariable("player").getSFSObjectValue().getUtfString("avatar");
-        this.displayName = u.getVariable("player").getSFSObjectValue().getUtfString("name");
+        avatar = u.getVariable("player").getSFSObjectValue().getUtfString("avatar");
+        displayName = u.getVariable("player").getSFSObjectValue().getUtfString("name");
         ISFSObject playerLoc = player.getVariable("location").getSFSObjectValue();
         float x = playerLoc.getSFSObject("p1").getFloat("x");
         float z = playerLoc.getSFSObject("p1").getFloat("z");
-        this.location = new Point2D.Float(x, z);
-        this.movementLine = new Line2D.Float(this.location, this.location);
-        this.stats = this.initializeStats();
-        this.attackCooldown = this.stats.get("attackSpeed");
-        this.currentHealth = this.stats.get("health");
-        this.maxHealth = this.currentHealth;
-        this.room = u.getLastJoinedRoom();
-        this.actorType = ActorType.PLAYER;
-        this.backpack = u.getVariable("player").getSFSObjectValue().getUtfString("backpack");
-        this.xpWorth = 25;
+        location = new Point2D.Float(x, z);
+        movementLine = new Line2D.Float(location, location);
+        stats = initializeStats();
+        attackCooldown = stats.get("attackSpeed");
+        currentHealth = stats.get("health");
+        maxHealth = currentHealth;
+        room = u.getLastJoinedRoom();
+        actorType = ActorType.PLAYER;
+        backpack = u.getVariable("player").getSFSObjectValue().getUtfString("backpack");
+        xpWorth = 25;
 
-        for (String k : this.stats.keySet()) {
+        for (String k : stats.keySet()) {
             if (k.contains("PerLevel")) {
                 String stat = k.replace("PerLevel", "");
-                double levelStat = this.stats.get(k);
+                double levelStat = stats.get(k);
                 if (k.equalsIgnoreCase("healthPerLevel")) {
-                    this.setHealth(
-                            (int) ((this.getMaxHealth() + levelStat) * this.getPHealth()),
-                            (int) (this.getMaxHealth() + levelStat));
+                    setHealth(
+                            (int) ((getMaxHealth() + levelStat) * getPHealth()),
+                            (int) (getMaxHealth() + levelStat));
                 } else if (k.contains("attackSpeed")) {
-                    this.increaseStat(stat, (levelStat * -1));
+                    increaseStat(stat, (levelStat * -1));
                 } else {
-                    this.increaseStat(stat, levelStat);
+                    increaseStat(stat, levelStat);
                 }
             }
         }
 
         Properties props = parentExt.getConfigProperties();
-        movementDebug = Boolean.parseBoolean(props.getProperty("movementDebug", "false"));
         invincibleDebug = Boolean.parseBoolean(props.getProperty("invincibleDebug", "false"));
         abilityDebug = Boolean.parseBoolean(props.getProperty("abilityDebug", "false"));
+        movementDebug = Boolean.parseBoolean(props.getProperty("movementDebug", "false"));
+
         speedDebug = Boolean.parseBoolean(props.getProperty("speedDebug", "false"));
         damageDebug = Boolean.parseBoolean(props.getProperty("damageDebug", "false"));
-        if (movementDebug)
+
+        if (movementDebug) {
             ExtensionCommands.createActor(
-                    this.parentExt,
-                    this.room,
-                    this.id + "_movementDebug",
-                    "creep1",
-                    this.location,
-                    0f,
-                    2);
-        if (speedDebug) this.setStat("speed", 20);
-        if (damageDebug) this.setStat("attackDamage", 1000);
+                    parentExt, room, id + "_movementDebug", "creep1", location, 0f, 2);
+        }
+
+        if (speedDebug) setStat("speed", 20);
+        if (damageDebug) setStat("attackDamage", 1000);
+    }
+
+    public boolean canPerformNewMove() {
+        return canMove && !isDashingOrLeaping && !hasMovementCC();
     }
 
     @Override
     public void setStat(String stat, double value) {
         super.setStat(stat, value);
         if (!stat.toLowerCase().contains("sp") && !stat.equalsIgnoreCase("speed"))
-            this.updateStatMenu(stat);
+            updateStatMenu(stat);
     }
 
     public void setAutoAttackEnabled(boolean enabled) {
-        this.autoAttackEnabled = enabled;
+        autoAttackEnabled = enabled;
     }
 
     public void setHasKeeothBuff(boolean hasBuff) {
-        this.hasKeeothBuff = hasBuff;
+        hasKeeothBuff = hasBuff;
     }
 
     public void setHasGooBuff(boolean hasBuff) {
-        this.hasGooBuff = hasBuff;
+        hasGooBuff = hasBuff;
     }
 
     public void setKeeothBuffStartTime(long keeothBuffStartTime) {
@@ -202,107 +202,57 @@ public class UserActor extends Actor {
     }
 
     public void setCanCast(boolean q, boolean w, boolean e) {
-        this.canCast[0] = q;
-        this.canCast[1] = w;
-        this.canCast[2] = e;
+        canCast[0] = q;
+        canCast[1] = w;
+        canCast[2] = e;
     }
 
     public void setLichHandTarget(Actor target) {
-        this.lichHandTarget = target;
+        lichHandTarget = target;
     }
 
     public Actor getLichHandTarget() {
-        return this.lichHandTarget;
+        return lichHandTarget;
     }
 
     public void setLichHandStacks(int stacks) {
-        this.lichHandStacks = stacks;
+        lichHandStacks = stacks;
     }
 
     public int getLichHandStacks() {
-        return this.lichHandStacks;
+        return lichHandStacks;
     }
 
     public void setLastLichHandStack(Long time) {
-        this.lastLichHandStack = time;
+        lastLichHandStack = time;
     }
 
     public Long getLastLichHandStack() {
-        return this.lastLichHandStack;
+        return lastLichHandStack;
     }
 
     public void setLastSaiProcTime(Long time) {
-        this.lastSaiProcTime = time;
+        lastSaiProcTime = time;
     }
 
     public Long getLastSaiProcTime() {
-        return this.lastSaiProcTime;
+        return lastSaiProcTime;
     }
 
     public void setLastZedronBuff(Long time) {
-        this.lastZeldronBuff = time;
+        lastZeldronBuff = time;
     }
 
     public Long getLastZeldronBuff() {
-        return this.lastZeldronBuff;
-    }
-
-    protected Point2D getRelativePoint(
-            boolean external) { // Gets player's current location based on time
-        double currentTime;
-        if (external) currentTime = this.timeTraveled + 0.1;
-        else currentTime = this.timeTraveled;
-        Point2D rPoint = new Point2D.Float();
-        if (this.movementLine == null)
-            this.movementLine = new Line2D.Float(this.location, this.location);
-        float x2 = (float) this.movementLine.getX2();
-        float y2 = (float) this.movementLine.getY2();
-        float x1 = (float) this.movementLine.getX1();
-        float y1 = (float) this.movementLine.getY1();
-        double dist = this.movementLine.getP1().distance(this.movementLine.getP2());
-        if (dist == 0) return this.movementLine.getP1();
-        double speed = this.getPlayerStat("speed");
-        double time = dist / speed;
-        if (currentTime > time) currentTime = time;
-        double currentDist = speed * currentTime;
-        float x = (float) (x1 + (currentDist / dist) * (x2 - x1));
-        float y = (float) (y1 + (currentDist / dist) * (y2 - y1));
-        if (!this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap()) {
-            if (x >= 52) x = 52;
-            else if (x <= -52) x = -52;
-        } else {
-            if (x >= 62) x = 62;
-            else if (x <= -62) x = -62;
-        }
-
-        if (y >= 30) y = 30;
-        else if (y <= -30) y = -30;
-        rPoint.setLocation(x, y);
-        this.location = rPoint;
-        if (!this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap()) {
-            if (x >= 52 || x <= -52 || y >= 30 || y <= -30) this.stopMoving();
-        } else {
-            if (x >= 62 || x <= -62 || y >= 30 || y <= -30) this.stopMoving();
-        }
-
-        return rPoint;
-    }
-
-    @Override
-    public Room getRoom() {
-        return this.room;
+        return lastZeldronBuff;
     }
 
     public int getXp() {
-        return this.xp;
+        return xp;
     }
 
     public Map<String, Double> getStats() {
-        return this.stats;
-    }
-
-    public double getStat(String stat) {
-        return this.stats.get(stat);
+        return stats;
     }
 
     public boolean[] getCanCast() {
@@ -322,152 +272,135 @@ public class UserActor extends Actor {
     }
 
     public void setLastKilled(Long time) {
-        this.lastKilled = time;
+        lastKilled = time;
     }
 
     public List<UserActor> getKilledPlayers() {
         return killedPlayers;
     }
 
-    public void setPath(Point2D start, Point2D end) {
-        this.movementLine = new Line2D.Float(start, end);
-        this.timeTraveled = 0f;
-    }
-
     public void setPath(Line2D path) {
-        this.movementLine = path;
-        this.timeTraveled = 0f;
-    }
-
-    public void updateMovementTime() {
-        this.timeTraveled += 0.1f;
+        movementLine = path;
+        timeTraveled = 0f;
     }
 
     public User getUser() {
-        return this.player;
+        return player;
     }
 
     public boolean getIsDashing() {
-        return this.isDashing;
+        return isDashingOrLeaping;
     }
 
     public boolean getIsAutoAttacking() {
-        return this.isAutoAttacking;
+        return isAutoAttacking;
     }
 
     public void move(ISFSObject params, Point2D destination) {
         Point2D orig = new Point2D.Float(params.getFloat("orig_x"), params.getFloat("orig_z"));
-        this.location = orig;
-        this.movementLine = new Line2D.Float(orig, destination);
-        this.timeTraveled = 0f;
+        location = orig;
+        movementLine = new Line2D.Float(orig, destination);
+        timeTraveled = 0f;
         ExtensionCommands.moveActor(
-                this.parentExt,
-                this.room,
-                this.id,
-                this.location,
+                parentExt,
+                room,
+                id,
+                location,
                 destination,
-                (float) this.getPlayerStat("speed"),
+                (float) getPlayerStat("speed"),
                 params.getBool("orient"));
     }
 
     public void addHit(boolean dotDamage) {
-        if (!dotDamage) this.hits++;
-        else this.hits += 0.2d;
+        if (!dotDamage) hits++;
+        else hits += 0.2d;
     }
 
     protected JsonNode getSpellData(int spell) {
-        JsonNode actorDef = parentExt.getDefinition(this.avatar);
+        JsonNode actorDef = parentExt.getDefinition(avatar);
         return actorDef.get("MonoBehaviours").get("ActorData").get("spell" + spell);
     }
 
     public void preventStealth() {
         Console.debugLog("Prevent stealth");
-        this.addState(ActorState.REVEALED, 0d, 3000);
-        this.setState(ActorState.INVISIBLE, false);
-        this.stealthEmbargo = System.currentTimeMillis() + 3000;
-        if (this.roboStacks > 0) this.roboStacks = 0;
+        addState(ActorState.REVEALED, 0d, 3000);
+        setState(ActorState.INVISIBLE, false);
+        stealthEmbargo = System.currentTimeMillis() + 3000;
+        if (roboStacks > 0) roboStacks = 0;
     }
 
     public void resetFightKingStacks() {
         Console.debugLog("Reset fight king stack");
-        this.fightKingStacks = 0;
-        ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "fight_king_icon");
+        fightKingStacks = 0;
+        ExtensionCommands.removeStatusIcon(parentExt, player, "fight_king_icon");
     }
 
     public boolean damaged(Actor a, int damage, JsonNode attackData) {
         try {
             if (invincibleDebug) return false;
-            if (this.dead) return true;
+            if (dead) return true;
             if (a.getActorType() == ActorType.PLAYER) checkTowerAggro((UserActor) a);
             if (a.getActorType() == ActorType.COMPANION) {
                 checkTowerAggroCompanion(a);
             }
 
-            if (this.pickedUpHealthPack) {
+            if (hpPickup) {
                 removeHealthPackEffect();
             }
-            this.lastHit = System.currentTimeMillis();
             if (a.getActorType() == ActorType.TOWER) {
                 ExtensionCommands.playSound(
-                        this.parentExt,
-                        this.room,
-                        this.id,
-                        "sfx_turret_shot_hits_you",
-                        this.location);
+                        parentExt, room, id, "sfx_turret_shot_hits_you", location);
             }
 
             if (roboStacks == 3) {
                 resetRoboStacks();
                 if (isNeitherStructureNorAlly(a)) {
                     lastRoboEffect = System.currentTimeMillis();
-                    this.addState(ActorState.SLOWED, ROBO_SLOW_VALUE, ROBO_SLOW_DURATION);
+                    addState(ActorState.SLOWED, ROBO_SLOW_VALUE, ROBO_SLOW_DURATION);
                 }
             }
 
-            AttackType type = this.getAttackType(attackData);
-            this.preventStealth();
+            AttackType type = getAttackType(attackData);
+            preventStealth();
             double moonChance = ChampionData.getCustomJunkStat(this, "junk_3_battle_moon");
             if (moonChance > 0) {
                 if (Math.random() < moonChance) {
                     Console.debugLog("Moon blocked damage! Chance: " + moonChance);
-                    ExtensionCommands.playSound(
-                            this.parentExt,
-                            this.room,
-                            this.id,
-                            "sfx_junk_battle_moon",
-                            this.getRelativePoint(false));
+                    String moonS = "sfx_junk_battle_moon";
+
+                    ExtensionCommands.playSound(parentExt, room, id, moonS, location);
                     return false;
                 }
             }
             int newDamage = damage;
             if (a.getActorType() == ActorType.PLAYER) {
                 UserActor ua = (UserActor) a;
-                this.addDamageGameStat(ua, newDamage, type);
+                addDamageGameStat(ua, newDamage, type);
                 if (type == AttackType.SPELL
                         && ChampionData.getJunkLevel(ua, "junk_1_fight_king_sword") > 0) {
                     newDamage += 15 * fightKingStacks;
                     ua.resetFightKingStacks();
                 }
                 double cubeEffect = ChampionData.getCustomJunkStat(ua, "junk_4_antimagic_cube");
-                if (!this.effectHandlers.containsKey("spellDamage")
+                if (!effectHandlers.containsKey("spellDamage")
                         && type == AttackType.SPELL
                         && cubeEffect != -1) {
-                    this.addEffect("spellDamage", cubeEffect, 5000);
+                    addEffect("spellDamage", cubeEffect, 5000);
                     // TODO: Add icon for this effect
                     // TODO: Bug, seems to not apply consistently. Especially with dot / constant
                     // abilities.
                 }
                 if (ChampionData.getJunkLevel(ua, "junk_2_peppermint_tank") > 0
                         && type == AttackType.SPELL) {
-                    if (ua.getLocation().distance(this.location) < 2d) {
+                    if (ua.getLocation().distance(location) < 2d) {
                         String item = "junk_2_peppermint_tank";
                         double junkStat = ChampionData.getCustomJunkStat(ua, item);
                         newDamage += (int) (newDamage * junkStat);
                     }
                 }
-                // this.handleElectrodeGun(ua, a, damage, attackData);
+                // handleElectrodeGun(ua, a, damage, attackData);
 
-                if (this.maxHealth > ua.getMaxHealth()
+                if (maxHealth > ua.getMaxHealth()
                         && ChampionData.getJunkLevel(ua, "junk_3_globs_helmet") > 0) {
                     String item = "junk_3_globs_helmet";
                     double junkStat = ChampionData.getCustomJunkStat(ua, item);
@@ -475,35 +408,35 @@ public class UserActor extends Actor {
                 }
 
                 if (type == AttackType.SPELL
-                        && (this.spellShieldActive || System.currentTimeMillis() < iFrame)) {
-                    if (this.spellShieldActive) triggerSpellShield();
+                        && (spellShieldActive || System.currentTimeMillis() < iFrame)) {
+                    if (spellShieldActive) triggerSpellShield();
                     return false;
                 }
             }
-            newDamage = this.getMitigatedDamage(newDamage, type, a);
-            this.handleDamageTakenStat(type, newDamage);
-            ExtensionCommands.damageActor(parentExt, this.room, this.id, newDamage);
-            this.processHitData(a, attackData, newDamage);
-            if (this.hasTempStat("healthRegen")) {
-                this.effectHandlers.get("healthRegen").endAllEffects();
+            newDamage = getMitigatedDamage(newDamage, type, a);
+            handleDamageTakenStat(type, newDamage);
+            ExtensionCommands.damageActor(parentExt, room, id, newDamage);
+            processHitData(a, attackData, newDamage);
+            if (hasTempStat("healthRegen")) {
+                effectHandlers.get("healthRegen").endAllEffects();
             }
-            this.changeHealth(newDamage * -1);
-            if (this.currentHealth > 0) return false;
+            changeHealth(newDamage * -1);
+            if (currentHealth > 0) return false;
             else {
-                if (this.getClass() == Fionna.class) {
+                if (getClass() == Fionna.class) {
                     Fionna f = (Fionna) this;
                     if (f.ultActivated()) {
-                        this.setHealth(1, (int) this.maxHealth);
+                        setHealth(1, (int) maxHealth);
                         return false;
                     }
                 }
-                if (this.futureCrystalActive
+                if (futureCrystalActive
                         && ChampionData.getJunkLevel(this, "junk_4_future_crystal") > 0) {
                     if (Math.random()
                             < ChampionData.getCustomJunkStat(this, "junk_4_future_crystal")) {
-                        this.futureCrystalActive = false;
-                        int targetHealth = (int) Math.round(this.maxHealth * 0.3d);
-                        this.changeHealth(targetHealth - this.getHealth());
+                        futureCrystalActive = false;
+                        int targetHealth = (int) Math.round(maxHealth * 0.3d);
+                        changeHealth(targetHealth - getHealth());
                         return false;
                     }
                 }
@@ -516,16 +449,15 @@ public class UserActor extends Actor {
     }
 
     private void triggerSpellShield() {
-        this.spellShieldActive = false;
-        this.spellShieldCooldown = System.currentTimeMillis() + 90000;
-        ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_spellShield");
-        ExtensionCommands.removeStatusIcon(
-                this.parentExt, this.getUser(), "junk_4_grob_gob_glob_grod_name");
-        this.iFrame = System.currentTimeMillis() + 500;
+        spellShieldActive = false;
+        spellShieldCooldown = System.currentTimeMillis() + 90000;
+        ExtensionCommands.removeFx(parentExt, room, id + "_spellShield");
+        ExtensionCommands.removeStatusIcon(parentExt, getUser(), "junk_4_grob_gob_glob_grod_name");
+        iFrame = System.currentTimeMillis() + 500;
     }
 
     public double getAttackCooldown() {
-        return this.attackCooldown;
+        return attackCooldown;
     }
 
     public double handleGrassSwordProc(double damage) { // TODO: Add indicator or something
@@ -534,42 +466,42 @@ public class UserActor extends Actor {
 
     @Override
     public void attack(Actor a) {
-        if (this.attackCooldown == 0) {
-            this.applyStopMovingDuringAttack();
-            this.preventStealth();
-            this.setLastAuto();
-            double critChance = this.getPlayerStat("criticalChance") / 100d;
+        if (attackCooldown == 0) {
+            applyStopMovingDuringAttack();
+            preventStealth();
+            setLastAuto();
+            double critChance = getPlayerStat("criticalChance") / 100d;
             double random = Math.random();
             boolean crit = random < critChance;
             ExtensionCommands.attackActor(
                     parentExt,
                     room,
-                    this.id,
+                    id,
                     a.getId(),
                     (float) a.getLocation().getX(),
                     (float) a.getLocation().getY(),
                     crit,
                     true);
-            this.attackCooldown = this.getPlayerStat("attackSpeed");
-            if (this.attackCooldown < BASIC_ATTACK_DELAY) this.attackCooldown = BASIC_ATTACK_DELAY;
-            double damage = this.getPlayerStat("attackDamage");
+            attackCooldown = getPlayerStat("attackSpeed");
+            if (attackCooldown < BASIC_ATTACK_DELAY) attackCooldown = BASIC_ATTACK_DELAY;
+            double damage = getPlayerStat("attackDamage");
             if (crit) {
-                damage *= this.getPlayerStat("criticalDamage");
-                damage = this.handleGrassSwordProc(damage);
+                damage *= getPlayerStat("criticalDamage");
+                damage = handleGrassSwordProc(damage);
             }
             Champion.DelayedAttack delayedAttack =
                     new Champion.DelayedAttack(parentExt, this, a, (int) damage, "basicAttack");
             try {
                 String projectileFx =
-                        this.parentExt
-                                .getActorData(this.getAvatar())
+                        parentExt
+                                .getActorData(getAvatar())
                                 .get("scriptData")
                                 .get("projectileAsset")
                                 .asText();
                 if (projectileFx != null
                         && !projectileFx.isEmpty()
                         && !parentExt
-                                .getActorData(this.avatar)
+                                .getActorData(avatar)
                                 .get("attackType")
                                 .asText()
                                 .equalsIgnoreCase("MELEE")) {
@@ -595,11 +527,11 @@ public class UserActor extends Actor {
     }
 
     public void applyStopMovingDuringAttack() {
-        if (this.parentExt.getActorData(this.getAvatar()).has("attackType")) {
-            this.preventStealth();
-            this.stopMoving();
-            this.isAutoAttacking = true;
-            Runnable resetIsAttacking = () -> this.isAutoAttacking = false;
+        if (parentExt.getActorData(getAvatar()).has("attackType")) {
+            preventStealth();
+            stopMoving();
+            isAutoAttacking = true;
+            Runnable resetIsAttacking = () -> isAutoAttacking = false;
             scheduleTask(resetIsAttacking, BASIC_ATTACK_DELAY);
         }
     }
@@ -670,74 +602,62 @@ public class UserActor extends Actor {
     }
 
     public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
-        this.isDashing = true;
-        Point2D dashPoint =
-                MovementManager.getDashPoint(this, new Line2D.Float(this.location, dest));
-        if (dashPoint == null) dashPoint = this.location;
+        isDashingOrLeaping = true;
+        Point2D dashPoint = MovementManager.getDashPoint(this, new Line2D.Float(location, dest));
+        if (dashPoint == null) dashPoint = location;
         if (movementDebug)
             ExtensionCommands.createWorldFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
+                    parentExt,
+                    room,
+                    id,
                     "gnome_a",
-                    this.id + "_test" + Math.random(),
+                    id + "_test" + Math.random(),
                     5000,
                     (float) dashPoint.getX(),
                     (float) dashPoint.getY(),
                     false,
                     0,
                     0f);
-        // if(noClip) dashPoint =
-        // Champion.getTeleportPoint(this.parentExt,this.player,this.location,dest);
-        double time = dashPoint.distance(this.location) / dashSpeed;
+        double time = dashPoint.distance(location) / dashSpeed;
         int timeMs = (int) (time * 1000d);
-        this.stopMoving(timeMs);
-        Runnable setIsDashing = () -> this.isDashing = false;
+        stopMoving(timeMs);
+        Runnable setIsDashing = () -> isDashingOrLeaping = false;
         parentExt.getTaskScheduler().schedule(setIsDashing, timeMs, TimeUnit.MILLISECONDS);
         ExtensionCommands.moveActor(
-                this.parentExt,
-                this.room,
-                this.id,
-                this.location,
-                dashPoint,
-                (float) dashSpeed,
-                true);
-        this.setLocation(dashPoint);
-        this.target = null;
+                parentExt, room, id, location, dashPoint, (float) dashSpeed, true);
+        setLocation(dashPoint);
+        target = null;
         return dashPoint;
     }
 
     public void dash(Point2D dest, double dashSpeed) {
-        this.isDashing = true;
+        isDashingOrLeaping = true;
         if (movementDebug)
             ExtensionCommands.createWorldFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
+                    parentExt,
+                    room,
+                    id,
                     "gnome_a",
-                    this.id + "_test" + Math.random(),
+                    id + "_test" + Math.random(),
                     5000,
                     (float) dest.getX(),
                     (float) dest.getY(),
                     false,
                     0,
                     0f);
-        // if(noClip) dashPoint =
-        // Champion.getTeleportPoint(this.parentExt,this.player,this.location,dest);
-        double time = dest.distance(this.location) / dashSpeed;
+        double time = dest.distance(location) / dashSpeed;
         int timeMs = (int) (time * 1000d);
-        this.stopMoving(timeMs);
-        Runnable setIsDashing = () -> this.isDashing = false;
+        stopMoving(timeMs);
+        Runnable setIsDashing = () -> isDashingOrLeaping = false;
         parentExt.getTaskScheduler().schedule(setIsDashing, timeMs, TimeUnit.MILLISECONDS);
-        ExtensionCommands.moveActor(
-                this.parentExt, this.room, this.id, this.location, dest, (float) dashSpeed, true);
-        this.setLocation(dest);
-        this.target = null;
+        ExtensionCommands.moveActor(parentExt, room, id, location, dest, (float) dashSpeed, true);
+        setLocation(dest);
+        target = null;
     }
 
     protected boolean handleAttack(Actor a) {
-        if (this.attackCooldown == 0) {
-            double critChance = this.getPlayerStat("criticalChance") / 100d;
+        if (attackCooldown == 0) {
+            double critChance = getPlayerStat("criticalChance") / 100d;
             double random = Math.random();
             boolean crit = random < critChance;
             boolean critAnimation = crit;
@@ -745,7 +665,7 @@ public class UserActor extends Actor {
                 "princessbubblegum_skin_hoth", "princessbubblegum_skin_warrior"
             };
             for (String skin : skinsWithNoCritAnimation) {
-                if (this.avatar.equals(skin)) {
+                if (avatar.equals(skin)) {
                     critAnimation = false;
                     break;
                 }
@@ -753,38 +673,38 @@ public class UserActor extends Actor {
             ExtensionCommands.attackActor(
                     parentExt,
                     room,
-                    this.id,
+                    id,
                     a.getId(),
                     (float) a.getLocation().getX(),
                     (float) a.getLocation().getY(),
                     critAnimation,
                     true);
-            this.attackCooldown = this.getPlayerStat("attackSpeed");
-            this.preventStealth();
-            this.setLastAuto();
-            if (this.attackCooldown < BASIC_ATTACK_DELAY) this.attackCooldown = BASIC_ATTACK_DELAY;
+            attackCooldown = getPlayerStat("attackSpeed");
+            preventStealth();
+            setLastAuto();
+            if (attackCooldown < BASIC_ATTACK_DELAY) attackCooldown = BASIC_ATTACK_DELAY;
             return crit;
         }
         return false;
     }
 
     public void autoAttack(Actor a) {
-        this.attack(a);
+        attack(a);
     }
 
     public void reduceAttackCooldown() {
-        this.attackCooldown -= 100;
-        if (this.attackCooldown < 0) this.attackCooldown = 0;
+        attackCooldown -= 100;
+        if (attackCooldown < 0) attackCooldown = 0;
     }
 
     protected boolean isNeitherStructureNorAlly(Actor a) {
-        return a.getTeam() != this.team
+        return a.getTeam() != team
                 && a.getActorType() != ActorType.TOWER
                 && a.getActorType() != ActorType.BASE;
     }
 
     protected boolean isNeitherTowerNorAlly(Actor a) {
-        return a.getActorType() != ActorType.TOWER && a.getTeam() != this.team;
+        return a.getActorType() != ActorType.TOWER && a.getTeam() != team;
     }
 
     @Deprecated
@@ -793,24 +713,24 @@ public class UserActor extends Actor {
         // this mechanic
         switch (event) {
             case "kill":
-                this.xpWorth += 5;
+                xpWorth += 5;
                 break;
             case "death":
-                if (this.xpWorth > 25) this.xpWorth = 25;
-                else this.xpWorth -= 5;
+                if (xpWorth > 25) xpWorth = 25;
+                else xpWorth -= 5;
                 break;
             case "assist":
-                this.xpWorth += 2;
+                xpWorth += 2;
                 break;
         }
-        if (this.xpWorth < 10) this.xpWorth = 10;
-        else if (xpWorth > 50) this.xpWorth = 50;
+        if (xpWorth < 10) xpWorth = 10;
+        else if (xpWorth > 50) xpWorth = 50;
     }
 
     @Override
     public void handleFear(Point2D source, int duration) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            if (this.spellShieldActive) this.triggerSpellShield();
+        if (spellShieldActive || System.currentTimeMillis() < iFrame) {
+            if (spellShieldActive) triggerSpellShield();
             return;
         }
         super.handleFear(source, duration);
@@ -818,8 +738,8 @@ public class UserActor extends Actor {
 
     @Override
     public void handlePull(Point2D source, double pullDistance) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            if (this.spellShieldActive) this.triggerSpellShield();
+        if (spellShieldActive || System.currentTimeMillis() < iFrame) {
+            if (spellShieldActive) triggerSpellShield();
             return;
         }
         super.handlePull(source, pullDistance);
@@ -827,8 +747,8 @@ public class UserActor extends Actor {
 
     @Override
     public void knockback(Point2D source, float distance) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            if (this.spellShieldActive) this.triggerSpellShield();
+        if (spellShieldActive || System.currentTimeMillis() < iFrame) {
+            if (spellShieldActive) triggerSpellShield();
             return;
         }
         super.knockback(source, distance);
@@ -836,39 +756,38 @@ public class UserActor extends Actor {
 
     @Override
     public void die(Actor a) {
-        Console.debugLog(this.id + " has died! " + this.dead);
+        Console.debugLog(id + " has died! " + dead);
         try {
-            if (this.dead) return;
-            this.dead = true;
-            // this.updateXPWorth("death");
-            this.timeKilled = System.currentTimeMillis();
-            this.canMove = false;
-            if (!this.getState(ActorState.AIRBORNE)) this.stopMoving();
-            if (this.hasKeeothBuff) disableKeeothBuff();
-            if (this.hasGooBuff) disableGooBuff();
+            if (dead) return;
+            dead = true;
+            // updateXPWorth("death");
+            timeKilled = System.currentTimeMillis();
+            canMove = false;
+            if (!getState(ActorState.AIRBORNE)) stopMoving();
+            if (hasKeeothBuff) disableKeeothBuff();
+            if (hasGooBuff) disableGooBuff();
 
             if (a.getActorType() != ActorType.PLAYER) {
                 ExtensionCommands.playSound(
-                        parentExt, this.getUser(), "global", "announcer/you_are_defeated");
+                        parentExt, getUser(), "global", "announcer/you_are_defeated");
             }
 
-            if (this.getState(ActorState.POLYMORPH)) {
-                boolean swapAsset = true;
-                if (this.getChampionName(this.getAvatar()).equalsIgnoreCase("marceline")
-                        && this.getState(ActorState.TRANSFORMED)) swapAsset = false;
+            if (getState(ActorState.POLYMORPH)) {
+                boolean swapAsset =
+                        !getChampionName(getAvatar()).equalsIgnoreCase("marceline")
+                                || !getState(ActorState.TRANSFORMED);
                 if (swapAsset) {
                     ExtensionCommands.swapActorAsset(
-                            this.parentExt, this.room, this.getId(), getSkinAssetBundle());
+                            parentExt, room, getId(), getSkinAssetBundle());
                 }
-                ExtensionCommands.removeFx(
-                        this.parentExt, this.room, this.id + "_statusEffect_polymorph");
-                ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flambit_aoe");
-                ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flambit_ring_");
-                this.setState(ActorState.POLYMORPH, false);
+                ExtensionCommands.removeFx(parentExt, room, id + "_statusEffect_polymorph");
+                ExtensionCommands.removeFx(parentExt, room, id + "_flambit_aoe");
+                ExtensionCommands.removeFx(parentExt, room, id + "_flambit_ring_");
+                setState(ActorState.POLYMORPH, false);
             }
-            this.setHealth(0, (int) this.maxHealth);
-            this.target = null;
-            this.killingSpree = 0;
+            setHealth(0, (int) maxHealth);
+            target = null;
+            killingSpree = 0;
             Actor realKiller = a;
             if (a.getActorType() != ActorType.PLAYER) {
                 long lastAttacked = -1;
@@ -886,60 +805,53 @@ public class UserActor extends Actor {
                 if (lastAttacker != null) realKiller = lastAttacker;
             }
             ExtensionCommands.knockOutActor(
-                    parentExt,
-                    room,
-                    String.valueOf(player.getId()),
-                    realKiller.getId(),
-                    this.deathTime);
-            if (this.magicNailStacks > 0) {
-                this.magicNailStacks /= 2;
-                this.updateStatMenu("attackDamage");
+                    parentExt, room, String.valueOf(player.getId()), realKiller.getId(), deathTime);
+            if (magicNailStacks > 0) {
+                magicNailStacks /= 2;
+                updateStatMenu("attackDamage");
             }
-            if (this.lightningSwordStacks > 0) {
-                this.lightningSwordStacks /= 2;
-                this.updateStatMenu("spellDamage");
+            if (lightningSwordStacks > 0) {
+                lightningSwordStacks /= 2;
+                updateStatMenu("spellDamage");
             }
-            if (this.robeStacks > 0) {
-                this.robeStacks /= 2;
-                this.updateStatMenu("coolDownReduction");
+            if (robeStacks > 0) {
+                robeStacks /= 2;
+                updateStatMenu("coolDownReduction");
             }
             try {
                 ExtensionCommands.handleDeathRecap(
                         parentExt,
                         player,
-                        this.id,
+                        id,
                         realKiller.getId(),
-                        (HashMap<Actor, ISFSObject>) this.aggressors);
-                this.increaseStat("deaths", 1);
+                        (HashMap<Actor, ISFSObject>) aggressors);
+                increaseStat("deaths", 1);
                 if (realKiller.getActorType() == ActorType.PLAYER) {
                     UserActor ua = (UserActor) realKiller;
                     ua.increaseStat("kills", 1);
-                    this.parentExt
-                            .getRoomHandler(this.room.getName())
-                            .addScore(ua, ua.getTeam(), 25);
+                    parentExt.getRoomHandler(room.getName()).addScore(ua, ua.getTeam(), 25);
                 }
-                for (Actor actor : this.aggressors.keySet()) {
+                for (Actor actor : aggressors.keySet()) {
                     if (actor.getActorType() == ActorType.PLAYER
                             && !actor.getId().equalsIgnoreCase(realKiller.getId())) {
                         UserActor ua = (UserActor) actor;
                         // ua.updateXPWorth("assist");
-                        ua.addXP(this.getXPWorth());
+                        ua.addXP(getXPWorth());
                         if (ChampionData.getJunkLevel(ua, "junk_5_ghost_pouch") > 0) {
                             ua.useGhostPouch();
                         }
                         ua.increaseStat("assists", 1);
                     }
                 }
-                // Set<String> buffKeys = this.activeBuffs.keySet();
+                // Set<String> buffKeys = activeBuffs.keySet();
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            double timeDead = this.deathTime * 1000; // needs to be converted to ms for the client
-            this.addGameStat("timeDead", timeDead);
+            double timeDead = deathTime * 1000; // needs to be converted to ms for the client
+            addGameStat("timeDead", timeDead);
             parentExt
                     .getTaskScheduler()
-                    .schedule(
-                            new Champion.RespawnCharacter(this), this.deathTime, TimeUnit.SECONDS);
+                    .schedule(new Champion.RespawnCharacter(this), deathTime, TimeUnit.SECONDS);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -973,45 +885,37 @@ public class UserActor extends Actor {
     */
 
     private void disableKeeothBuff() {
-        this.hasKeeothBuff = false;
-        ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "keeoth_buff");
-        ExtensionCommands.removeFx(
-                this.parentExt, this.room, this.getId() + "_" + "jungle_buff_keeoth");
+        hasKeeothBuff = false;
+        ExtensionCommands.removeStatusIcon(parentExt, player, "keeoth_buff");
+        ExtensionCommands.removeFx(parentExt, room, getId() + "_" + "jungle_buff_keeoth");
         String[] stats = {"lifeSteal", "spellVamp", "criticalChance"};
-        this.updateStatMenu(stats);
+        updateStatMenu(stats);
     }
 
     private void disableGooBuff() {
-        this.hasGooBuff = false;
-        ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "goomonster_buff");
-        ExtensionCommands.removeFx(
-                this.parentExt, this.room, this.getId() + "_" + "jungle_buff_goo");
-        this.updateStatMenu("speed");
+        hasGooBuff = false;
+        ExtensionCommands.removeStatusIcon(parentExt, player, "goomonster_buff");
+        ExtensionCommands.removeFx(parentExt, room, getId() + "_" + "jungle_buff_goo");
+        updateStatMenu("speed");
     }
 
     public void updateStat(String key, double value) {
-        this.stats.put(key, value);
-        ExtensionCommands.updateActorData(
-                this.parentExt, this.room, this.id, key, this.getPlayerStat(key));
+        stats.put(key, value);
+        ExtensionCommands.updateActorData(parentExt, room, id, key, getPlayerStat(key));
     }
 
     public void increaseStat(String key, double num) {
         // Console.debugLog("Increasing " + key + " by " + num);
-        this.stats.put(key, this.stats.get(key) + num);
-        ExtensionCommands.updateActorData(
-                this.parentExt, this.room, this.id, key, this.getPlayerStat(key));
+        stats.put(key, stats.get(key) + num);
+        ExtensionCommands.updateActorData(parentExt, room, id, key, getPlayerStat(key));
     }
 
     protected boolean
             canRegenHealth() { // TODO: Does not account for health pots. Not sure if this should be
         // added for balance reasons.
         // regen works while in combat
-        return ((this.currentHealth < this.maxHealth || this.getPlayerStat("healthRegen") < 0)
+        return ((currentHealth < maxHealth || getPlayerStat("healthRegen") < 0)
                 && ChampionData.getJunkLevel(this, "junk_1_ax_bass") < 1);
-    }
-
-    public void queueMovement(Point2D newDest) {
-        this.queuedDest = newDest;
     }
 
     public void scheduleTask(Runnable task, int delay) {
@@ -1019,23 +923,126 @@ public class UserActor extends Actor {
     }
 
     @Override
-    public void clearPath() {
-        super.clearPath();
-        this.queuedDest = null;
-    }
-
-    @Override
     public void update(int msRan) {
-        this.handleDamageQueue();
-        this.handleActiveEffects();
-        if (this.dead) {
-            if (this.currentHealth > 0
-                    && System.currentTimeMillis() > this.timeKilled + (deathTime * 1500L))
-                this.respawn();
+        handleDamageQueue();
+        handleActiveEffects();
+        if (dead) {
+            if (currentHealth > 0 && System.currentTimeMillis() > timeKilled + (deathTime * 1500L))
+                respawn();
             else return;
         }
 
+        if (isMoving) {
+            float SERVER_TICK_SECONDS = 0.1f;
+            updateHitbox(SERVER_TICK_SECONDS);
+        }
+
+        if (movementDebug) {
+            String id = this.id + "_movementDebug";
+            ExtensionCommands.moveActor(parentExt, room, id, location, location, 5f, false);
+        }
+
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
+
+        handleSimonGlasses(rh);
+        handleBattleMoon();
+        handleGrobDevice();
+        handleFlameCloak();
+
+        if (hits > 0) {
+            hits -= 0.1d;
+        } else if (hits < 0) hits = 0;
+
+        if (location.distance(movementLine.getP2()) <= 0.01f) {
+            idleTime += 100;
+        }
+
+        handleBrush(rh);
+
+        if (attackCooldown > 0) reduceAttackCooldown();
+        if (target != null && invisOrInBrush(target)) target = null;
+        if (target != null && target.getHealth() > 0) {
+            if (withinRange(target) && canAttack()) {
+                autoAttack(target);
+            } else if (!withinRange(target) && canMove() && !isAutoAttacking) {
+                if (!isPointAtEndOfPath(
+                        target.getLocation())) { // I put this here so it does not spam movement
+                    // commands if their target hasn't moved
+                    moveWithCollision(target.getLocation());
+                }
+            }
+        } else {
+            if (target != null) {
+                if (target.getHealth() <= 0) {
+                    target = null;
+                }
+            } else if (autoAttackEnabled
+                    && System.currentTimeMillis() - lastAutoTargetTime > 2000
+                    && idleTime > 500) {
+                Actor closestTarget = null;
+                double closestDistance = 1000;
+                int aggroRange = parentExt.getActorStats(avatar).get("aggroRange").asInt();
+                for (Actor a : Champion.getActorsInRadius(rh, location, aggroRange)) {
+                    if (a.getTeam() != team
+                            && a.getLocation().distance(location) < closestDistance) {
+                        closestDistance = a.getLocation().distance(location);
+                        closestTarget = a;
+                    }
+                }
+                idleTime = 0;
+                target = closestTarget;
+                lastAutoTargetTime = System.currentTimeMillis();
+            }
+        }
+        if (msRan % 1000 == 0) {
+
+            handleFlameCloakDamage(rh);
+            handleRoboSuit();
+            handleFightKingDecay();
+            handleCosmicGauntletDecay();
+
+            if (canRegenHealth()) {
+                regenHealth();
+            }
+
+            handleHealthPackEffectRemoval();
+
+            int newDeath = 10 + ((msRan / 1000) / 60);
+            if (newDeath != deathTime) deathTime = newDeath;
+            List<Actor> actorsToRemove = new ArrayList<>(aggressors.size());
+            for (Actor a : aggressors.keySet()) {
+                ISFSObject damageData = aggressors.get(a);
+                if (System.currentTimeMillis() > damageData.getLong("lastAttacked") + 5000) {
+                    actorsToRemove.add(a);
+                }
+            }
+
+            for (Actor a : actorsToRemove) {
+                aggressors.remove(a);
+            }
+
+            handleUpdateMultiKill();
+
+            if (hasTempStat("healthRegen")) {
+                if (currentHealth == maxHealth) {
+                    effectHandlers.get("healthRegen").endAllEffects();
+                }
+            }
+        }
+        if (changeTowerAggro && !isInTowerRadius(this, false)) changeTowerAggro = false;
+
+        if (hasKeeothBuff && System.currentTimeMillis() - keeothBuffStartTime >= 90000) {
+            disableKeeothBuff();
+        }
+        if (hasGooBuff && System.currentTimeMillis() - gooBuffStartTime >= 90000) {
+            disableGooBuff();
+        }
+        if (getState(ActorState.CHARMED) && charmer != null) {
+            moveTowardsCharmer(charmer);
+        }
+    }
+
+    private void handleSimonGlasses(RoomHandler rh) {
         String itemName = "junk_2_simon_petrikovs_glasses";
 
         for (UserActor ua : rh.getPlayers()) {
@@ -1086,287 +1093,219 @@ public class UserActor extends Actor {
                 iterator.remove();
             }
         }
+    }
 
-        if (!this.moonVfxActivated
-                && this.hasBackpackItem("junk_3_battle_moon")
+    private void handleBattleMoon() {
+        if (!moonVfxActivated
+                && hasBackpackItem("junk_3_battle_moon")
                 && ChampionData.getJunkLevel(this, "junk_3_battle_moon") > 0) {
             ExtensionCommands.createActorFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
+                    parentExt,
+                    room,
+                    id,
                     "fx_junk_battle_moon",
                     1000 * 60 * 15,
-                    this.id + "_battlemoon",
+                    id + "_battlemoon",
                     true,
                     "Bip01 Head",
                     false,
                     false,
-                    this.team);
-            this.moonVfxActivated = true;
-        } else if (this.moonVfxActivated
-                && ChampionData.getJunkLevel(this, "junk_3_battle_moon") < 1) {
-            this.moonVfxActivated = false;
-            ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_battlemoon");
+                    team);
+            moonVfxActivated = true;
+        } else if (moonVfxActivated && ChampionData.getJunkLevel(this, "junk_3_battle_moon") < 1) {
+            moonVfxActivated = false;
+            ExtensionCommands.removeFx(parentExt, room, id + "_battlemoon");
         }
-        if (!this.spellShieldActive
+    }
+
+    private void handleGrobDevice() {
+        if (!spellShieldActive
                 && ChampionData.getJunkLevel(this, "junk_4_grob_gob_glob_grod") > 0
-                && System.currentTimeMillis() > this.spellShieldCooldown) {
-            this.spellShieldActive = true;
+                && System.currentTimeMillis() > spellShieldCooldown) {
+            spellShieldActive = true;
             ExtensionCommands.createActorFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
+                    parentExt,
+                    room,
+                    id,
                     "spell_shield",
                     1000 * 60 * 15,
-                    this.id + "_spellShield",
+                    id + "_spellShield",
                     true,
                     "Bip001 Pelvis",
                     true,
                     false,
-                    this.team);
+                    team);
             ExtensionCommands.addStatusIcon(
-                    this.parentExt,
-                    this.getUser(),
+                    parentExt,
+                    getUser(),
                     "junk_4_grob_gob_glob_grod_name",
                     "junk_4_grob_gob_glob_grod_mod3",
                     "junk_4_grob_gob_glob_grod",
                     0f);
         }
+    }
 
-        if (this.canMove()
-                && !this.isAutoAttacking
-                && !this.isDashing
-                && this.queuedDest != null
-                && this.target == null) { // TODO: This could probably just be merged into canMove
-            this.moveWithCollision(this.queuedDest);
-            this.queuedDest = null;
-        }
-        if (!this.isStopped()) {
-            this.updateMovementTime();
-        }
-        if (this.hits > 0) {
-            this.hits -= 0.1d;
-        } else if (this.hits < 0) this.hits = 0;
-        this.location = this.getRelativePoint(false);
-        this.handlePathing();
-
-        if (!this.flameCloakEffectActivated
+    private void handleFlameCloak() {
+        if (!flameCloakEffectActivated
                 && ChampionData.getJunkLevel(this, "junk_4_flame_cloak") > 0) {
             ExtensionCommands.createActorFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
+                    parentExt,
+                    room,
+                    id,
                     "fx_target_ring_1.5",
                     1000 * 60 * 15,
-                    this.id + "_flameCloak",
+                    id + "_flameCloak",
                     true,
                     "",
                     true,
                     true,
-                    this.team);
-            this.flameCloakEffectActivated = true;
-        } else if (this.flameCloakEffectActivated
+                    team);
+            flameCloakEffectActivated = true;
+        } else if (flameCloakEffectActivated
                 && ChampionData.getJunkLevel(this, "junk_4_flame_cloak") == 0) {
-            ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flameCloak");
-            this.flameCloakEffectActivated = false;
+            ExtensionCommands.removeFx(parentExt, room, id + "_flameCloak");
+            flameCloakEffectActivated = false;
         }
+    }
 
-        if (movementDebug)
-            ExtensionCommands.moveActor(
-                    this.parentExt,
-                    this.room,
-                    this.id + "_movementDebug",
-                    this.location,
-                    this.location,
-                    5f,
-                    false);
-        if (this.location.distance(this.movementLine.getP2()) <= 0.01f) {
-            this.idleTime += 100;
+    private void handleFlameCloakDamage(RoomHandler rh) {
+        if (ChampionData.getJunkLevel(this, "junk_4_flame_cloak") > 0) {
+            for (Actor a : Champion.getActorsInRadius(rh, location, 1.5f)) {
+                if (a.getTeam() != team && isNeitherStructureNorAlly(a)) {
+                    a.addToDamageQueue(
+                            this, maxHealth * 0.035d, ChampionData.getFlameCloakAttackData(), true);
+                }
+            }
         }
+    }
+
+    private void handleRoboSuit() {
+        if (ChampionData.getJunkLevel(this, "junk_3_robo_suit") > 0) {
+            boolean ready = System.currentTimeMillis() - lastRoboEffect >= ROBO_CD;
+
+            if (roboStacks < 3 && ready) {
+                roboStacks++;
+                updateStatMenu("speed");
+
+                if (roboStacks == 3)
+                    ExtensionCommands.createActorFX(
+                            parentExt,
+                            room,
+                            id,
+                            "statusEffect_speed",
+                            1000 * 60 * 5,
+                            id + "_roboSpeed",
+                            true,
+                            "",
+                            true,
+                            false,
+                            team);
+            }
+        }
+    }
+
+    private void handleFightKingDecay() {
+        double fightKingDecay = ChampionData.getCustomJunkStat(this, "junk_1_fight_king_sword");
+
+        if (fightKingDecay != -1) {
+            long currentTime = System.currentTimeMillis();
+            boolean effectEnd = currentTime - lastAuto >= fightKingDecay;
+
+            if (fightKingStacks > 0 && effectEnd) {
+                resetFightKingStacks();
+            }
+        }
+    }
+
+    private void handleCosmicGauntletDecay() {
+        String item = "junk_2_cosmic_gauntlet";
+
+        double cosmicGauntletDecay = ChampionData.getCustomJunkStat(this, item);
+        long currentTime = System.currentTimeMillis();
+
+        if (cosmicGauntletDecay != -1 && currentTime - lastSpell >= cosmicGauntletDecay) {
+            resetCosmicStacks();
+        }
+    }
+
+    private void handleBrush(RoomHandler rh) {
         boolean insideBrush = false;
         boolean isPracticeMap = rh.isPracticeMap();
         ArrayList<Path2D> brushPaths = parentExt.getBrushPaths(isPracticeMap);
 
         for (Path2D brush : brushPaths) {
-            if (brush.contains(this.location)) {
+            if (brush.contains(location)) {
                 insideBrush = true;
                 break;
             }
         }
         if (insideBrush) {
-            if (!this.states.get(ActorState.BRUSH)) {
+            if (!states.get(ActorState.BRUSH)) {
                 Console.debugLog("BRUSH STATE ENABLED");
 
                 ExtensionCommands.changeBrush(
-                        parentExt, room, this.id, parentExt.getBrushNum(location, brushPaths));
-                this.setState(ActorState.BRUSH, true);
-                if (this.stealthEmbargo <= System.currentTimeMillis())
-                    this.setState(ActorState.REVEALED, false);
-            } else if (this.stealthEmbargo != -1
-                    && this.stealthEmbargo <= System.currentTimeMillis()) {
-                this.setState(ActorState.REVEALED, false);
-                this.stealthEmbargo = -1;
+                        parentExt, room, id, parentExt.getBrushNum(location, brushPaths));
+                setState(ActorState.BRUSH, true);
+                if (stealthEmbargo <= System.currentTimeMillis())
+                    setState(ActorState.REVEALED, false);
+            } else if (stealthEmbargo != -1 && stealthEmbargo <= System.currentTimeMillis()) {
+                setState(ActorState.REVEALED, false);
+                stealthEmbargo = -1;
             }
         } else {
-            if (this.states.get(ActorState.BRUSH)) {
+            if (states.get(ActorState.BRUSH)) {
                 Console.debugLog("BRUSH STATE DISABLED");
 
-                this.setState(ActorState.BRUSH, false);
-                if (!this.getState(ActorState.INVISIBLE)) this.setState(ActorState.REVEALED, true);
-                ExtensionCommands.changeBrush(parentExt, room, this.id, -1);
-            } else if (!this.states.get(ActorState.REVEALED)
-                    && !this.states.get(ActorState.INVISIBLE)
-                    && !this.states.get(ActorState.STEALTH)) {
-                this.setState(ActorState.REVEALED, true);
+                setState(ActorState.BRUSH, false);
+                if (!getState(ActorState.INVISIBLE)) setState(ActorState.REVEALED, true);
+                ExtensionCommands.changeBrush(parentExt, room, id, -1);
+            } else if (!states.get(ActorState.REVEALED)
+                    && !states.get(ActorState.INVISIBLE)
+                    && !states.get(ActorState.STEALTH)) {
+                setState(ActorState.REVEALED, true);
             }
-        }
-        if (this.attackCooldown > 0) this.reduceAttackCooldown();
-        if (this.target != null && invisOrInBrush(target)) this.target = null;
-        if (this.target != null && this.target.getHealth() > 0) {
-            if (this.withinRange(target) && this.canAttack()) {
-                this.autoAttack(target);
-            } else if (!this.withinRange(target) && this.canMove() && !this.isAutoAttacking) {
-                if (!this.isPointAtEndOfPath(
-                        this.target
-                                .getLocation())) { // I put this here so it does not spam movement
-                    // commands if their target hasn't moved
-                    this.moveWithCollision(this.target.getLocation());
-                }
-            }
-        } else {
-            if (this.target != null) {
-                if (this.target.getHealth() <= 0) {
-                    this.target = null;
-                }
-            } else if (this.autoAttackEnabled
-                    && System.currentTimeMillis() - lastAutoTargetTime > 2000
-                    && idleTime > 500) {
-                Actor closestTarget = null;
-                double closestDistance = 1000;
-                int aggroRange = parentExt.getActorStats(avatar).get("aggroRange").asInt();
-                for (Actor a : Champion.getActorsInRadius(rh, this.location, aggroRange)) {
-                    if (a.getTeam() != this.team
-                            && a.getLocation().distance(this.location) < closestDistance) {
-                        closestDistance = a.getLocation().distance(this.location);
-                        closestTarget = a;
-                    }
-                }
-                this.idleTime = 0;
-                this.target = closestTarget;
-                this.lastAutoTargetTime = System.currentTimeMillis();
-            }
-        }
-        if (msRan % 1000 == 0) {
-
-            if (ChampionData.getJunkLevel(this, "junk_4_flame_cloak") > 0) {
-                for (Actor a : Champion.getActorsInRadius(rh, location, 1.5f)) {
-                    if (a.getTeam() != this.team && isNeitherStructureNorAlly(a)) {
-                        a.addToDamageQueue(
-                                this,
-                                this.maxHealth * 0.035d,
-                                ChampionData.getFlameCloakAttackData(),
-                                true);
-                    }
-                }
-            }
-
-            if (ChampionData.getJunkLevel(this, "junk_3_robo_suit") > 0) {
-                boolean ready = System.currentTimeMillis() - lastRoboEffect >= ROBO_CD;
-
-                if (this.roboStacks < 3 && ready) {
-                    this.roboStacks++;
-                    this.updateStatMenu("speed");
-
-                    if (this.roboStacks == 3)
-                        ExtensionCommands.createActorFX(
-                                parentExt,
-                                room,
-                                id,
-                                "statusEffect_speed",
-                                1000 * 60 * 5,
-                                id + "_roboSpeed",
-                                true,
-                                "",
-                                true,
-                                false,
-                                team);
-                }
-            }
-
-            if (this.fightKingStacks > 0
-                    && System.currentTimeMillis() - this.lastAuto
-                            >= ChampionData.getCustomJunkStat(this, "junk_1_fight_king_sword"))
-                this.resetFightKingStacks();
-            if (this.cosmicStacks > 0
-                    && System.currentTimeMillis() - this.lastSpell
-                            >= ChampionData.getCustomJunkStat(this, "junk_2_cosmic_gauntlet"))
-                this.resetCosmicStacks();
-
-            if (this.canRegenHealth()) {
-                regenHealth();
-            }
-            if (this.pickedUpHealthPack
-                    && System.currentTimeMillis() - this.healthPackPickUpTime >= 60000) {
-                this.pickedUpHealthPack = false;
-                this.updateStatMenu("healthRegen");
-            }
-            if (this.pickedUpHealthPack && this.getHealth() == this.maxHealth) {
-                removeHealthPackEffect();
-            }
-            int newDeath = 10 + ((msRan / 1000) / 60);
-            if (newDeath != this.deathTime) this.deathTime = newDeath;
-            List<Actor> actorsToRemove = new ArrayList<Actor>(this.aggressors.keySet().size());
-            for (Actor a : this.aggressors.keySet()) {
-                ISFSObject damageData = this.aggressors.get(a);
-                if (System.currentTimeMillis() > damageData.getLong("lastAttacked") + 5000)
-                    actorsToRemove.add(a);
-            }
-            for (Actor a : actorsToRemove) {
-                this.aggressors.remove(a);
-            }
-            if (System.currentTimeMillis() - this.lastKilled >= 10000) {
-                if (this.multiKill != 0) {
-                    if (this.hasGameStat("largestMulti")) {
-                        double largestMulti = this.getGameStat("largestMulti");
-                        if (this.multiKill > largestMulti)
-                            this.setGameStat("largestMulti", this.multiKill);
-                    } else this.setGameStat("largestMulti", this.multiKill);
-                    this.multiKill = 0;
-                }
-            }
-            if (this.hasTempStat("healthRegen")) {
-                if (this.currentHealth == this.maxHealth) {
-                    this.effectHandlers.get("healthRegen").endAllEffects();
-                }
-            }
-        }
-        if (this.changeTowerAggro && !isInTowerRadius(this, false)) this.changeTowerAggro = false;
-
-        if (this.hasKeeothBuff && System.currentTimeMillis() - this.keeothBuffStartTime >= 90000) {
-            disableKeeothBuff();
-        }
-        if (this.hasGooBuff && System.currentTimeMillis() - this.gooBuffStartTime >= 90000) {
-            disableGooBuff();
-        }
-        if (this.getState(ActorState.CHARMED) && this.charmer != null) {
-            moveTowardsCharmer(charmer);
         }
     }
 
     private void regenHealth() {
-        double healthRegen = this.getPlayerStat("healthRegen");
-        if (this.currentHealth + healthRegen <= 0) healthRegen = (this.currentHealth - 1) * -1;
-        this.changeHealth((int) healthRegen);
+        double healthRegen = getPlayerStat("healthRegen");
+        if (currentHealth + healthRegen <= 0) healthRegen = (currentHealth - 1) * -1;
+        changeHealth((int) healthRegen);
+    }
+
+    private void handleHealthPackEffectRemoval() {
+        if (hpPickup && System.currentTimeMillis() - healthPackPickUpTime >= HP_DURATION) {
+            hpPickup = false;
+            updateStatMenu("healthRegen");
+        }
+
+        if (hpPickup && getHealth() == maxHealth) {
+            removeHealthPackEffect();
+        }
     }
 
     private void removeHealthPackEffect() {
-        ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "healthPackFX");
-        this.pickedUpHealthPack = false;
-        this.updateStatMenu("healthRegen");
+        ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
+        hpPickup = false;
+        updateStatMenu("healthRegen");
+    }
+
+    private void handleUpdateMultiKill() {
+        if (System.currentTimeMillis() - lastKilled >= 10000) {
+            if (multiKill != 0) {
+                if (hasGameStat("largestMulti")) {
+                    double largestMulti = getGameStat("largestMulti");
+                    if (multiKill > largestMulti) setGameStat("largestMulti", multiKill);
+                } else {
+                    setGameStat("largestMulti", multiKill);
+                }
+                multiKill = 0;
+            }
+        }
     }
 
     public void resetIdleTime() {
-        this.idleTime = 0;
+        idleTime = 0;
     }
 
     public boolean invisOrInBrush(Actor a) {
@@ -1385,14 +1324,14 @@ public class UserActor extends Actor {
             int castDelay,
             Point2D dest) {
         if (gCooldown > 0) {
-            this.stopMoving(gCooldown);
+            stopMoving(gCooldown);
             parentExt
                     .getTaskScheduler()
                     .schedule(new MovementStopper(true), castDelay, TimeUnit.MILLISECONDS);
         } else {
-            this.stopMoving();
+            stopMoving();
         }
-        if (this.getClass() == UserActor.class) {
+        if (getClass() == UserActor.class) {
             String abilityString = "q";
             int abilityIndex = 0;
             if (ability == 2) {
@@ -1403,14 +1342,14 @@ public class UserActor extends Actor {
                 abilityIndex = 2;
             }
             ExtensionCommands.actorAbilityResponse(
-                    this.parentExt,
-                    this.getUser(),
+                    parentExt,
+                    getUser(),
                     abilityString,
-                    this.canCast[abilityIndex],
+                    canCast[abilityIndex],
                     getReducedCooldown(cooldown),
                     gCooldown);
-            if (this.canCast[abilityIndex]) {
-                this.canCast[abilityIndex] = false;
+            if (canCast[abilityIndex]) {
+                canCast[abilityIndex] = false;
                 int finalAbilityIndex = abilityIndex;
                 Runnable castReset = () -> canCast[finalAbilityIndex] = true;
                 parentExt
@@ -1421,22 +1360,22 @@ public class UserActor extends Actor {
     }
 
     public boolean canDash() {
-        return !this.getState(ActorState.ROOTED);
+        return !getState(ActorState.ROOTED);
     }
 
     @Override
     public boolean canMove() {
         for (ActorState s :
-                this.states.keySet()) { // removed CHARMED state from here to make charmer following
+                states.keySet()) { // removed CHARMED state from here to make charmer following
             // possible (I hope it doesn't break anything :))
             if (s == ActorState.ROOTED
                     || s == ActorState.STUNNED
                     || s == ActorState.FEARED
                     || s == ActorState.AIRBORNE) {
-                if (this.states.get(s)) return false;
+                if (states.get(s)) return false;
             }
         }
-        return this.canMove;
+        return canMove;
     }
 
     public boolean hasInterrupingCC() {
@@ -1449,7 +1388,7 @@ public class UserActor extends Actor {
             ActorState.SILENCED
         };
         for (ActorState state : states) {
-            if (this.getState(state)) return true;
+            if (getState(state)) return true;
         }
         return false;
     }
@@ -1463,40 +1402,38 @@ public class UserActor extends Actor {
             ActorState.SILENCED,
         };
         for (ActorState state : states) {
-            if (this.getState(state)) return true;
+            if (getState(state)) return true;
         }
         return false;
     }
 
     public void setCanMove(boolean canMove) {
         this.canMove = canMove;
-        if (this.canMove && this.states.get(ActorState.CHARMED))
-            this.move(this.movementLine.getP2());
+        if (canMove && states.get(ActorState.CHARMED)) move(movementLine.getP2());
     }
 
     public void resetTarget() {
-        this.target = null;
-        ExtensionCommands.setTarget(this.parentExt, this.player, this.id, "");
+        target = null;
+        ExtensionCommands.setTarget(parentExt, player, id, "");
     }
 
     public void setState(ActorState[] states, boolean stateBool) {
         for (ActorState s : states) {
             this.states.put(s, stateBool);
-            ExtensionCommands.updateActorState(parentExt, this.room, id, s, stateBool);
+            ExtensionCommands.updateActorState(parentExt, room, id, s, stateBool);
         }
     }
 
     public void setTarget(Actor a) {
-        this.target = a;
-        ExtensionCommands.setTarget(this.parentExt, this.player, this.id, a.getId());
-        if (this.states.get(ActorState.CHARMED)) {
-            this.setPath(getRelativePoint(false), a.getLocation());
-            if (this.canMove) this.move(this.movementLine.getP2());
+        target = a;
+        ExtensionCommands.setTarget(parentExt, player, id, a.getId());
+        if (states.get(ActorState.CHARMED)) {
+            if (canMove) move(movementLine.getP2());
         }
     }
 
     public boolean isState(ActorState state) {
-        return this.states.get(state);
+        return states.get(state);
     }
 
     public boolean canUseAbility(int ability) {
@@ -1509,9 +1446,9 @@ public class UserActor extends Actor {
             ActorState.STUNNED
         };
         for (ActorState s : hinderingStates) {
-            if (this.states.get(s)) return false;
+            if (states.get(s)) return false;
         }
-        return this.canCast[ability - 1];
+        return canCast[ability - 1];
     }
 
     public String getChampionName(String avatar) {
@@ -1546,22 +1483,22 @@ public class UserActor extends Actor {
     }
 
     public Line2D getMovementLine() {
-        return this.movementLine;
+        return movementLine;
     }
 
     public void stopMoving(int delay) {
-        this.stopMoving();
-        this.canMove = false;
+        stopMoving();
+        canMove = false;
         if (delay > 0) {
             parentExt
                     .getTaskScheduler()
                     .schedule(new MovementStopper(true), delay, TimeUnit.MILLISECONDS);
-        } else this.canMove = true;
+        } else canMove = true;
     }
 
     public float getRotation(Point2D dest) { // lmao
-        double dx = dest.getX() - this.location.getX();
-        double dy = dest.getY() - this.location.getY();
+        double dx = dest.getX() - location.getX();
+        double dy = dest.getY() - location.getY();
         double angleRad = Math.atan2(dy, dx);
         return (float) Math.toDegrees(angleRad) * -1 + 90f;
     }
@@ -1575,39 +1512,39 @@ public class UserActor extends Actor {
     }
 
     public void handleSwapToPoly(int duration) {
-        this.addState(ActorState.SLOWED, 0.3d, duration);
-        ExtensionCommands.swapActorAsset(parentExt, this.room, this.id, "flambit");
+        addState(ActorState.SLOWED, 0.3d, duration);
+        ExtensionCommands.swapActorAsset(parentExt, room, id, "flambit");
         ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.id,
+                parentExt,
+                room,
+                id,
                 "statusEffect_polymorph",
                 1000,
-                this.id + "_statusEffect_polymorph",
+                id + "_statusEffect_polymorph",
                 true,
                 "",
                 true,
                 false,
-                this.team);
+                team);
         ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.id,
+                parentExt,
+                room,
+                id,
                 "flambit_aoe",
                 3000,
-                this.id + "_flambit_aoe",
+                id + "_flambit_aoe",
                 true,
                 "",
                 true,
                 false,
-                this.team);
+                team);
         ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.id,
+                parentExt,
+                room,
+                id,
                 "fx_target_ring_2",
                 3000,
-                this.id + "_flambit_ring_",
+                id + "_flambit_ring_",
                 true,
                 "",
                 true,
@@ -1617,7 +1554,7 @@ public class UserActor extends Actor {
 
     @Override
     public void addState(ActorState state, double delta, int duration) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
+        if (spellShieldActive || System.currentTimeMillis() < iFrame) {
             ActorState[] ccStates = {
                 ActorState.BRUSH,
                 ActorState.CLEANSED,
@@ -1634,7 +1571,7 @@ public class UserActor extends Actor {
                     return;
                 }
             }
-            if (this.spellShieldActive) {
+            if (spellShieldActive) {
                 triggerSpellShield();
             }
             return;
@@ -1644,7 +1581,7 @@ public class UserActor extends Actor {
 
     @Override
     public void addState(ActorState state, double delta, int duration, String fxId, String emit) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
+        if (spellShieldActive || System.currentTimeMillis() < iFrame) {
             ActorState[] ccStates = {
                 ActorState.BRUSH,
                 ActorState.CLEANSED,
@@ -1661,7 +1598,7 @@ public class UserActor extends Actor {
                     return;
                 }
             }
-            if (this.spellShieldActive) {
+            if (spellShieldActive) {
                 triggerSpellShield();
             }
             return;
@@ -1670,79 +1607,77 @@ public class UserActor extends Actor {
     }
 
     public void handleSwapFromPoly() {
-        String bundle = this.getSkinAssetBundle();
-        ExtensionCommands.swapActorAsset(this.parentExt, this.room, this.id, bundle);
+        String bundle = getSkinAssetBundle();
+        ExtensionCommands.swapActorAsset(parentExt, room, id, bundle);
     }
 
     @Override
     public void handleCharm(UserActor charmer, int duration) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            if (this.spellShieldActive) this.triggerSpellShield();
+        if (spellShieldActive || System.currentTimeMillis() < iFrame) {
+            if (spellShieldActive) triggerSpellShield();
             return;
         }
-        if (!this.states.get(ActorState.CHARMED) && !this.states.get(ActorState.IMMUNITY)) {
+        if (!states.get(ActorState.CHARMED) && !states.get(ActorState.IMMUNITY)) {
             this.charmer = charmer;
-            this.addState(ActorState.CHARMED, 0d, duration);
+            addState(ActorState.CHARMED, 0d, duration);
         }
     }
 
     public void handleCyclopsHealing() {
-        if (this.getHealth() != this.maxHealth && !this.pickedUpHealthPack) {
-            this.heal((int) (this.getMaxHealth() * 0.15d));
+        if (getHealth() != maxHealth && !hpPickup) {
+            heal((int) (getMaxHealth() * 0.15d));
         }
         ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.getId(),
+                parentExt,
+                room,
+                getId(),
                 "fx_health_regen",
-                60000,
-                this.id + "healthPackFX",
+                HP_DURATION,
+                id + "healthPackFX",
                 true,
                 "",
                 false,
                 false,
-                this.getTeam());
-        this.pickedUpHealthPack = true;
-        this.healthPackPickUpTime = System.currentTimeMillis();
-        this.updateStatMenu("healthRegen");
+                getTeam());
+        hpPickup = true;
+        healthPackPickUpTime = System.currentTimeMillis();
+        updateStatMenu("healthRegen");
     }
 
     public void respawn() {
         Point2D respawnPoint = getRespawnPoint();
         Console.debugLog(
-                this.displayName
+                displayName
                         + " Respawning at: "
                         + respawnPoint.getX()
                         + ","
                         + respawnPoint.getY()
                         + " for team "
-                        + this.team);
-        this.location = respawnPoint;
-        this.futureCrystalActive = true;
-        this.movementLine = new Line2D.Float(respawnPoint, respawnPoint);
-        this.timeTraveled = 0f;
-        this.canMove = true;
-        this.setHealth((int) this.maxHealth, (int) this.maxHealth);
-        this.dead = false;
-        this.removeEffects();
-        ExtensionCommands.snapActor(
-                this.parentExt, this.room, this.id, this.location, this.location, false);
-        ExtensionCommands.playSound(
-                this.parentExt, this.room, this.id, "sfx/sfx_champion_respawn", this.location);
-        ExtensionCommands.respawnActor(this.parentExt, this.room, this.id);
-        this.addEffect("speed", 2d, 5000, "statusEffect_speed", "targetNode");
+                        + team);
+        location = respawnPoint;
+        futureCrystalActive = true;
+        movementLine = new Line2D.Float(respawnPoint, respawnPoint);
+        timeTraveled = 0f;
+        canMove = true;
+        setHealth((int) maxHealth, (int) maxHealth);
+        dead = false;
+        removeEffects();
+        ExtensionCommands.snapActor(parentExt, room, id, location, location, false);
+        ExtensionCommands.playSound(parentExt, room, id, "sfx/sfx_champion_respawn", location);
+        ExtensionCommands.respawnActor(parentExt, room, id);
+        addEffect("speed", 2d, 5000, "statusEffect_speed", "targetNode");
         ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.id,
+                parentExt,
+                room,
+                id,
                 "champion_respawn_effect",
                 1000,
-                this.id + "_respawn",
+                id + "_respawn",
                 true,
                 "Bip001",
                 false,
                 false,
-                this.team);
+                team);
     }
 
     protected void basicAttackReset() {
@@ -1750,86 +1685,82 @@ public class UserActor extends Actor {
     }
 
     public boolean enhanceCrit() {
-        return this.hasBackpackItem("junk_1_grass_sword") && this.getStat("sp_category1") > 0;
+        return hasBackpackItem("junk_1_grass_sword") && getStat("sp_category1") > 0;
     }
 
     private Point2D getRespawnPoint() {
-        int teamNumber =
-                parentExt.getRoomHandler(this.room.getName()).getTeamNumber(this.id, this.team);
+        int teamNumber = parentExt.getRoomHandler(room.getName()).getTeamNumber(id, team);
         Point2D respawnPoint;
-        boolean isPractice = this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap();
+        boolean isPractice = parentExt.getRoomHandler(room.getName()).isPracticeMap();
         respawnPoint =
                 isPractice
                         ? MapData.L1_PURPLE_SPAWNS[teamNumber]
                         : MapData.L2_PURPLE_SPAWNS[teamNumber];
-        if (this.team == 1 && respawnPoint.getX() < 0)
+        if (team == 1 && respawnPoint.getX() < 0)
             respawnPoint = new Point2D.Double(respawnPoint.getX() * -1, respawnPoint.getY());
         return respawnPoint;
     }
 
     public void addXP(int xp) {
-        if (this.level != 10) {
+        if (level != 10) {
             double glassesModifier =
                     ChampionData.getCustomJunkStat(this, "junk_5_glasses_of_nerdicon");
             if (glassesModifier > 0) {
                 xp *= (1 + glassesModifier);
             }
-            this.xp += xp;
+            xp += xp;
             HashMap<String, Double> updateData = new HashMap<>(3);
-            int level = ChampionData.getXPLevel(this.xp);
+            int level = ChampionData.getXPLevel(xp);
             if (level != this.level) {
                 this.level = level;
-                this.xp = ChampionData.getLevelXP(level - 1);
-                updateData.put("level", (double) this.level);
-                ExtensionCommands.playSound(parentExt, this.player, this.id, "sfx_level_up_beam");
+                xp = ChampionData.getLevelXP(level - 1);
+                updateData.put("level", (double) level);
+                ExtensionCommands.playSound(parentExt, player, id, "sfx_level_up_beam");
                 ExtensionCommands.createActorFX(
-                        this.parentExt,
-                        this.room,
-                        this.id,
+                        parentExt,
+                        room,
+                        id,
                         "level_up_beam",
                         1000,
-                        this.id + "_levelUpBeam",
+                        id + "_levelUpBeam",
                         true,
                         "",
                         true,
                         false,
-                        this.team);
-                ChampionData.levelUpCharacter(this.parentExt, this);
+                        team);
+                ChampionData.levelUpCharacter(parentExt, this);
             }
-            updateData.put("xp", (double) this.xp);
-            updateData.put("pLevel", this.getPLevel());
-            ExtensionCommands.updateActorData(this.parentExt, this.room, this.id, updateData);
+            updateData.put("xp", (double) xp);
+            updateData.put("pLevel", getPLevel());
+            ExtensionCommands.updateActorData(parentExt, room, id, updateData);
         }
     }
 
     public int getLevel() {
-        return this.level;
+        return level;
     }
 
     public double getPLevel() {
-        if (this.level == 10) return 0d;
-        double lastLevelXP = ChampionData.getLevelXP(this.level - 1);
-        double currentLevelXP = ChampionData.getLevelXP(this.level);
+        if (level == 10) return 0d;
+        double lastLevelXP = ChampionData.getLevelXP(level - 1);
+        double currentLevelXP = ChampionData.getLevelXP(level);
         double delta = currentLevelXP - lastLevelXP;
-        return (this.xp - lastLevelXP) / delta;
+        return (xp - lastLevelXP) / delta;
     }
 
     private void processHitData(Actor a, JsonNode attackData, int damage) {
         if (a.getId().contains("turret"))
             a =
-                    this.parentExt
-                            .getRoomHandler(this.room.getName())
-                            .getEnemyChampion(this.team, "princessbubblegum");
+                    parentExt
+                            .getRoomHandler(room.getName())
+                            .getEnemyChampion(team, "princessbubblegum");
         if (a.getId().contains("skully"))
-            a =
-                    this.parentExt
-                            .getRoomHandler(this.room.getName())
-                            .getEnemyChampion(this.team, "lich");
+            a = parentExt.getRoomHandler(room.getName()).getEnemyChampion(team, "lich");
         String precursor = "attack";
         if (attackData.has("spellName")) precursor = "spell";
-        if (this.aggressors.containsKey(a)) {
-            this.aggressors.get(a).putLong("lastAttacked", System.currentTimeMillis());
-            ISFSObject currentAttackData = this.aggressors.get(a);
+        if (aggressors.containsKey(a)) {
+            aggressors.get(a).putLong("lastAttacked", System.currentTimeMillis());
+            ISFSObject currentAttackData = aggressors.get(a);
             int tries = 0;
             for (String k : currentAttackData.getKeys()) {
                 if (k.contains("attack")) {
@@ -1839,7 +1770,7 @@ public class UserActor extends Actor {
                             .asText()
                             .equalsIgnoreCase(attack0.getUtfString("atkName"))) {
                         attack0.putInt("atkDamage", attack0.getInt("atkDamage") + damage);
-                        this.aggressors.get(a).putSFSObject(k, attack0);
+                        aggressors.get(a).putSFSObject(k, attack0);
                         return;
                     } else tries++;
                 }
@@ -1856,7 +1787,7 @@ public class UserActor extends Actor {
                 attackType = "spell";
             attack1.putUtfString("atkType", attackType);
             attack1.putUtfString("atkIcon", attackData.get(precursor + "IconImage").asText());
-            this.aggressors.get(a).putSFSObject(attackNumber, attack1);
+            aggressors.get(a).putSFSObject(attackNumber, attack1);
         } else {
             ISFSObject playerData = new SFSObject();
             playerData.putLong("lastAttacked", System.currentTimeMillis());
@@ -1869,7 +1800,7 @@ public class UserActor extends Actor {
             attackObj.putUtfString("atkType", attackType);
             attackObj.putUtfString("atkIcon", attackData.get(precursor + "IconImage").asText());
             playerData.putSFSObject("attack1", attackObj);
-            this.aggressors.put(a, playerData);
+            aggressors.put(a, playerData);
         }
     }
 
@@ -1896,7 +1827,7 @@ public class UserActor extends Actor {
         stats.put("kills", 0d);
         stats.put("deaths", 0d);
         stats.put("assists", 0d);
-        JsonNode actorStats = this.parentExt.getActorStats(this.getAvatar());
+        JsonNode actorStats = parentExt.getActorStats(getAvatar());
         for (Iterator<String> it = actorStats.fieldNames(); it.hasNext(); ) {
             String k = it.next();
             stats.put(k, actorStats.get(k).asDouble());
@@ -1905,11 +1836,11 @@ public class UserActor extends Actor {
     }
 
     public String getBackpack() {
-        return this.backpack;
+        return backpack;
     }
 
     public boolean hasBackpackItem(String item) {
-        String[] items = ChampionData.getBackpackInventory(this.parentExt, this.backpack);
+        String[] items = ChampionData.getBackpackInventory(parentExt, backpack);
         for (String i : items) {
             if (i.equalsIgnoreCase(item)) return true;
         }
@@ -1918,68 +1849,68 @@ public class UserActor extends Actor {
 
     protected int getReducedCooldown(double cooldown) {
         if (abilityDebug) return 0;
-        double cooldownReduction = this.getPlayerStat("coolDownReduction");
+        double cooldownReduction = getPlayerStat("coolDownReduction");
         double ratio = 1 - (cooldownReduction / 100);
         return (int) Math.round(cooldown * ratio);
     }
 
     public void handleSpellVamp(double damage, boolean dotDamage) {
-        double spellVamp = this.getPlayerStat("spellVamp");
-        if (this.hits != 0) {
-            if (dotDamage) spellVamp /= this.hits;
-            else spellVamp /= (this.hits * 2);
+        double spellVamp = getPlayerStat("spellVamp");
+        if (hits != 0) {
+            if (dotDamage) spellVamp /= hits;
+            else spellVamp /= (hits * 2);
         }
-        if (this.getPlayerStat("spellVamp") * 0.3 > spellVamp)
-            spellVamp = this.getPlayerStat("spellVamp") * 0.3d;
+        if (getPlayerStat("spellVamp") * 0.3 > spellVamp)
+            spellVamp = getPlayerStat("spellVamp") * 0.3d;
         double percentage = spellVamp / 100;
         int healing = (int) Math.round(damage * percentage);
-        // Console.debugLog(this.displayName + " is healing for " + healing + " HP!");
-        this.changeHealth(healing);
+        // Console.debugLog(displayName + " is healing for " + healing + " HP!");
+        changeHealth(healing);
     }
 
     public void handleLifeSteal() {
-        double damage = this.getPlayerStat("attackDamage");
-        double lifesteal = this.getPlayerStat("lifeSteal") / 100;
-        this.changeHealth((int) Math.round(damage * lifesteal));
+        double damage = getPlayerStat("attackDamage");
+        double lifesteal = getPlayerStat("lifeSteal") / 100;
+        changeHealth((int) Math.round(damage * lifesteal));
     }
 
     @Override
     public double getPlayerStat(String stat) {
         if (stat.equalsIgnoreCase("healthRegen")) {
-            if (this.pickedUpHealthPack) return super.getPlayerStat(stat) + HEALTH_PACK_REGEN;
+            if (hpPickup) return super.getPlayerStat(stat) + HEALTH_PACK_REGEN;
         }
         if (stat.equalsIgnoreCase("attackDamage")) {
             double attackDamage = super.getPlayerStat(stat);
-            if (this.dcBuff == 2) attackDamage *= DC_AD_BUFF;
-            attackDamage += (DEMON_SWORD_AD_BUFF * this.getMonsterBuffCount(stat));
-            return attackDamage + this.magicNailStacks;
+            if (dcBuff == 2) attackDamage *= DC_AD_BUFF;
+            attackDamage += (DEMON_SWORD_AD_BUFF * getMonsterBuffCount(stat));
+            return attackDamage + magicNailStacks;
 
         } else if (stat.equalsIgnoreCase("armor")) {
             double armor = super.getPlayerStat(stat);
-            if (this.dcBuff >= 1) armor *= DC_ARMOR_BUFF;
-            return armor + (5 * this.getMonsterBuffCount(stat));
+            if (dcBuff >= 1) armor *= DC_ARMOR_BUFF;
+            return armor + (5 * getMonsterBuffCount(stat));
 
         } else if (stat.equalsIgnoreCase("spellResist")) {
             double mr = super.getPlayerStat(stat);
-            if (this.dcBuff >= 1) mr *= DC_SPELL_RESIST_BUFF;
-            return mr + (5 * this.getMonsterBuffCount(stat));
+            if (dcBuff >= 1) mr *= DC_SPELL_RESIST_BUFF;
+            return mr + (5 * getMonsterBuffCount(stat));
 
         } else if (stat.equalsIgnoreCase("speed")) {
-            double speedBoost = SPEED_BOOST_PER_ROBO_STACK * this.roboStacks; // TODO: Make scalable
+            double speedBoost = SPEED_BOOST_PER_ROBO_STACK * roboStacks; // TODO: Make scalable
             if (speedBoost < 0) speedBoost = 0;
-            if (this.dcBuff >= 1) return super.getPlayerStat(stat) * DC_SPEED_BUFF + speedBoost;
+            if (dcBuff >= 1) return super.getPlayerStat(stat) * DC_SPEED_BUFF + speedBoost;
             return super.getPlayerStat(stat) + speedBoost;
 
         } else if (stat.equalsIgnoreCase("spellDamage")) {
             double spellDamage = super.getPlayerStat(stat);
-            if (this.dcBuff == 2) spellDamage *= DC_PD_BUFF;
+            if (dcBuff == 2) spellDamage *= DC_PD_BUFF;
             if (glassesBuff != 0) spellDamage += glassesBuff;
             return spellDamage
                     + lightningSwordStacks
                     + (DEMON_SWORD_SD_BUFF * getMonsterBuffCount(stat));
 
         } else if (stat.equalsIgnoreCase("coolDownReduction")) {
-            return super.getPlayerStat(stat) + this.robeStacks;
+            return super.getPlayerStat(stat) + robeStacks;
         }
         return super.getPlayerStat(stat);
     }
@@ -1994,8 +1925,8 @@ public class UserActor extends Actor {
         double healfactor = ChampionData.getCustomJunkStat(this, "junk_5_ghost_pouch");
         for (UserActor ua :
                 Champion.getUserActorsInRadius(
-                        this.parentExt.getRoomHandler(this.room.getName()), this.location, 5f)) {
-            if (ua.getTeam() == this.team && !ua.getId().equalsIgnoreCase(this.id)) {
+                        parentExt.getRoomHandler(room.getName()), location, 5f)) {
+            if (ua.getTeam() == team && !ua.getId().equalsIgnoreCase(id)) {
                 Console.debugLog("Healed player from ghost pouch!");
                 ua.changeHealth((int) (ua.maxHealth * healfactor));
                 // TODO: Add effect / SFX
@@ -2006,9 +1937,9 @@ public class UserActor extends Actor {
     protected void handleMonsterBuff(Monster m) {
         Monster.BuffType buff = m.getBuffType();
         if (buff != Monster.BuffType.NONE) {
-            this.activeMonsterBuffs.add(buff);
+            activeMonsterBuffs.add(buff);
             Champion.handleStatusIcon(
-                    this.parentExt, this, m.getAvatar(), m.getBuffDescription(), 1000 * 60);
+                    parentExt, this, m.getAvatar(), m.getBuffDescription(), 1000 * 60);
             Runnable removeBuff =
                     () -> {
                         Console.debugLog("Removed monster buff");
@@ -2020,20 +1951,20 @@ public class UserActor extends Actor {
                     .getTaskScheduler()
                     .schedule(removeBuff, 60, TimeUnit.SECONDS);
         }
-        this.updateMonsterStatMenu(buff);
+        updateMonsterStatMenu(buff);
     }
 
     protected void updateMonsterStatMenu(Monster.BuffType buff) {
         switch (buff) {
             case OWL:
             case GNOME:
-                this.updateStatMenu("attackDamage");
-                this.updateStatMenu("spellDamage");
+                updateStatMenu("attackDamage");
+                updateStatMenu("spellDamage");
                 break;
             case BEAR:
             case WOLF:
-                this.updateStatMenu("spellResist");
-                this.updateStatMenu("armor");
+                updateStatMenu("spellResist");
+                updateStatMenu("armor");
                 break;
         }
     }
@@ -2041,35 +1972,34 @@ public class UserActor extends Actor {
     @Override
     public void handleKill(Actor a, JsonNode attackData) {
         if (a.getActorType() == ActorType.PLAYER || a instanceof Bot) {
-            this.killingSpree++;
-            this.multiKill++;
-            this.lastKilled = System.currentTimeMillis();
+            killingSpree++;
+            multiKill++;
+            lastKilled = System.currentTimeMillis();
         }
         if (a.getActorType() == ActorType.PLAYER) {
             UserActor killedUA = (UserActor) a;
-            this.killedPlayers.add(killedUA);
-            if (this.hasGameStat("spree")) {
-                double endGameSpree = this.getGameStat("spree");
-                if (this.killingSpree > endGameSpree) {
-                    this.endGameStats.put("spree", (double) this.killingSpree);
+            killedPlayers.add(killedUA);
+            if (hasGameStat("spree")) {
+                double endGameSpree = getGameStat("spree");
+                if (killingSpree > endGameSpree) {
+                    endGameStats.put("spree", (double) killingSpree);
                 }
             } else {
-                this.endGameStats.put("spree", (double) this.killingSpree);
+                endGameStats.put("spree", (double) killingSpree);
             }
             if (ChampionData.getJunkLevel(this, "junk_5_ghost_pouch") > 0) {
-                this.useGhostPouch();
+                useGhostPouch();
             }
             if (ChampionData.getJunkLevel(this, "junk_1_ax_bass") > 0
                     && a.getActorType() == ActorType.PLAYER) {
-                this.changeHealth((int) Math.round(this.maxHealth * 0.15d));
+                changeHealth((int) Math.round(maxHealth * 0.15d));
             }
             if (ChampionData.getJunkLevel(this, "junk_1_night_sword") > 0) {
-                this.setState(ActorState.REVEALED, false);
-                this.addState(ActorState.INVISIBLE, 0d, 2000);
+                setState(ActorState.REVEALED, false);
+                addState(ActorState.INVISIBLE, 0d, 2000);
                 Runnable reveal =
                         () -> {
-                            if (!this.getState(ActorState.BRUSH))
-                                this.setState(ActorState.REVEALED, true);
+                            if (!getState(ActorState.BRUSH)) setState(ActorState.REVEALED, true);
                         };
                 SmartFoxServer.getInstance()
                         .getTaskScheduler()
@@ -2084,13 +2014,13 @@ public class UserActor extends Actor {
         int additionalXP = 0;
         if (a.getActorType() == ActorType.PLAYER) {
             UserActor ua = (UserActor) a;
-            int levelDiff = ua.getLevel() - this.level;
+            int levelDiff = ua.getLevel() - level;
             if (levelDiff > 0) additionalXP = 15 * levelDiff;
         } else if (a.getActorType() == ActorType.MONSTER) {
             if (ChampionData.getJunkLevel(this, "junk_1_demon_blood_sword") > 0) {
                 additionalXP += ((double) a.getXPWorth() * 0.15d);
                 Monster m = (Monster) a;
-                this.handleMonsterBuff(m);
+                handleMonsterBuff(m);
             }
 
         } else if (a.getActorType() == ActorType.MINION) {
@@ -2098,11 +2028,11 @@ public class UserActor extends Actor {
                 additionalXP += ((double) a.getXPWorth() * 0.1d);
             }
         }
-        this.addXP(a.getXPWorth() + additionalXP);
-        // if (a.getActorType() == ActorType.PLAYER) this.updateXPWorth("kill");
+        addXP(a.getXPWorth() + additionalXP);
+        // if (a.getActorType() == ActorType.PLAYER) updateXPWorth("kill");
         if (a.getActorType() == ActorType.TOWER) {
-            for (UserActor ua : this.parentExt.getRoomHandler(this.room.getName()).getPlayers()) {
-                if (ua.getTeam() == this.team && !ua.getId().equalsIgnoreCase(this.id)) {
+            for (UserActor ua : parentExt.getRoomHandler(room.getName()).getPlayers()) {
+                if (ua.getTeam() == team && !ua.getId().equalsIgnoreCase(id)) {
                     ua.addXP(a.getXPWorth() + additionalXP);
                 }
             }
@@ -2110,19 +2040,19 @@ public class UserActor extends Actor {
         }
         for (Actor actor :
                 Champion.getActorsInRadius(
-                        this.parentExt.getRoomHandler(this.room.getName()), this.location, 8f)) {
+                        parentExt.getRoomHandler(room.getName()), location, 8f)) {
             if (actor.getActorType() == ActorType.PLAYER
-                    && !actor.getId().equalsIgnoreCase(this.id)
-                    && actor.getTeam() == this.team
+                    && !actor.getId().equalsIgnoreCase(id)
+                    && actor.getTeam() == team
                     && a.getActorType() != ActorType.PLAYER) {
                 UserActor ua = (UserActor) actor;
-                ua.addXP((int) Math.floor(a.getXPWorth()));
+                ua.addXP(a.getXPWorth());
             }
         }
     }
 
     private void addMagicNailStacks(Actor killedActor) {
-        int pointsPutIntoNail = (int) this.getStat("sp_category1");
+        int pointsPutIntoNail = (int) getStat("sp_category1");
         int amountOfStacks =
                 killedActor.getActorType() == ActorType.PLAYER
                         ? NAIL_STACKS_PER_CHAMP
@@ -2132,7 +2062,7 @@ public class UserActor extends Actor {
         if (pointsPutIntoNail > 0) {
             if (magicNailStacks + amountOfStacks > stackCap) magicNailStacks = stackCap;
             else magicNailStacks += amountOfStacks;
-            this.updateStatMenu("attackDamage");
+            updateStatMenu("attackDamage");
         }
     }
 
@@ -2147,7 +2077,7 @@ public class UserActor extends Actor {
         if (pointsPutIntoNail > 0) {
             if (lightningSwordStacks + amountOfStacks > stackCap) lightningSwordStacks = stackCap;
             else lightningSwordStacks += amountOfStacks;
-            this.updateStatMenu("spellDamage");
+            updateStatMenu("spellDamage");
         }
     }
 
@@ -2162,19 +2092,18 @@ public class UserActor extends Actor {
         if (pointsPutIntoRobe > 0) {
             if (robeStacks + amountOfStacks > stackCap) robeStacks = stackCap;
             else robeStacks += amountOfStacks;
-            Console.debugLog("Robe stacks: " + this.robeStacks);
-            this.updateStatMenu("coolDownReduction");
+            Console.debugLog("Robe stacks: " + robeStacks);
+            updateStatMenu("coolDownReduction");
         }
     }
 
     public void addGameStat(String stat, double value) {
-        if (this.endGameStats.containsKey(stat))
-            this.endGameStats.put(stat, this.endGameStats.get(stat) + value);
-        else this.setGameStat(stat, value);
+        if (endGameStats.containsKey(stat)) endGameStats.put(stat, endGameStats.get(stat) + value);
+        else setGameStat(stat, value);
     }
 
     public void setGameStat(String stat, double value) {
-        this.endGameStats.put(stat, value);
+        endGameStats.put(stat, value);
     }
 
     public void addDamageGameStat(UserActor ua, double value, AttackType type) {
@@ -2183,17 +2112,17 @@ public class UserActor extends Actor {
     }
 
     public void handleDamageTakenStat(AttackType type, double value) {
-        this.addGameStat("damageReceivedTotal", value);
-        if (type == AttackType.PHYSICAL) this.addGameStat("damageReceivedPhysical", value);
-        else this.addGameStat("damageReceivedSpell", value);
+        addGameStat("damageReceivedTotal", value);
+        if (type == AttackType.PHYSICAL) addGameStat("damageReceivedPhysical", value);
+        else addGameStat("damageReceivedSpell", value);
     }
 
     public double getGameStat(String stat) {
-        return this.endGameStats.get(stat);
+        return endGameStats.get(stat);
     }
 
     public boolean hasGameStat(String stat) {
-        return this.endGameStats.containsKey(stat);
+        return endGameStats.containsKey(stat);
     }
 
     public int getSpellDamage(JsonNode attackData, boolean singleTarget) {
@@ -2202,16 +2131,15 @@ public class UserActor extends Actor {
                     (int)
                             Math.round(
                                     attackData.get("damage").asDouble()
-                                            + (this.getPlayerStat("spellDamage")
+                                            + (getPlayerStat("spellDamage")
                                                     * attackData.get("damageRatio").asDouble()));
             if (ChampionData.getJunkLevel(this, "junk_2_demonic_wishing_eye") > 0) {
-                double chance = this.getPlayerStat("criticalChance") / 100d;
+                double chance = getPlayerStat("criticalChance") / 100d;
                 if (!singleTarget) chance /= 2d;
                 if (Math.random() < chance) {
                     Console.debugLog("Ability crit! Chance: " + chance);
                     damage *= 1.25;
-                    ExtensionCommands.playSound(
-                            this.parentExt, this.room, "", "sfx/sfx_map_ping", this.location);
+                    ExtensionCommands.playSound(parentExt, room, "", "sfx/sfx_map_ping", location);
                 }
             }
             return damage;
@@ -2237,14 +2165,14 @@ public class UserActor extends Actor {
                 parentExt.getActorStats(projectile.getProjectileAsset()).get("speed").asDouble();
         ExtensionCommands.createProjectile(
                 parentExt,
-                this.room,
+                room,
                 this,
                 projectile.getId(),
                 projectile.getProjectileAsset(),
                 location,
                 lineEndPoint,
                 (float) speed);
-        this.parentExt.getRoomHandler(this.room.getName()).addProjectile(projectile);
+        parentExt.getRoomHandler(room.getName()).addProjectile(projectile);
     }
 
     public void fireMMProjectile(
@@ -2263,21 +2191,21 @@ public class UserActor extends Actor {
                 parentExt.getActorStats(projectile.getProjectileAsset()).get("speed").asDouble();
         ExtensionCommands.createProjectile(
                 parentExt,
-                this.room,
+                room,
                 this,
                 projectile.getId(),
                 projectile.getProjectileAsset(),
                 location,
                 lineEndPoint,
                 (float) speed);
-        this.parentExt.getRoomHandler(this.room.getName()).addProjectile(projectile);
+        parentExt.getRoomHandler(room.getName()).addProjectile(projectile);
     }
 
     public void handleDCBuff(int teamSizeDiff, boolean removeSecondBuff) {
         String[] stats = {"armor", "spellResist", "speed"};
         String[] stats2 = {"attackDamage", "spellDamage"};
         if (removeSecondBuff) {
-            this.dcBuff = 1;
+            dcBuff = 1;
             ExtensionCommands.updateActorData(parentExt, room, id, getPlayerStats(stats2));
             ExtensionCommands.removeStatusIcon(parentExt, player, "DC Buff #2");
             ExtensionCommands.removeFx(parentExt, room, id + "_dcbuff2");
@@ -2285,14 +2213,14 @@ public class UserActor extends Actor {
         }
         switch (teamSizeDiff) {
             case 0:
-                this.dcBuff = 0;
+                dcBuff = 0;
                 ExtensionCommands.updateActorData(parentExt, room, id, getPlayerStats(stats));
                 ExtensionCommands.removeStatusIcon(parentExt, player, "DC Buff #1");
                 ExtensionCommands.removeFx(parentExt, room, id + "_dcbuff1");
                 break;
             case 1:
             case -1:
-                this.dcBuff = 1;
+                dcBuff = 1;
                 ExtensionCommands.updateActorData(parentExt, room, id, getPlayerStats(stats));
                 ExtensionCommands.addStatusIcon(
                         parentExt,
@@ -2316,7 +2244,7 @@ public class UserActor extends Actor {
                 break;
             case 2:
             case -2:
-                this.dcBuff = 2;
+                dcBuff = 2;
                 ExtensionCommands.updateActorData(parentExt, room, id, getPlayerStats(stats2));
                 ExtensionCommands.addStatusIcon(
                         parentExt,
@@ -2344,21 +2272,19 @@ public class UserActor extends Actor {
     private HashMap<String, Double> getPlayerStats(String[] stats) {
         HashMap<String, Double> playerStats = new HashMap<>(stats.length);
         for (String s : stats) {
-            playerStats.put(s, this.getPlayerStat(s));
+            playerStats.put(s, getPlayerStat(s));
         }
         return playerStats;
     }
 
     public void updateStatMenu(String stat) {
-        // Console.debugLog("Updating stat menu: " + stat + " with " + this.getPlayerStat(stat));
-        ExtensionCommands.updateActorData(
-                this.parentExt, this.room, this.id, stat, this.getPlayerStat(stat));
+        // Console.debugLog("Updating stat menu: " + stat + " with " + getPlayerStat(stat));
+        ExtensionCommands.updateActorData(parentExt, room, id, stat, getPlayerStat(stat));
     }
 
     protected void updateStatMenu(String[] stats) {
         for (String s : stats) {
-            ExtensionCommands.updateActorData(
-                    this.parentExt, this.room, this.id, s, this.getPlayerStat(s));
+            ExtensionCommands.updateActorData(parentExt, room, id, s, getPlayerStat(s));
         }
     }
 
@@ -2374,42 +2300,41 @@ public class UserActor extends Actor {
             ActorState.CLEANSED
         };
         for (ActorState s : cleansedStats) {
-            if (this.effectHandlers.containsKey(s.toString()))
-                this.effectHandlers.get(s.toString()).endAllEffects();
+            if (effectHandlers.containsKey(s.toString()))
+                effectHandlers.get(s.toString()).endAllEffects();
         }
     }
 
     public void destroy() {
-        this.dead = true;
-        ExtensionCommands.destroyActor(this.parentExt, this.room, this.id);
+        dead = true;
+        ExtensionCommands.destroyActor(parentExt, room, id);
     }
 
     public void setLastAuto() {
-        this.lastAuto = System.currentTimeMillis();
+        lastAuto = System.currentTimeMillis();
         if (ChampionData.getJunkLevel(this, "junk_1_fight_king_sword") > 0) {
-            if (this.fightKingStacks > 0)
-                ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "fight_king_icon");
+            if (fightKingStacks > 0)
+                ExtensionCommands.removeStatusIcon(parentExt, player, "fight_king_icon");
             ExtensionCommands.addStatusIcon(
-                    this.parentExt,
-                    this.player,
+                    parentExt,
+                    player,
                     "fight_king_icon",
                     "Your next ability is enhanced!",
                     "junk_1_fight_king_sword",
                     (int) ChampionData.getCustomJunkStat(this, "junk_1_fight_king_sword"));
-            this.fightKingStacks++;
+            fightKingStacks++;
         }
     }
 
     public void setLastSpell() {
-        this.lastSpell = System.currentTimeMillis();
+        lastSpell = System.currentTimeMillis();
         if (ChampionData.getJunkLevel(this, "junk_2_cosmic_gauntlet") > 0) {
-            if (this.cosmicStacks > 0)
-                ExtensionCommands.removeStatusIcon(
-                        this.parentExt, this.player, "cosmic_gauntlet_icon");
-            this.cosmicStacks++;
+            if (cosmicStacks > 0)
+                ExtensionCommands.removeStatusIcon(parentExt, player, "cosmic_gauntlet_icon");
+            cosmicStacks++;
             ExtensionCommands.addStatusIcon(
-                    this.parentExt,
-                    this.player,
+                    parentExt,
+                    player,
                     "cosmic_gauntlet_icon",
                     "Your next attack is empowered!",
                     "junk_2_cosmic_gauntlet",
@@ -2418,12 +2343,12 @@ public class UserActor extends Actor {
     }
 
     public int getCosmicStacks() {
-        return this.cosmicStacks;
+        return cosmicStacks;
     }
 
     public void resetCosmicStacks() {
-        this.cosmicStacks = 0;
-        ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "cosmic_gauntlet_icon");
+        cosmicStacks = 0;
+        ExtensionCommands.removeStatusIcon(parentExt, player, "cosmic_gauntlet_icon");
     }
 
     public void logExceptionMessage(String avatar, int spellNum) {
@@ -2436,55 +2361,55 @@ public class UserActor extends Actor {
     }
 
     public void clearIconHandlers() {
-        Set<String> iconNames = new HashSet<>(this.iconHandlers.keySet());
+        Set<String> iconNames = new HashSet<>(iconHandlers.keySet());
         for (String i : iconNames) {
-            ExtensionCommands.removeStatusIcon(this.parentExt, this.player, i);
-            this.iconHandlers.get(i).cancel(true);
+            ExtensionCommands.removeStatusIcon(parentExt, player, i);
+            iconHandlers.get(i).cancel(true);
         }
-        this.iconHandlers = new HashMap<>();
+        iconHandlers = new HashMap<>();
     }
 
     @Override
     public void removeEffects() {
         super.removeEffects();
-        this.clearIconHandlers();
+        clearIconHandlers();
     }
 
     public void addIconHandler(String iconName, ScheduledFuture<?> handler) {
-        this.iconHandlers.put(iconName, handler);
+        iconHandlers.put(iconName, handler);
     }
 
     public void removeIconHandler(String iconName) {
-        this.iconHandlers.remove(iconName);
+        iconHandlers.remove(iconName);
     }
 
     public void handleNumbChuckStacks(Actor a) {
-        if (this.numbChuckVictim == null) {
-            this.numbChuckVictim = a.getId();
-            this.numbSlow = true;
+        if (numbChuckVictim == null) {
+            numbChuckVictim = a.getId();
+            numbSlow = true;
             return;
         }
-        if (a.getId().equalsIgnoreCase(this.numbChuckVictim)) {
-            if (this.numbSlow) {
+        if (a.getId().equalsIgnoreCase(numbChuckVictim)) {
+            if (numbSlow) {
                 a.addState(
                         ActorState.SLOWED,
                         ChampionData.getCustomJunkStat(this, "junk_1_numb_chucks"),
                         1500);
                 Console.debugLog("Numb Chuck slow applied!");
             }
-            this.numbSlow = !this.numbSlow;
+            numbSlow = !numbSlow;
         } else {
-            this.numbChuckVictim = a.getId();
-            this.numbSlow = true;
+            numbChuckVictim = a.getId();
+            numbSlow = true;
         }
     }
 
     public boolean hasGlassesPoint() {
-        return this.hasGlassesPoint;
+        return hasGlassesPoint;
     }
 
     public void setGlassesPoint(boolean val) {
-        this.hasGlassesPoint = val;
+        hasGlassesPoint = val;
     }
 
     @Override
@@ -2495,7 +2420,7 @@ public class UserActor extends Actor {
 
     public int getMonsterBuffCount(String stat) {
         int count = 0;
-        for (Monster.BuffType buff : this.activeMonsterBuffs) {
+        for (Monster.BuffType buff : activeMonsterBuffs) {
             switch (stat) {
                 case "attackDamage":
                 case "spellDamage":
@@ -2521,7 +2446,7 @@ public class UserActor extends Actor {
 
         @Override
         public void run() {
-            canMove = this.move;
+            canMove = move;
         }
     }
 
@@ -2549,7 +2474,7 @@ public class UserActor extends Actor {
         @Override
         public void run() {
             String emit = "Bip01";
-            if (this.emitNode != null) emit = this.emitNode;
+            if (emitNode != null) emit = emitNode;
             float time = (float) (target.getLocation().distance(location) / 10f);
             ExtensionCommands.createProjectileFX(
                     parentExt, room, projectile, id, target.getId(), emit, "targetNode", time);

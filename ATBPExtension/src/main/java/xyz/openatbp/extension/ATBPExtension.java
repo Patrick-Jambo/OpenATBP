@@ -299,6 +299,53 @@ public class ATBPExtension extends SFSExtension {
         else return mainMapColliders;
     }
 
+    public ArrayList<Path2D> getObstacles(
+            ArrayList<Vector<Float>>[] colliders, boolean practiceMap) {
+        ArrayList<Path2D> obstaclePaths = new ArrayList<>();
+
+        if (!practiceMap) {
+            List<Integer> MAIN_MAP_BOUNDARIES = List.of(2, 4, 7, 21);
+
+            // TODO: Practice map
+            for (int i = 0; i < colliders.length; i++) {
+                if (colliders[i] == null) continue;
+
+                if (!MAIN_MAP_BOUNDARIES.contains(i)) {
+
+                    ArrayList<Vector<Float>> vertices = colliders[i];
+
+                    if (vertices != null && vertices.size() >= 2) {
+                        Path2D.Float currentObstaclePath = getObstaclePath(vertices);
+                        obstaclePaths.add(currentObstaclePath);
+
+                    } else if (vertices != null && vertices.size() == 1) {
+                        Console.logWarning("Collider of " + i + " index has only one vertex!");
+                    } else {
+                        Console.logWarning("Collider of " + i + " index is null or empty!");
+                    }
+                }
+            }
+        } else {
+
+        }
+        return obstaclePaths;
+    }
+
+    private static Path2D.Float getObstaclePath(ArrayList<Vector<Float>> vertices) {
+        Path2D.Float currentObstaclePath = new Path2D.Float();
+
+        Vector<Float> firstVertex = vertices.get(0);
+        currentObstaclePath.moveTo(firstVertex.get(0), firstVertex.get(1));
+
+        for (int v = 1; v < vertices.size(); v++) {
+            Vector<Float> currentVertex = vertices.get(v);
+            currentObstaclePath.lineTo(currentVertex.get(0), currentVertex.get(1));
+        }
+
+        currentObstaclePath.closePath();
+        return currentObstaclePath;
+    }
+
     public ArrayList<Path2D> getMapPaths(String map) {
         if (map.equalsIgnoreCase("practice")) return mapPaths;
         else return mainMapPaths;

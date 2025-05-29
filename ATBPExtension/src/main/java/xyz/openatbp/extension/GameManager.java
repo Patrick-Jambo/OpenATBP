@@ -138,10 +138,10 @@ public class GameManager {
             int team = playerInfo.getInt("team");
             float px = 0f;
             float pz = 0f;
+            String groupId = room.getGroupId();
             if (team == 0) {
-                if (room.getGroupId().equals("Practice")
-                        || room.getGroupId().equals("Tutorial")
-                        || room.getGroupId().equals("ARAM")) {
+
+                if (isPracticeMap(groupId)) {
                     px = (float) MapData.L1_PURPLE_SPAWNS[purpleNum].getX();
                     pz = (float) MapData.L1_PURPLE_SPAWNS[purpleNum].getY();
                 } else {
@@ -151,9 +151,8 @@ public class GameManager {
                 purpleNum++;
             }
             if (team == 1) {
-                if (room.getGroupId().equals("Practice")
-                        || room.getGroupId().equals("Tutorial")
-                        || room.getGroupId().equals("ARAM")) {
+
+                if (isPracticeMap(groupId)) {
                     px = (float) MapData.L1_PURPLE_SPAWNS[blueNum].getX() * -1;
                     pz = (float) MapData.L1_PURPLE_SPAWNS[blueNum].getY();
                 } else {
@@ -162,6 +161,7 @@ public class GameManager {
                 }
                 blueNum++;
             }
+
             String id = String.valueOf(u.getId());
             String actor = playerInfo.getUtfString("avatar");
             Point2D location = new Point2D.Float(px, pz);
@@ -386,6 +386,17 @@ public class GameManager {
             }
         }
         return node;
+    }
+
+    public static boolean isPracticeMap(String roomGroupId) {
+        String[] validGroupNames = {"Practice", "Tutorial", "ARAM"};
+
+        for (String groupName : validGroupNames) {
+            if (groupName.equals(roomGroupId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static JsonNode getGlobalTeamData(

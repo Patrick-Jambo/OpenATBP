@@ -1,6 +1,8 @@
 package xyz.openatbp.extension.game.actors;
 
 import java.awt.geom.Line2D;
+import java.awt.geom.Path2D;
+import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.util.*;
 
@@ -53,6 +55,10 @@ public abstract class Actor {
     protected Map<String, FxHandler> fxHandlers = new HashMap<>();
     protected UserActor charmer;
     protected long lastHitElectrodeGun = -1;
+    protected Point2D currentDestination;
+    protected boolean isMoving;
+    protected boolean isDashingOrLeaping = false;
+    protected boolean isAutoAttacking = false;
 
     public double getPHealth() {
         return currentHealth / maxHealth;
@@ -85,8 +91,6 @@ public abstract class Actor {
 
     public void setLocation(Point2D location) {
         this.location = location;
-        this.movementLine = new Line2D.Float(location, location);
-        this.timeTraveled = 0f;
     }
 
     public String getAvatar() {
@@ -139,6 +143,112 @@ public abstract class Actor {
 
     public double getStat(String stat) {
         return this.stats.get(stat);
+    }
+
+    public void handleMovementRequest(Point2D destination) {
+        if (location.equals(destination)) return;
+
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+        ArrayList<Path2D> mainMapObstaclePaths = rh.getObstaclePaths();
+
+        if (!pathFindingNeeded(mainMapObstaclePaths, destination)) {
+            currentDestination = destination;
+            isMoving = true;
+            float speed = (float) getPlayerStat("speed");
+
+            ExtensionCommands.moveActor(parentExt, room, id, location, destination, speed, true);
+        } else {
+            // Path Finding implementation
+        }
+    }
+
+    public boolean pathFindingNeeded(ArrayList<Path2D> mainMapObstaclePaths, Point2D destination) {
+        for (Path2D obstaclePath : mainMapObstaclePaths) {
+            if (obstaclePath.contains(destination)) {
+                Console.debugLog("DESTINATION POINT CONTAINED WITHIN MAP OBSTACLE!");
+                return true;
+            }
+        }
+
+        if (location.equals(destination)) {
+            return false;
+        }
+
+        Line2D.Float movementLine = new Line2D.Float(location, destination);
+
+        for (Path2D obstaclePath : mainMapObstaclePaths) {
+            if (isLineIntersectingPath(movementLine, obstaclePath)) {
+                Console.debugLog(
+                        "MOVEMENT LINE " + "INTERSECTS WITH " + obstaclePath.getBounds2D());
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isLineIntersectingPath(Line2D line, Path2D path) {
+        PathIterator pi = path.getPathIterator(null);
+
+        double[] cords = new double[6];
+        Point2D.Double lastPoint = null;
+        Point2D.Double firstPoint = null;
+
+        while (!pi.isDone()) {
+            pi.currentSegment(cords);
+            Point2D.Double currentPoint = new Point2D.Double(cords[0], cords[1]);
+
+            if (firstPoint == null) {
+                firstPoint = currentPoint;
+            }
+
+            if (lastPoint != null) {
+                Line2D.Double edge = new Line2D.Double(lastPoint, currentPoint);
+
+                if (line.intersectsLine(edge)) {
+                    return true;
+                }
+            }
+            lastPoint = currentPoint;
+            pi.next();
+        }
+        if (lastPoint != null && !lastPoint.equals(firstPoint)) {
+            Line2D.Double closingEdge = new Line2D.Double(lastPoint, firstPoint);
+
+            return line.intersectsLine(closingEdge);
+        }
+        return false;
+    }
+
+    public void updateHitbox(float deltaTimeSeconds) {
+        if (!isMoving || currentDestination == null) {
+            return;
+        }
+
+        double dirX = currentDestination.getX() - location.getX();
+        double dirY = currentDestination.getY() - location.getY();
+
+        double distanceToDest = location.distance(currentDestination);
+
+        float speed = (float) getPlayerStat("speed");
+
+        double distanceThisTick = speed * deltaTimeSeconds;
+
+        if (distanceToDest <= distanceThisTick) {
+            setLocation(currentDestination);
+            isMoving = false;
+            currentDestination = null;
+
+            Console.debugLog("Actor " + this + " reached destination " + location);
+        } else {
+            double normalizedDirX = dirX / distanceToDest;
+            double normalizedDirY = dirY / distanceToDest;
+
+            float newX = (float) (location.getX() + normalizedDirX * distanceThisTick);
+            float newY = (float) (location.getY() + normalizedDirY * distanceThisTick);
+
+            Point2D newLocation = new Point2D.Float(newX, newY);
+            setLocation(newLocation);
+        }
     }
 
     public void move(Point2D destination) {
