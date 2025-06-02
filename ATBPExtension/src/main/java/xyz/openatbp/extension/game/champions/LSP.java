@@ -306,10 +306,9 @@ public class LSP extends UserActor {
 
     public class LSPUltProjectile extends Projectile {
 
-        private List<Actor> victims;
+        private final List<Actor> victims;
         private double damageReduction = 0d;
         private double healReduction = 0d;
-        ArrayList<Actor> affectedActors = new ArrayList<>();
 
         public LSPUltProjectile(
                 ATBPExtension parentExt,
@@ -319,21 +318,22 @@ public class LSP extends UserActor {
                 float hitboxRadius,
                 String id) {
             super(parentExt, owner, path, speed, hitboxRadius, id);
-            this.victims = new ArrayList<>();
+
+            victims = new ArrayList<>();
         }
 
         @Override
         protected void hit(Actor victim) {
-            this.victims.add(victim);
+
             JsonNode spellData = this.parentExt.getAttackData(LSP.this.avatar, "spell3");
-            if (victim.getTeam() == LSP.this.team && !affectedActors.contains(victim)) {
+            if (victim.getTeam() == LSP.this.team && !victims.contains(victim)) {
 
                 int healValue = (int) (getSpellDamage(spellData, false) * (1 - healReduction));
                 victim.changeHealth(healValue);
                 healReduction += 0.3d;
                 if (healReduction > 0.7d) healReduction = 0.7d;
 
-            } else if (!affectedActors.contains(victim)) {
+            } else if (!victims.contains(victim)) {
 
                 double damage = getSpellDamage(spellData, true) * (1 - damageReduction);
                 victim.addToDamageQueue(LSP.this, damage, spellData, false);
@@ -341,8 +341,8 @@ public class LSP extends UserActor {
                 if (damageReduction > 0.7d) damageReduction = 0.7d;
             }
 
-            if (!affectedActors.contains(victim)) {
-                affectedActors.add(victim);
+            if (!victims.contains(victim)) {
+                victims.add(victim);
             }
         }
 

@@ -13,6 +13,7 @@ import com.smartfoxserver.v2.SmartFoxServer;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
+import com.smartfoxserver.v2.util.TaskScheduler;
 
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.ActorState;
@@ -22,7 +23,7 @@ import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.champions.Fionna;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
-import xyz.openatbp.extension.pathfinding.MovementManager;
+import xyz.openatbp.extension.movement.MovementManager;
 
 public class UserActor extends Actor {
     protected static final int DEMON_SWORD_AD_BUFF = 15;
@@ -53,6 +54,7 @@ public class UserActor extends Actor {
     protected static final float DC_SPEED_BUFF = 1.15f;
     protected static final float DC_PD_BUFF = 1.2f;
     public static final int HP_DURATION = 60000;
+    public static final int NEW_AUTO_TARGET_CD = 2000;
 
     protected User player;
     protected boolean autoAttackEnabled = false;
@@ -114,6 +116,8 @@ public class UserActor extends Actor {
     protected Long lastZeldronBuff = 0L;
     protected Long lastRoboEffect = 0L;
     protected HashMap<UserActor, Integer> simonGlassesBuffProviders = new HashMap<>(2);
+
+    protected Point2D queuedMovementDestination = null;
 
     // TODO: Add all stats into UserActor object instead of User Variables
     public UserActor(User u, ATBPExtension parentExt) {
@@ -294,6 +298,20 @@ public class UserActor extends Actor {
 
     public boolean getIsAutoAttacking() {
         return isAutoAttacking;
+    }
+
+    public void queueMovement(Point2D destination) {
+        this.queuedMovementDestination = destination;
+        Console.debugLog("Movement to: " + destination + " queued");
+    }
+
+    public void processQueueMovement() {
+        if (this.queuedMovementDestination != null) {
+            Point2D dest = this.queuedMovementDestination;
+            this.queuedMovementDestination = null;
+
+            MovementManager.handleMovementRequest(parentExt, this, dest);
+        }
     }
 
     public void move(ISFSObject params, Point2D destination) {
@@ -529,10 +547,16 @@ public class UserActor extends Actor {
     public void applyStopMovingDuringAttack() {
         if (parentExt.getActorData(getAvatar()).has("attackType")) {
             preventStealth();
-            stopMoving();
+            clearMovement();
             isAutoAttacking = true;
-            Runnable resetIsAttacking = () -> isAutoAttacking = false;
-            scheduleTask(resetIsAttacking, BASIC_ATTACK_DELAY);
+
+            Runnable resetFlagAndProcessQueue =
+                    () -> {
+                        isAutoAttacking = false;
+                        processQueueMovement();
+                    };
+
+            scheduleTask(resetFlagAndProcessQueue, BASIC_ATTACK_DELAY);
         }
     }
 
@@ -602,7 +626,7 @@ public class UserActor extends Actor {
     }
 
     public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
-        isDashingOrLeaping = true;
+        /*isDashingOrLeaping = true;
         Point2D dashPoint = MovementManager.getDashPoint(this, new Line2D.Float(location, dest));
         if (dashPoint == null) dashPoint = location;
         if (movementDebug)
@@ -627,7 +651,8 @@ public class UserActor extends Actor {
                 parentExt, room, id, location, dashPoint, (float) dashSpeed, true);
         setLocation(dashPoint);
         target = null;
-        return dashPoint;
+        return dashPoint;*/
+        return new Point2D.Float(0, 0);
     }
 
     public void dash(Point2D dest, double dashSpeed) {
@@ -926,6 +951,7 @@ public class UserActor extends Actor {
     public void update(int msRan) {
         handleDamageQueue();
         handleActiveEffects();
+
         if (dead) {
             if (currentHealth > 0 && System.currentTimeMillis() > timeKilled + (deathTime * 1500L))
                 respawn();
@@ -934,7 +960,7 @@ public class UserActor extends Actor {
 
         if (isMoving) {
             float SERVER_TICK_SECONDS = 0.1f;
-            updateHitbox(SERVER_TICK_SECONDS);
+            MovementManager.updateHitbox(this, SERVER_TICK_SECONDS);
         }
 
         if (movementDebug) {
@@ -943,10 +969,11 @@ public class UserActor extends Actor {
         }
 
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
+        long currentTime = System.currentTimeMillis();
 
         handleSimonGlasses(rh);
         handleBattleMoon();
-        handleGrobDevice();
+        handleGrobDevice(currentTime);
         handleFlameCloak();
 
         if (hits > 0) {
@@ -957,62 +984,45 @@ public class UserActor extends Actor {
             idleTime += 100;
         }
 
-        handleBrush(rh);
+        handleBrush(rh, currentTime);
 
         if (attackCooldown > 0) reduceAttackCooldown();
-        if (target != null && invisOrInBrush(target)) target = null;
+
+        if (target != null && (invisOrInBrush(target) || target.getHealth() <= 0)) {
+            target = null;
+        }
+
         if (target != null && target.getHealth() > 0) {
+
             if (withinRange(target) && canAttack()) {
                 autoAttack(target);
+
             } else if (!withinRange(target) && canMove() && !isAutoAttacking) {
-                if (!isPointAtEndOfPath(
-                        target.getLocation())) { // I put this here so it does not spam movement
-                    // commands if their target hasn't moved
-                    moveWithCollision(target.getLocation());
-                }
-            }
-        } else {
-            if (target != null) {
-                if (target.getHealth() <= 0) {
-                    target = null;
-                }
-            } else if (autoAttackEnabled
-                    && System.currentTimeMillis() - lastAutoTargetTime > 2000
-                    && idleTime > 500) {
-                Actor closestTarget = null;
-                double closestDistance = 1000;
-                int aggroRange = parentExt.getActorStats(avatar).get("aggroRange").asInt();
-                for (Actor a : Champion.getActorsInRadius(rh, location, aggroRange)) {
-                    if (a.getTeam() != team
-                            && a.getLocation().distance(location) < closestDistance) {
-                        closestDistance = a.getLocation().distance(location);
-                        closestTarget = a;
-                    }
-                }
-                idleTime = 0;
-                target = closestTarget;
-                lastAutoTargetTime = System.currentTimeMillis();
+                MovementManager.handleMovementRequest(parentExt, this, target.getLocation());
             }
         }
+
+        handleAutoTarget(rh, currentTime);
+
         if (msRan % 1000 == 0) {
 
             handleFlameCloakDamage(rh);
-            handleRoboSuit();
-            handleFightKingDecay();
-            handleCosmicGauntletDecay();
+            handleRoboSuit(currentTime);
+            handleFightKingDecay(currentTime);
+            handleCosmicGauntletDecay(currentTime);
 
             if (canRegenHealth()) {
                 regenHealth();
             }
 
-            handleHealthPackEffectRemoval();
+            handleHealthPackEffectRemoval(currentTime);
 
             int newDeath = 10 + ((msRan / 1000) / 60);
             if (newDeath != deathTime) deathTime = newDeath;
             List<Actor> actorsToRemove = new ArrayList<>(aggressors.size());
             for (Actor a : aggressors.keySet()) {
                 ISFSObject damageData = aggressors.get(a);
-                if (System.currentTimeMillis() > damageData.getLong("lastAttacked") + 5000) {
+                if (currentTime > damageData.getLong("lastAttacked") + 5000) {
                     actorsToRemove.add(a);
                 }
             }
@@ -1021,7 +1031,7 @@ public class UserActor extends Actor {
                 aggressors.remove(a);
             }
 
-            handleUpdateMultiKill();
+            handleUpdateMultiKill(currentTime);
 
             if (hasTempStat("healthRegen")) {
                 if (currentHealth == maxHealth) {
@@ -1031,10 +1041,10 @@ public class UserActor extends Actor {
         }
         if (changeTowerAggro && !isInTowerRadius(this, false)) changeTowerAggro = false;
 
-        if (hasKeeothBuff && System.currentTimeMillis() - keeothBuffStartTime >= 90000) {
+        if (hasKeeothBuff && currentTime - keeothBuffStartTime >= 90000) {
             disableKeeothBuff();
         }
-        if (hasGooBuff && System.currentTimeMillis() - gooBuffStartTime >= 90000) {
+        if (hasGooBuff && currentTime - gooBuffStartTime >= 90000) {
             disableGooBuff();
         }
         if (getState(ActorState.CHARMED) && charmer != null) {
@@ -1118,10 +1128,10 @@ public class UserActor extends Actor {
         }
     }
 
-    private void handleGrobDevice() {
+    private void handleGrobDevice(long currentTime) {
         if (!spellShieldActive
                 && ChampionData.getJunkLevel(this, "junk_4_grob_gob_glob_grod") > 0
-                && System.currentTimeMillis() > spellShieldCooldown) {
+                && currentTime > spellShieldCooldown) {
             spellShieldActive = true;
             ExtensionCommands.createActorFX(
                     parentExt,
@@ -1179,9 +1189,9 @@ public class UserActor extends Actor {
         }
     }
 
-    private void handleRoboSuit() {
+    private void handleRoboSuit(long currentTime) {
         if (ChampionData.getJunkLevel(this, "junk_3_robo_suit") > 0) {
-            boolean ready = System.currentTimeMillis() - lastRoboEffect >= ROBO_CD;
+            boolean ready = currentTime - lastRoboEffect >= ROBO_CD;
 
             if (roboStacks < 3 && ready) {
                 roboStacks++;
@@ -1204,11 +1214,10 @@ public class UserActor extends Actor {
         }
     }
 
-    private void handleFightKingDecay() {
+    private void handleFightKingDecay(long currentTime) {
         double fightKingDecay = ChampionData.getCustomJunkStat(this, "junk_1_fight_king_sword");
 
         if (fightKingDecay != -1) {
-            long currentTime = System.currentTimeMillis();
             boolean effectEnd = currentTime - lastAuto >= fightKingDecay;
 
             if (fightKingStacks > 0 && effectEnd) {
@@ -1217,18 +1226,17 @@ public class UserActor extends Actor {
         }
     }
 
-    private void handleCosmicGauntletDecay() {
+    private void handleCosmicGauntletDecay(long currentTime) {
         String item = "junk_2_cosmic_gauntlet";
 
         double cosmicGauntletDecay = ChampionData.getCustomJunkStat(this, item);
-        long currentTime = System.currentTimeMillis();
 
         if (cosmicGauntletDecay != -1 && currentTime - lastSpell >= cosmicGauntletDecay) {
             resetCosmicStacks();
         }
     }
 
-    private void handleBrush(RoomHandler rh) {
+    private void handleBrush(RoomHandler rh, long currentTime) {
         boolean insideBrush = false;
         boolean isPracticeMap = rh.isPracticeMap();
         ArrayList<Path2D> brushPaths = parentExt.getBrushPaths(isPracticeMap);
@@ -1246,9 +1254,8 @@ public class UserActor extends Actor {
                 ExtensionCommands.changeBrush(
                         parentExt, room, id, parentExt.getBrushNum(location, brushPaths));
                 setState(ActorState.BRUSH, true);
-                if (stealthEmbargo <= System.currentTimeMillis())
-                    setState(ActorState.REVEALED, false);
-            } else if (stealthEmbargo != -1 && stealthEmbargo <= System.currentTimeMillis()) {
+                if (stealthEmbargo <= currentTime) setState(ActorState.REVEALED, false);
+            } else if (stealthEmbargo != -1 && stealthEmbargo <= currentTime) {
                 setState(ActorState.REVEALED, false);
                 stealthEmbargo = -1;
             }
@@ -1273,8 +1280,8 @@ public class UserActor extends Actor {
         changeHealth((int) healthRegen);
     }
 
-    private void handleHealthPackEffectRemoval() {
-        if (hpPickup && System.currentTimeMillis() - healthPackPickUpTime >= HP_DURATION) {
+    private void handleHealthPackEffectRemoval(long currentTime) {
+        if (hpPickup && currentTime - healthPackPickUpTime >= HP_DURATION) {
             hpPickup = false;
             updateStatMenu("healthRegen");
         }
@@ -1290,8 +1297,8 @@ public class UserActor extends Actor {
         updateStatMenu("healthRegen");
     }
 
-    private void handleUpdateMultiKill() {
-        if (System.currentTimeMillis() - lastKilled >= 10000) {
+    private void handleUpdateMultiKill(long currentTime) {
+        if (currentTime - lastKilled >= 10000) {
             if (multiKill != 0) {
                 if (hasGameStat("largestMulti")) {
                     double largestMulti = getGameStat("largestMulti");
@@ -1301,6 +1308,28 @@ public class UserActor extends Actor {
                 }
                 multiKill = 0;
             }
+        }
+    }
+
+    private void handleAutoTarget(RoomHandler rh, long currentTime) {
+        boolean timeElapsed = currentTime - lastAutoTargetTime >= NEW_AUTO_TARGET_CD;
+
+        if (autoAttackEnabled && timeElapsed && idleTime > 500) {
+            Actor closestTarget = null;
+            double closestDistance = 1000;
+
+            int aggroRange = parentExt.getActorStats(avatar).get("aggroRange").asInt();
+
+            for (Actor a : Champion.getActorsInRadius(rh, location, aggroRange)) {
+
+                if (a.getTeam() != team && a.getLocation().distance(location) < closestDistance) {
+                    closestDistance = a.getLocation().distance(location);
+                    closestTarget = a;
+                }
+            }
+            idleTime = 0;
+            target = closestTarget;
+            lastAutoTargetTime = currentTime;
         }
     }
 
@@ -1490,9 +1519,8 @@ public class UserActor extends Actor {
         stopMoving();
         canMove = false;
         if (delay > 0) {
-            parentExt
-                    .getTaskScheduler()
-                    .schedule(new MovementStopper(true), delay, TimeUnit.MILLISECONDS);
+            TaskScheduler scheduler = parentExt.getTaskScheduler();
+            scheduler.schedule(new MovementStopper(true), delay, TimeUnit.MILLISECONDS);
         } else canMove = true;
     }
 

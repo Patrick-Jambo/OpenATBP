@@ -104,10 +104,6 @@ public abstract class RoomHandler implements Runnable {
         }
         this.campMonsters = new ArrayList<>();
 
-        ArrayList<Vector<Float>>[] colliders = parentExt.getColliders("main");
-        boolean practiceMap = GameManager.isPracticeMap(room.getGroupId());
-        this.obstaclePaths = parentExt.getObstacles(colliders, practiceMap);
-
         TaskScheduler scheduler = parentExt.getTaskScheduler();
         scriptHandler = scheduler.scheduleAtFixedRate(this, 100, 100, TimeUnit.MILLISECONDS);
     }

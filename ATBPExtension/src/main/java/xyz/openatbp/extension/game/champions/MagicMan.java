@@ -12,7 +12,6 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class MagicMan extends UserActor {
 
@@ -212,9 +211,7 @@ public class MagicMan extends UserActor {
                     this.wUses++;
                     unveil();
                     if (this.wUses == 1) {
-                        Point2D dashPoint =
-                                MovementManager.getDashPoint(
-                                        this, new Line2D.Float(this.location, dest));
+                        Point2D dashPoint = new Point2D.Float(0, 0);
                         if (Double.isNaN(dashPoint.getY())) dashPoint = this.location;
                         this.addState(ActorState.INVISIBLE, 0d, W_STEALTH_DURATION);
                         this.wLocation =
@@ -524,11 +521,7 @@ public class MagicMan extends UserActor {
             this.handleDamageQueue();
             if (this.dead) return;
             this.timeTraveled += 0.1d;
-            this.location =
-                    MovementManager.getRelativePoint(
-                            this.movementLine,
-                            (float) MagicMan.this.getPlayerStat("speed"),
-                            this.timeTraveled);
+            this.location = new Point2D.Float(0, 0);
             this.handlePathing();
         }
 

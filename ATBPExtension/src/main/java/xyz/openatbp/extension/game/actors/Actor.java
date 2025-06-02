@@ -1,8 +1,6 @@
 package xyz.openatbp.extension.game.actors;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
-import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.util.*;
 
@@ -15,7 +13,6 @@ import com.smartfoxserver.v2.entities.data.SFSObject;
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.IceKing;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public abstract class Actor {
     protected static final float KNOCKBACK_SPEED = 11;
@@ -53,12 +50,14 @@ public abstract class Actor {
     protected boolean towerAggroCompanion = false;
     protected Map<String, EffectHandler> effectHandlers = new HashMap<>();
     protected Map<String, FxHandler> fxHandlers = new HashMap<>();
-    protected UserActor charmer;
     protected long lastHitElectrodeGun = -1;
+
+    protected UserActor charmer;
     protected Point2D currentDestination;
     protected boolean isMoving;
     protected boolean isDashingOrLeaping = false;
     protected boolean isAutoAttacking = false;
+    protected LinkedList<Point2D> movementPath;
 
     public double getPHealth() {
         return currentHealth / maxHealth;
@@ -105,11 +104,82 @@ public abstract class Actor {
         this.attackCooldown -= 100;
     }
 
+    public boolean getIsMoving() {
+        return this.isMoving;
+    }
+
+    public void setIsMoving(boolean isMoving) {
+        this.isMoving = isMoving;
+    }
+
+    public Point2D getCurrentDestination() {
+        return this.currentDestination;
+    }
+
+    public void setCurrentDestination(Point2D dest) {
+        this.currentDestination = dest;
+    }
+
+    public boolean hasPath() {
+        return this.movementPath != null && !this.movementPath.isEmpty();
+    }
+
+    public void setPath(List<Point2D> path) {
+        if (path == null || path.isEmpty()) {
+            clearMovement();
+            return;
+        }
+        this.movementPath = new LinkedList<>(path);
+        setNextPathSegment();
+    }
+
+    public void setSingleDestination(Point2D destination) {
+        this.movementPath = null; // Wyczyść ścieżkę, jeśli była
+        this.currentDestination = destination;
+        this.isMoving = true; // Załóż, że zawsze chcemy się ruszyć
+
+        // Wysyłanie komendy do klienta może być tutaj
+        float speed = (float) getPlayerStat("speed");
+        ExtensionCommands.moveActor(
+                parentExt, room, id, location, currentDestination, speed, true);
+    }
+
+    private void setNextPathSegment() {
+        if (movementPath != null && !movementPath.isEmpty()) {
+            this.currentDestination = this.movementPath.poll(); // Pobierz i usuń pierwszy
+            this.isMoving = true;
+
+            // Poinformuj klienta o ruchu do następnego punktu na ścieżce
+            float speed = (float) getPlayerStat("speed");
+            ExtensionCommands.moveActor(
+                    parentExt, room, id, location, this.currentDestination, speed, true);
+            Console.debugLog(
+                    "Actor " + id + " moving to next path segment: " + this.currentDestination);
+        } else {
+            // Dotarliśmy do końca ścieżki
+            clearMovement();
+            Console.debugLog("Actor " + id + " reached end of path.");
+            // Tutaj logika po zakończeniu całego ruchu po ścieżce
+        }
+    }
+
+    public void clearMovement() {
+        this.currentDestination = null;
+        this.isMoving = false;
+        this.movementPath = null;
+        // Możesz chcieć wysłać komendę stop do klienta, jeśli była jakaś animacja
+    }
+
+    public void advancePath() { // Nowa publiczna metoda
+        setNextPathSegment();
+    }
+
     public boolean withinRange(Actor a) {
-        if (a.getActorType() == ActorType.BASE)
-            return a.getLocation().distance(this.location) - 1.5f
-                    <= this.getPlayerStat("attackRange");
-        return a.getLocation().distance(this.location) <= this.getPlayerStat("attackRange");
+        double range = getPlayerStat("attackRange");
+        if (a.getActorType() == ActorType.BASE) {
+            return a.getLocation().distance(location) - 1.5f <= range;
+        }
+        return a.getLocation().distance(location) <= range;
     }
 
     public void stopMoving() {
@@ -145,112 +215,6 @@ public abstract class Actor {
         return this.stats.get(stat);
     }
 
-    public void handleMovementRequest(Point2D destination) {
-        if (location.equals(destination)) return;
-
-        RoomHandler rh = parentExt.getRoomHandler(room.getName());
-        ArrayList<Path2D> mainMapObstaclePaths = rh.getObstaclePaths();
-
-        if (!pathFindingNeeded(mainMapObstaclePaths, destination)) {
-            currentDestination = destination;
-            isMoving = true;
-            float speed = (float) getPlayerStat("speed");
-
-            ExtensionCommands.moveActor(parentExt, room, id, location, destination, speed, true);
-        } else {
-            // Path Finding implementation
-        }
-    }
-
-    public boolean pathFindingNeeded(ArrayList<Path2D> mainMapObstaclePaths, Point2D destination) {
-        for (Path2D obstaclePath : mainMapObstaclePaths) {
-            if (obstaclePath.contains(destination)) {
-                Console.debugLog("DESTINATION POINT CONTAINED WITHIN MAP OBSTACLE!");
-                return true;
-            }
-        }
-
-        if (location.equals(destination)) {
-            return false;
-        }
-
-        Line2D.Float movementLine = new Line2D.Float(location, destination);
-
-        for (Path2D obstaclePath : mainMapObstaclePaths) {
-            if (isLineIntersectingPath(movementLine, obstaclePath)) {
-                Console.debugLog(
-                        "MOVEMENT LINE " + "INTERSECTS WITH " + obstaclePath.getBounds2D());
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isLineIntersectingPath(Line2D line, Path2D path) {
-        PathIterator pi = path.getPathIterator(null);
-
-        double[] cords = new double[6];
-        Point2D.Double lastPoint = null;
-        Point2D.Double firstPoint = null;
-
-        while (!pi.isDone()) {
-            pi.currentSegment(cords);
-            Point2D.Double currentPoint = new Point2D.Double(cords[0], cords[1]);
-
-            if (firstPoint == null) {
-                firstPoint = currentPoint;
-            }
-
-            if (lastPoint != null) {
-                Line2D.Double edge = new Line2D.Double(lastPoint, currentPoint);
-
-                if (line.intersectsLine(edge)) {
-                    return true;
-                }
-            }
-            lastPoint = currentPoint;
-            pi.next();
-        }
-        if (lastPoint != null && !lastPoint.equals(firstPoint)) {
-            Line2D.Double closingEdge = new Line2D.Double(lastPoint, firstPoint);
-
-            return line.intersectsLine(closingEdge);
-        }
-        return false;
-    }
-
-    public void updateHitbox(float deltaTimeSeconds) {
-        if (!isMoving || currentDestination == null) {
-            return;
-        }
-
-        double dirX = currentDestination.getX() - location.getX();
-        double dirY = currentDestination.getY() - location.getY();
-
-        double distanceToDest = location.distance(currentDestination);
-
-        float speed = (float) getPlayerStat("speed");
-
-        double distanceThisTick = speed * deltaTimeSeconds;
-
-        if (distanceToDest <= distanceThisTick) {
-            setLocation(currentDestination);
-            isMoving = false;
-            currentDestination = null;
-
-            Console.debugLog("Actor " + this + " reached destination " + location);
-        } else {
-            double normalizedDirX = dirX / distanceToDest;
-            double normalizedDirY = dirY / distanceToDest;
-
-            float newX = (float) (location.getX() + normalizedDirX * distanceThisTick);
-            float newY = (float) (location.getY() + normalizedDirY * distanceThisTick);
-
-            Point2D newLocation = new Point2D.Float(newX, newY);
-            setLocation(newLocation);
-        }
-    }
-
     public void move(Point2D destination) {
         if (!this.canMove()) {
             return;
@@ -272,7 +236,7 @@ public abstract class Actor {
     }
 
     public void moveWithCollision(Point2D dest) {
-        List<Point2D> path = new ArrayList<>();
+        /*List<Point2D> path = new ArrayList<>();
         try {
             path =
                     MovementManager.getPath(
@@ -294,29 +258,12 @@ public abstract class Actor {
             if (newPoint != null) {
                 this.move(newPoint);
             } else this.move(dest);
-        }
+        }*/
     }
 
     public boolean isPointAtEndOfPath(Point2D point) {
         if (this.path != null) return point.distance(this.path.get(this.path.size() - 1)) <= 0.5d;
         else return point.distance(this.movementLine.getP2()) <= 0.5d;
-    }
-
-    public void setPath(List<Point2D> path) {
-        if (path.size() == 0) {
-            this.path = null;
-            return;
-        }
-        Line2D pathLine = new Line2D.Float(this.location, path.get(1));
-        Point2D dest =
-                MovementManager.getPathIntersectionPoint(
-                        parentExt,
-                        this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap(),
-                        pathLine);
-        if (dest == null) dest = path.get(1);
-        this.path = path;
-        this.pathIndex = 1;
-        this.move(dest);
     }
 
     public void clearPath() {
@@ -392,7 +339,7 @@ public abstract class Actor {
     }
 
     public void handleCharm(UserActor charmer, int duration) {
-        if (!this.states.get(ActorState.CHARMED)
+        /*if (!this.states.get(ActorState.CHARMED)
                 && !this.states.get(ActorState.IMMUNITY)
                 && !this.getId().contains("turret")
                 && !this.getId().contains("decoy")) {
@@ -404,7 +351,7 @@ public abstract class Actor {
             this.timeTraveled = 0f;
             if (this.canMove()) this.moveWithCollision(this.movementLine.getP2());
             this.addState(ActorState.CHARMED, 0d, duration);
-        }
+        }*/
     }
 
     public void moveTowardsCharmer(UserActor charmer) {
@@ -872,7 +819,7 @@ public abstract class Actor {
     }
 
     public void knockback(Point2D source, float distance) {
-        this.stopMoving();
+        /*this.stopMoving();
         boolean isPracticeMap = this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap();
         Line2D originalLine = new Line2D.Double(source, this.location);
         if (MovementManager.insideAnyObstacle(this.parentExt, isPracticeMap, source)) {
@@ -901,7 +848,7 @@ public abstract class Actor {
                 finalLine.getP2(),
                 KNOCKBACK_SPEED,
                 false);
-        this.setLocation(finalLine.getP2());
+        this.setLocation(finalLine.getP2());*/
     }
 
     public void handlePathing() {
@@ -925,7 +872,7 @@ public abstract class Actor {
     }
 
     public void handlePull(Point2D source, double pullDistance) {
-        this.stopMoving();
+        /*this.stopMoving();
         double distance = this.location.distance(source);
         if (distance < pullDistance) pullDistance = distance;
         Line2D pullingLine = Champion.getAbilityLine(this.location, source, (float) pullDistance);
@@ -942,7 +889,7 @@ public abstract class Actor {
                 pullDestination,
                 (float) speed,
                 true);
-        this.setLocation(pullDestination);
+        this.setLocation(pullDestination);*/
     }
 
     public String getPortrait() {

@@ -16,7 +16,6 @@ import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class ChooseGoose extends UserActor {
     private static final int PASSIVE_COOLDOWN = 20000;
@@ -349,9 +348,7 @@ public class ChooseGoose extends UserActor {
                             enemyLocation.getX() + (randomDistance * Math.cos(randomAngle)),
                             enemyLocation.getY() + (randomDistance * Math.sin(randomAngle)));
 
-            Point2D chestPoint =
-                    MovementManager.getDashPoint(
-                            enemy, new Line2D.Float(enemyLocation, randomLocation));
+            Point2D chestPoint = new Point2D.Float(0, 0);
 
             chest = new Chest(chestPoint, getOppositeTeam());
             RoomHandler handler = parentExt.getRoomHandler(room.getName());

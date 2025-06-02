@@ -46,33 +46,60 @@ public class Billy extends UserActor {
 
     public Billy(User u, ATBPExtension parentExt) {
         super(u, parentExt);
-        /*ArrayList<Vector<Float>>[] mainColliders = parentExt.getColliders("main");
-        for (ArrayList<Vector<Float>> currentColliderList : mainColliders) {
-            for (Vector<Float> currentVertex : currentColliderList) {
-                Console.debugLog("current vertex: " + currentVertex);
+        setStat("spellDamage", 10000);
+        // ArrayList<Vector<Float>>[] mainColliders = parentExt.getColliders("main");
 
-                float xCord = currentVertex.get(0);
-                float yCord = currentVertex.get(1);
+        // 2, 4, 7, 21
 
-                ExtensionCommands.createWorldFX(
-                        parentExt,
-                        room,
-                        id,
-                        "skully",
-                        String.valueOf(Math.random()),
-                        1000 * 60 * 15,
-                        xCord,
-                        yCord,
-                        false,
-                        team,
-                        0f);
-            }
+        // looks like there are 2 arrays for the same hole? index 14 and x
+
+        // ArrayList<Vector<Float>> firstCollider = mainColliders[24];
+
+        // Console.debugLog(firstCollider);
+
+        /*for (Vector<Float> vertex : firstCollider) {
+            float x = vertex.get(0);
+            float z = vertex.get(1);
+
+            ExtensionCommands.createWorldFX(
+                    parentExt,
+                    room,
+                    id,
+                    "tut_arrow1",
+                    String.valueOf(Math.random()),
+                    1000 * 60 * 15,
+                    x,
+                    z,
+                    false,
+                    team,
+                    0f);
+        }*/
+
+        /*ArrayList<Vector<Float>> mapBoundaries = parentExt.getMapBoundariesVertices(false);
+
+        for (Vector<Float> vertex : mapBoundaries) {
+            float x = vertex.get(0);
+            float z = vertex.get(1);
+
+            ExtensionCommands.createWorldFX(
+                    parentExt,
+                    room,
+                    id,
+                    "tut_arrow1",
+                    String.valueOf(Math.random()),
+                    1000 * 60 * 15,
+                    x,
+                    z,
+                    false,
+                    team,
+                    0f);
         }*/
     }
 
     @Override
     public void update(int msRan) {
         super.update(msRan);
+
         if (this.ultLocation != null
                 && System.currentTimeMillis() - this.ultStartTime < E_EMP_DURATION
                 && System.currentTimeMillis() - this.lastUltTick >= 200) {

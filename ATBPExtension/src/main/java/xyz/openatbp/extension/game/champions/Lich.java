@@ -12,7 +12,6 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class Lich extends UserActor {
     private static final int PASSIVE_DURATION = 20000;
@@ -281,9 +280,7 @@ public class Lich extends UserActor {
                     if (eLocation != null) {
                         ExtensionCommands.actorAnimate(
                                 this.parentExt, this.room, this.id, "idle", 100, false);
-                        Point2D teleportLocation =
-                                MovementManager.getDashPoint(
-                                        this, new Line2D.Float(location, eLocation));
+                        Point2D teleportLocation = new Point2D.Float(0, 0);
                         ExtensionCommands.snapActor(
                                 parentExt, room, this.id, location, teleportLocation, false);
                         this.setLocation(teleportLocation);
@@ -501,9 +498,7 @@ public class Lich extends UserActor {
             }
             if (this.attackCooldown > 0) this.attackCooldown -= 100;
             if (!this.isStopped() && this.canMove()) this.timeTraveled += 0.1f;
-            this.location =
-                    MovementManager.getRelativePoint(
-                            this.movementLine, this.getPlayerStat("speed"), this.timeTraveled);
+            this.location = new Point2D.Float(0, 0);
             this.handlePathing();
             if (movementDebug)
                 ExtensionCommands.moveActor(

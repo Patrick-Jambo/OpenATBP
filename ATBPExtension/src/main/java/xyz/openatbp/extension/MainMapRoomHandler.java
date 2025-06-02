@@ -51,7 +51,7 @@ public class MainMapRoomHandler extends RoomHandler {
 
     @Override
     public void handleMinionSpawns() {
-        int minionWave = secondsRan / 30;
+        /*int minionWave = secondsRan / 30;
         if (minionWave != this.currentMinionWave) {
             int minionNum = secondsRan % 10;
             if (minionNum == 4) this.currentMinionWave = minionWave;
@@ -69,7 +69,7 @@ public class MainMapRoomHandler extends RoomHandler {
                     }
                 }
             }
-        }
+        }*/
     }
 
     @Override

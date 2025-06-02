@@ -13,7 +13,6 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class Minion extends Actor {
 
@@ -289,18 +288,18 @@ public class Minion extends Actor {
             if (this.idleTime >= 5000)
                 Console.logWarning(this.id + " has state: " + this.state + " for " + this.idleTime);
         }
-        this.location =
-                MovementManager.getRelativePoint(
-                        this.movementLine, this.getSpeed(), this.timeTraveled);
+        /*this.location =
+        MovementManager.getRelativePoint(
+                this.movementLine, this.getSpeed(), this.timeTraveled);*/
         this.handlePathing();
         Minion conflictingMinion = this.isInsideMinion();
         if (conflictingMinion != null && this.state != State.ATTACKING && this.target != null) {
             Line2D line = new Line2D.Float(conflictingMinion.getLocation(), this.location);
-            Line2D extendedLine = MovementManager.extendLine(line, 10f);
+            /*Line2D extendedLine = MovementManager.extendLine(line, 10f);
             Point2D snapLocation = extendedLine.getP2();
             Point2D finalLocation =
-                    MovementManager.getStoppingPoint(snapLocation, this.target.getLocation(), 0.5f);
-            if (!this.withinRange(this.target)) this.moveWithCollision(finalLocation);
+                    MovementManager.getStoppingPoint(snapLocation, this.target.getLocation(), 0.5f);*/
+            /*if (!this.withinRange(this.target)) this.moveWithCollision(finalLocation);*/
             // if(this.target != null) this.moveTowardsTarget();
         }
         if (this.attackCooldown > 0) this.reduceAttackCooldown();
@@ -633,23 +632,23 @@ public class Minion extends Actor {
             Line2D pastLinePath =
                     new Line2D.Double(
                             this.getPathPoint(pastPathIndex), this.getPathPoint(pathIndex));
-            for (Point2D p : MovementManager.findAllPoints(pastLinePath)) {
+            /*for (Point2D p : MovementManager.findAllPoints(pastLinePath)) {
                 if (p.distance(this.location) < closestDist) {
                     closestPoint = p;
                     closestDist = p.distance(this.location);
                 }
-            }
+            }*/
         }
         if (this.isValidPathIndex(nextPathIndex)) {
             Line2D nextLinePath =
                     new Line2D.Double(
                             this.getPathPoint(pathIndex), this.getPathPoint(nextPathIndex));
-            for (Point2D p : MovementManager.findAllPoints(nextLinePath)) {
+            /*for (Point2D p : MovementManager.findAllPoints(nextLinePath)) {
                 if (p.distance(this.location) < closestDist) {
                     closestPoint = p;
                     closestDist = p.distance(this.location);
                 }
-            }
+            }*/
         }
         this.moveWithCollision(closestPoint);
         this.state = State.MOVING;

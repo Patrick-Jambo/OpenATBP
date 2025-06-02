@@ -21,7 +21,6 @@ import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
 import xyz.openatbp.extension.game.SkinData;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class Bot extends Actor {
     private static final boolean MOVEMENT_DEBUG = false;
@@ -268,9 +267,7 @@ public class Bot extends Actor {
         }
 
         if (!isStopped() && canMove()) timeTraveled += 0.1f;
-        location =
-                MovementManager.getRelativePoint(
-                        movementLine, getPlayerStat("speed"), timeTraveled);
+        location = new Point2D.Float(0, 0);
         handlePathing();
         if (MOVEMENT_DEBUG)
             ExtensionCommands.moveActor(
@@ -553,7 +550,7 @@ public class Bot extends Actor {
         Line2D abilityLine = Champion.getAbilityLine(location, targetLocation, 5f);
         Point2D dest = abilityLine.getP2();
 
-        if (!MovementManager.insideAnyObstacle(parentExt, true, dest)) {
+        /*if (!MovementManager.insideAnyObstacle(parentExt, true, dest)) {
             isDashing = true;
             lastWUse = System.currentTimeMillis();
             Point2D ogLocation = location;
@@ -608,7 +605,7 @@ public class Bot extends Actor {
                     }
                 }
             }
-        }
+        }*/
     }
 
     private boolean canUseE(Actor a) {

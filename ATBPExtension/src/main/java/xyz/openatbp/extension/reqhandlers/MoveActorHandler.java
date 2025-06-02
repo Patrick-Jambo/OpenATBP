@@ -8,6 +8,7 @@ import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.movement.MovementManager;
 
 public class MoveActorHandler extends BaseClientRequestHandler {
     @Override
@@ -43,10 +44,13 @@ public class MoveActorHandler extends BaseClientRequestHandler {
 
             Point2D destination = new Point2D.Float(dx, dz);
 
-            user.handleMovementRequest(destination);
+            MovementManager.handleMovementRequest(parentExt, user, destination);
 
         } else if (user != null && user.getIsAutoAttacking()) {
-            // queue the move
+            float dx = params.getFloat("dest_x");
+            float dz = params.getFloat("dest_z");
+
+            user.queueMovement(new Point2D.Float(dx, dz));
         }
     }
 }

@@ -15,7 +15,6 @@ import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class TutorialBot extends Bot {
     private boolean isAutoAttacking = false;
@@ -135,9 +134,9 @@ public class TutorialBot extends Bot {
         handleActiveEffects();
         if (dead) return;
         if (!this.isStopped() && this.canMove()) this.timeTraveled += 0.1f;
-        this.location =
-                MovementManager.getRelativePoint(
-                        this.movementLine, this.getPlayerStat("speed"), this.timeTraveled);
+        /*this.location =
+        MovementManager.getRelativePoint(
+                this.movementLine, this.getPlayerStat("speed"), this.timeTraveled);*/
 
         if (room.getGroupId().equals("Tutorial")) {
             if (this.attackCooldown > 0) this.attackCooldown -= 100;
