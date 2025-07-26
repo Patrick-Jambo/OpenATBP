@@ -140,8 +140,7 @@ public abstract class Actor {
 
         // Wysyłanie komendy do klienta może być tutaj
         float speed = (float) getPlayerStat("speed");
-        ExtensionCommands.moveActor(
-                parentExt, room, id, location, currentDestination, speed, true);
+        ExtensionCommands.moveActor(parentExt, room, id, location, currentDestination, speed, true);
     }
 
     private void setNextPathSegment() {
