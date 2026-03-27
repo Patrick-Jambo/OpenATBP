@@ -1,9 +1,6 @@
 package xyz.openatbp.extension.game.actors;
 
-import static xyz.openatbp.extension.game.actors.UserActor.BASIC_ATTACK_DELAY;
-
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,28 +11,19 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import com.smartfoxserver.v2.entities.Room;
-import com.smartfoxserver.v2.extensions.ExtensionLogLevel;
 
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.SkinData;
 import xyz.openatbp.extension.pathfinding.MovementManager;
 
-public class Bot extends Actor {
+public abstract class Bot extends Actor {
     private static final boolean MOVEMENT_DEBUG = false;
     public static final int CYCLOPS_DURATION = 60000;
-    public static final double PASSIVE_DURATION = 5000;
-    public static final float W_OFFSET_DISTANCE = 1.25f;
-    public static final int DASH_SPEED = 20;
-    public static final int E_SELF_ROOT_DURATION = 1200;
-    public static final int E_DURATION = 5000;
-    public static final int E_ROOT_DURATION = 2000;
     public static final double POLYMORPH_SLOW_VALUE = 0.3d;
     private static final float TOWER_RANGE = 6f;
     private static final Point2D firstPoint = new Point2D.Float(15, 0);
-    private static final int Q_DURATION = 3000;
     private static final double HP_PERCENT_HP_PACK = 0.6;
     private static final double HP_PERCENT_BASE = 0.2;
     private static final double HP_PERCENT_MINIONS = 0.6;
@@ -61,32 +49,35 @@ public class Bot extends Actor {
     private boolean wentToStartPoint = false;
     private boolean pickedUpHealthPack = false;
     private Long healthPackTime = 0L;
-    private Long lastQUse = 0L;
-    private Long lastWUse = 0L;
-    private Long lastEUse = 0L;
-    private boolean qActive = false;
-    private int furyStacks = 0;
-    private Actor furyTarget = null;
-    private Long passiveStart = 0L;
-    private boolean isCastingUlt = false;
-    private boolean ultActivated = false;
-    private Long eStartTime = 0L;
-    private float ultX;
-    private float ultY;
-    private Path2D finnUltRing = null;
-    private Line2D[] wallLines;
-    private boolean[] wallsActivated = {false, false, false, false}; // NORTH, EAST, SOUTH, WEST
+
     private Long lastPolymorphTime = 0L;
     private boolean isPolymorphed = false;
     private UserActor enemy;
     private Long enemyDmgTime = 0L;
     private HashMap<Actor, Long> agressors = new HashMap<>();
 
+    protected static final int BASIC_ATTACK_DELAY = 500;
+    protected int qCooldownMs;
+    protected int wCooldownMs;
+    protected int eCooldownMs;
+
+    protected int qGCooldownMs;
+    protected int wGCooldownMs;
+    protected int eGCooldownMs;
+
+    protected int qCastDelayMS;
+    protected int wCastDelayMS;
+    protected int eCastDelayMS;
+
+    protected Long lastQUse = 0L;
+    protected Long lastWUse = 0L;
+    protected Long lastEUse = 0L;
+
+    protected int globalCooldown = 0;
+
     public Bot(ATBPExtension parentExt, Room room, String avatar, int team, Point2D spawnPoint) {
         this.room = room;
         this.parentExt = parentExt;
-        this.currentHealth = 500;
-        this.maxHealth = 500;
         this.location = spawnPoint;
         this.avatar = avatar;
         this.id = avatar + "_" + team;
@@ -95,7 +86,6 @@ public class Bot extends Actor {
         this.actorType = ActorType.COMPANION;
         this.stats = initializeStats();
         this.spawnPoint = spawnPoint;
-        this.displayName = "FINN BOT";
 
         Runnable create =
                 () ->
@@ -133,16 +123,16 @@ public class Bot extends Actor {
             ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
         }
 
-        if (qActive) {
+        /*if (qActive) {
             handleQDeath();
-        }
+        }*/
 
-        if (furyTarget != null) {
+        /*if (furyTarget != null) {
             ExtensionCommands.removeFx(parentExt, room, furyTarget.getId() + "_mark" + furyStacks);
         }
 
         furyStacks = 0;
-        furyTarget = null;
+        furyTarget = null;*/
 
         if (!getState(ActorState.AIRBORNE)) stopMoving();
         ExtensionCommands.knockOutActor(parentExt, room, id, realKiller.getId(), deathTime);
@@ -159,7 +149,7 @@ public class Bot extends Actor {
         }
     }
 
-    private int getSpellDamage(JsonNode attackData) {
+    protected int getSpellDamage(JsonNode attackData) {
         try {
             double dmg = attackData.get("damage").asDouble();
             double spellDMG = getPlayerStat("spellDamage");
@@ -172,7 +162,7 @@ public class Bot extends Actor {
         }
     }
 
-    private boolean isNonStructure(Actor a) {
+    protected boolean isNonStructureEnemy(Actor a) {
         return (a.getTeam() != team
                 && a.getActorType() != ActorType.BASE
                 && a.getActorType() != ActorType.TOWER);
@@ -201,7 +191,11 @@ public class Bot extends Actor {
         if (a instanceof Tower) {
             lastAttackedByTower = System.currentTimeMillis();
         }
+        handlePolymorph(attackData);
+        return super.damaged(a, damage, attackData);
+    }
 
+    protected void handlePolymorph(JsonNode attackData) {
         if (attackData.has("spellName")
                 && attackData.get("spellName").asText().equals("flame_spell_2_name")) {
             lastPolymorphTime = System.currentTimeMillis();
@@ -246,13 +240,36 @@ public class Bot extends Actor {
                     true,
                     getOppositeTeam());
         }
+    }
 
-        return super.damaged(a, damage, attackData);
+    public boolean timeOk(int ability) {
+        long lastUse;
+        long cd;
+        switch (ability) {
+            case 1:
+                lastUse = lastQUse;
+                cd = qCooldownMs;
+                break;
+            case 2:
+                lastUse = lastWUse;
+                cd = wCooldownMs;
+                break;
+            case 3:
+                lastUse = lastEUse;
+                cd = eCooldownMs;
+                break;
+            default:
+                return false;
+        }
+        return globalCooldown <= 0 && System.currentTimeMillis() - lastUse >= cd;
     }
 
     @Override
     public void update(int msRan) {
         if (dead) return;
+
+        globalCooldown -= msRan;
+        if (globalCooldown <= 0) globalCooldown = 0;
         handleDamageQueue();
         handleActiveEffects();
 
@@ -261,11 +278,6 @@ public class Bot extends Actor {
         }
 
         if (attackCooldown > 0) attackCooldown -= 100;
-
-        if (isPolymorphed && System.currentTimeMillis() - lastPolymorphTime >= POLYMORPH_DURATION) {
-            isPolymorphed = false;
-            ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
-        }
 
         if (!isStopped() && canMove()) timeTraveled += 0.1f;
         location =
@@ -282,10 +294,10 @@ public class Bot extends Actor {
                     (float) getPlayerStat("speed"),
                     false);
 
-        if (qActive && System.currentTimeMillis() - lastQUse >= Q_DURATION) {
+        /*if (qActive && System.currentTimeMillis() - lastQUse >= Q_DURATION) {
             qActive = false;
-        }
-        if (furyStacks > 0) {
+        }*/
+        /*if (furyStacks > 0) {
             if (System.currentTimeMillis() - passiveStart >= PASSIVE_DURATION) {
                 ExtensionCommands.removeFx(
                         parentExt, room, furyTarget.getId() + "_mark" + furyStacks);
@@ -296,16 +308,16 @@ public class Bot extends Actor {
                         parentExt, room, furyTarget.getId() + "_mark" + furyStacks);
                 furyStacks = 0;
             }
-        }
+        }*/
 
-        if (ultActivated && System.currentTimeMillis() - eStartTime >= E_DURATION) {
+        /*if (ultActivated && System.currentTimeMillis() - eStartTime >= E_DURATION) {
             wallLines = null;
             wallsActivated = new boolean[] {false, false, false, false};
             ultActivated = false;
             finnUltRing = null;
-        }
+        }*/
 
-        if (ultActivated && wallLines != null) {
+        /*if (ultActivated && wallLines != null) {
             for (int i = 0; i < wallLines.length; i++) {
                 if (wallsActivated[i]) {
                     RoomHandler handler = parentExt.getRoomHandler(room.getName());
@@ -349,7 +361,7 @@ public class Bot extends Actor {
                     }
                 }
             }
-        }
+        }*/
 
         if (msRan % 1000 == 0) {
             if (!testing) {
@@ -439,20 +451,7 @@ public class Bot extends Actor {
             return;
         }
 
-        for (Actor a : enemyActorsInRadius) {
-            if (a instanceof UserActor) {
-
-                if (shouldAttackTarget(a) && a.getLocation().distance(location) < 5) {
-                    if (canUseW(a)) useW(a);
-                    if (canUseE(a) && a.getHealth() > 0) useE();
-                    // Console.debugLog("Attack Player");
-                    attemptAttack(a);
-                    return;
-                } else {
-                    break;
-                }
-            }
-        }
+        handleAttackActions(enemyActorsInRadius);
 
         if ((topStatus == 10 && botStatus == 10) || !shouldMoveToAltar()) {
             // Console.debugLog("Altars captured or shouldn't move there, do something else");
@@ -504,240 +503,164 @@ public class Bot extends Actor {
         }
     }
 
-    private boolean canUseQ() {
-        int cd = 10000; // constant value for now
-        return System.currentTimeMillis() - lastQUse >= cd
-                && !isDashing
-                && !isCastingUlt
-                && !isPolymorphed;
+    protected void handleSwapFromPoly() {
+        if (isPolymorphed && System.currentTimeMillis() - lastPolymorphTime >= POLYMORPH_DURATION) {
+            isPolymorphed = false;
+            ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
+        }
     }
 
-    private void useQ() {
-        lastQUse = System.currentTimeMillis();
-        attackCooldown = 500;
-        qActive = true;
+    protected void handleAttackActions(List<Actor> enemyActorsInRadius) {
+        if (enemyActorsInRadius.isEmpty()) return;
 
-        addEffect("attackSpeed", getStat("attackSpeed") * -0.2, Q_DURATION);
-        addEffect("armor", getStat("armor") * 0.15, Q_DURATION);
-        ExtensionCommands.createActorFX(
-                parentExt,
-                room,
-                id,
-                "finn_shieldShimmer",
-                Q_DURATION,
-                id + "_shield",
-                true,
-                "Bip001 Pelvis",
-                true,
-                false,
-                team);
+        if (enemyActorsInRadius.size() > 1 && canUseW(enemyActorsInRadius)) {
+            if (enemyActorsInRadius.get(0) != null) {
+                useW(enemyActorsInRadius.get(0).getLocation());
+            }
+        }
 
-        ExtensionCommands.playSound(parentExt, room, id, "sfx_finn_shield", location);
-    }
-
-    private boolean canUseW(Actor target) {
-        if (target == null) return false;
-        int cd = 12000;
-        Point2D tLocation = target.getLocation();
-        boolean tInRange = tLocation.distance(location) < 4;
-
-        return System.currentTimeMillis() - lastWUse >= cd
-                && tInRange
-                && !isCastingUlt
-                && !isPolymorphed;
-    }
-
-    private void useW(Actor target) {
-        if (target == null) return;
-        Point2D targetLocation = target.getLocation();
-        Line2D abilityLine = Champion.getAbilityLine(location, targetLocation, 5f);
-        Point2D dest = abilityLine.getP2();
-
-        if (!MovementManager.insideAnyObstacle(parentExt, true, dest)) {
-            isDashing = true;
-            lastWUse = System.currentTimeMillis();
-            Point2D ogLocation = location;
-            float W_SPELL_RANGE = 5;
-
-            Path2D quadrangle =
-                    Champion.createRectangle(location, dest, W_SPELL_RANGE, W_OFFSET_DISTANCE);
-
-            double time = ogLocation.distance(dest) / DASH_SPEED;
-            int wTime = (int) (time * 1000);
-
-            ExtensionCommands.moveActor(parentExt, room, id, location, dest, DASH_SPEED, true);
-            setLocation(dest);
-
-            ExtensionCommands.actorAnimate(parentExt, room, id, "spell2", wTime - 50, false);
-
-            Runnable endDash =
-                    () -> {
-                        isDashing = false;
-                        ExtensionCommands.actorAnimate(parentExt, room, id, "idle", wTime, false);
-                    };
-            parentExt.getTaskScheduler().schedule(endDash, wTime, TimeUnit.MILLISECONDS);
-
-            ExtensionCommands.createActorFX(
-                    parentExt,
-                    room,
-                    id,
-                    "finn_dash_fx",
-                    wTime,
-                    id + "finnWTrail",
-                    true,
-                    "",
-                    true,
-                    false,
-                    team);
-
-            ExtensionCommands.playSound(parentExt, room, id, "sfx_finn_dash_attack", location);
-
-            RoomHandler handler = parentExt.getRoomHandler(room.getName());
-            JsonNode spellData = parentExt.getAttackData("finn", "spell2");
-
-            List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(team, quadrangle);
-            if (!actorsInPolygon.isEmpty()) {
-                for (Actor a : actorsInPolygon) {
-                    if (isStructure(a)) {
-                        int damage = getSpellDamage(spellData);
-                        a.addToDamageQueue(this, damage, spellData, false);
-                    } else {
-                        int damage = (int) (handlePassive(a, getSpellDamage(spellData)));
-                        a.addToDamageQueue(this, damage, spellData, false);
-                        passiveStart = System.currentTimeMillis();
-                    }
-                }
+        for (Actor a : enemyActorsInRadius) {
+            if (a instanceof UserActor) {
+                if (canUseQ(enemyActorsInRadius)) useQ(a.getLocation());
+                if (canUseW(enemyActorsInRadius)) useW(a.getLocation());
+                if (canUseE(enemyActorsInRadius)) useE(a.getLocation());
+                attemptAttack(a);
             }
         }
     }
 
-    private boolean canUseE(Actor a) {
-        if (a == null) return false;
-        Point2D tLocation = a.getLocation();
-        int cd = 30000;
-        return System.currentTimeMillis() - lastEUse >= cd
-                && tLocation.distance(location) < 3.5
-                && a.getActorType() == ActorType.PLAYER
-                && a.getPHealth() < 0.4
-                && !isPolymorphed;
-    }
+    public abstract boolean canUseQ(List<Actor> enemies);
+    /*int cd = 10000; // constant value for now
+    return System.currentTimeMillis() - lastQUse >= cd
+            && !isDashing
+            && !isCastingUlt
+            && !isPolymorphed;*/
 
-    private void useE() {
-        isCastingUlt = true;
-        lastEUse = System.currentTimeMillis();
-        stopMoving();
-        Runnable enableActions = () -> isCastingUlt = false;
-        parentExt
-                .getTaskScheduler()
-                .schedule(enableActions, E_SELF_ROOT_DURATION, TimeUnit.MILLISECONDS);
+    public abstract void useQ(Point2D destination);
+    /*lastQUse = System.currentTimeMillis();
+    attackCooldown = 500;
+    qActive = true;
 
-        ExtensionCommands.actorAnimate(parentExt, room, id, "spell3", E_SELF_ROOT_DURATION, false);
+    addEffect("attackSpeed", getStat("attackSpeed") * -0.2, Q_DURATION);
+    addEffect("armor", getStat("armor") * 0.15, Q_DURATION);
+    ExtensionCommands.createActorFX(
+            parentExt,
+            room,
+            id,
+            "finn_shieldShimmer",
+            Q_DURATION,
+            id + "_shield",
+            true,
+            "Bip001 Pelvis",
+            true,
+            false,
+            team);
 
-        Runnable cast =
+    ExtensionCommands.playSound(parentExt, room, id, "sfx_finn_shield", location);*/
+
+    public abstract boolean canUseW(List<Actor> enemies);
+    /*if (target == null) return false;
+    int cd = 12000;
+    Point2D tLocation = target.getLocation();
+    boolean tInRange = tLocation.distance(location) < 4;
+
+    return System.currentTimeMillis() - lastWUse >= cd
+            && tInRange
+            && !isCastingUlt
+            && !isPolymorphed;*/
+
+    public abstract void useW(Point2D destination);
+    /*if (target == null) return;
+    Point2D targetLocation = target.getLocation();
+    Line2D abilityLine = Champion.getAbilityLine(location, targetLocation, 5f);
+    Point2D dest = abilityLine.getP2();
+
+    if (!MovementManager.insideAnyObstacle(parentExt, true, dest)) {
+        isDashing = true;
+        lastWUse = System.currentTimeMillis();
+        Point2D ogLocation = location;
+        float W_SPELL_RANGE = 5;
+
+        Path2D quadrangle =
+                Champion.createRectangle(location, dest, W_SPELL_RANGE, W_OFFSET_DISTANCE);
+
+        double time = ogLocation.distance(dest) / DASH_SPEED;
+        int wTime = (int) (time * 1000);
+
+        ExtensionCommands.moveActor(parentExt, room, id, location, dest, DASH_SPEED, true);
+        setLocation(dest);
+
+        ExtensionCommands.actorAnimate(parentExt, room, id, "spell2", wTime - 50, false);
+
+        Runnable endDash =
                 () -> {
-                    try {
-                        ultActivated = true;
-                        eStartTime = System.currentTimeMillis();
-                        double widthHalf = 3.675d;
-                        Point2D p1 =
-                                new Point2D.Double(
-                                        location.getX() - widthHalf, location.getY() + widthHalf);
-                        Point2D p2 =
-                                new Point2D.Double(
-                                        location.getX() + widthHalf, location.getY() + widthHalf);
-                        Point2D p3 =
-                                new Point2D.Double(
-                                        location.getX() - widthHalf, location.getY() - widthHalf);
-                        Point2D p4 =
-                                new Point2D.Double(
-                                        location.getX() + widthHalf, location.getY() - widthHalf);
-                        ultX = (float) location.getX();
-                        ultY = (float) location.getY();
-                        finnUltRing = new Path2D.Float();
-                        finnUltRing.moveTo(p2.getX(), p2.getY());
-                        finnUltRing.lineTo(p4.getX(), p4.getY());
-                        finnUltRing.lineTo(p3.getX(), p3.getY());
-                        finnUltRing.lineTo(p1.getX(), p1.getY());
-
-                        String[] directions = {"north", "east", "south", "west"};
-                        String wallDropSFX = SkinData.getFinnEWallDropSFX(avatar);
-                        String cornerSwordsFX = SkinData.getFinnECornerSwordsFX(avatar);
-
-                        for (String direction : directions) {
-                            ExtensionCommands.createWorldFX(
-                                    parentExt,
-                                    room,
-                                    id,
-                                    "finn_wall_" + direction,
-                                    id + "_" + direction + "Wall",
-                                    E_DURATION,
-                                    ultX,
-                                    ultY,
-                                    false,
-                                    team,
-                                    180f);
-                        }
-                        ExtensionCommands.createActorFX(
-                                parentExt,
-                                room,
-                                id,
-                                "fx_target_square_4.5",
-                                E_DURATION,
-                                id + "_eSquare",
-                                false,
-                                "",
-                                false,
-                                true,
-                                this.team);
-
-                        ExtensionCommands.playSound(parentExt, room, id, wallDropSFX, location);
-                        ExtensionCommands.createWorldFX(
-                                parentExt,
-                                room,
-                                id,
-                                cornerSwordsFX,
-                                id + "_p1Sword",
-                                E_DURATION,
-                                ultX,
-                                ultY,
-                                false,
-                                team,
-                                0f);
-                        Line2D northWall = new Line2D.Float(p4, p3);
-                        Line2D eastWall = new Line2D.Float(p3, p1);
-                        Line2D southWall = new Line2D.Float(p2, p1);
-                        Line2D westWall = new Line2D.Float(p4, p2);
-                        wallLines = new Line2D[] {northWall, eastWall, southWall, westWall};
-                        wallsActivated = new boolean[] {true, true, true, true};
-                    } catch (Throwable t) {
-                        parentExt.trace(ExtensionLogLevel.ERROR, "Error with casting E: " + id);
-                        ultActivated = false;
-                        wallLines = null;
-                        wallsActivated = new boolean[] {false, false, false, false};
-                        finnUltRing = null;
-                        isCastingUlt = false; // Ensure this is also reset if cast fails
-                    }
+                    isDashing = false;
+                    ExtensionCommands.actorAnimate(parentExt, room, id, "idle", wTime, false);
                 };
-        parentExt.getTaskScheduler().schedule(cast, E_CAST_DELAY, TimeUnit.MILLISECONDS);
-    }
+        parentExt.getTaskScheduler().schedule(endDash, wTime, TimeUnit.MILLISECONDS);
+
+        ExtensionCommands.createActorFX(
+                parentExt,
+                room,
+                id,
+                "finn_dash_fx",
+                wTime,
+                id + "finnWTrail",
+                true,
+                "",
+                true,
+                false,
+                team);
+
+        ExtensionCommands.playSound(parentExt, room, id, "sfx_finn_dash_attack", location);
+
+        RoomHandler handler = parentExt.getRoomHandler(room.getName());
+        JsonNode spellData = parentExt.getAttackData("finn", "spell2");
+
+        List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(team, quadrangle);
+        if (!actorsInPolygon.isEmpty()) {
+            for (Actor a : actorsInPolygon) {
+                if (isStructure(a)) {
+                    int damage = getSpellDamage(spellData);
+                    a.addToDamageQueue(this, damage, spellData, false);
+                } else {
+                    int damage = (int) (handlePassive(a, getSpellDamage(spellData)));
+                    a.addToDamageQueue(this, damage, spellData, false);
+                    passiveStart = System.currentTimeMillis();
+                }
+            }
+        }
+    }*/
+
+    public abstract boolean canUseE(List<Actor> enemies);
+    /*if (a == null) return false;
+    Point2D tLocation = a.getLocation();
+    int cd = 30000;
+    return System.currentTimeMillis() - lastEUse >= cd
+            && tLocation.distance(location) < 3.5
+            && a.getActorType() == ActorType.PLAYER
+            && a.getPHealth() < 0.4
+            && !isPolymorphed;*/
+
+    public abstract void useE(Point2D destination);
 
     @Override
     public boolean canMove() {
-        if (isDashing || isAutoAttacking || isCastingUlt) return false;
+        if (isDashing || isAutoAttacking) return false;
         return super.canMove();
     }
 
     @Override
     public boolean canAttack() {
-        if (isDashing || isCastingUlt || isPolymorphed) return false;
+        if (isDashing || isPolymorphed) return false;
         return super.canAttack();
     }
 
-    private boolean isStructure(Actor a) {
+    protected boolean isStructure(Actor a) {
         return a.getActorType() == ActorType.TOWER || a.getActorType() == ActorType.BASE;
     }
 
-    private void handleQDeath() {
+    /*private void handleQDeath() {
         qActive = false;
         RoomHandler handler = parentExt.getRoomHandler(room.getName());
         for (Actor actor : Champion.getActorsInRadius(handler, this.location, 2f)) {
@@ -763,15 +686,15 @@ public class Bot extends Actor {
                 true,
                 false,
                 team);
-    }
+    }*/
 
-    private void handleMoving(Point2D destination) {
+    protected void handleMoving(Point2D destination) {
         if (location.distance(destination) > 0.1) {
             moveWithCollision(destination);
         }
     }
 
-    private boolean shouldMoveToAltar() {
+    protected boolean shouldMoveToAltar() {
         Tower firstBlueTower = null;
         RoomHandler handler = parentExt.getRoomHandler(room.getName());
         List<Tower> towers = handler.getTowers();
@@ -784,90 +707,74 @@ public class Bot extends Actor {
         // move to altars if first tower is not destroyed or when enemy is dead
     }
 
-    protected double handlePassive(Actor target, double damage) {
-        if (furyTarget != null) {
-            if (furyTarget.getId().equalsIgnoreCase(target.getId())) {
-                damage *= (1 + (0.2 * furyStacks));
-                if (furyStacks < 3) {
-                    if (furyStacks > 0)
-                        ExtensionCommands.removeFx(
-                                parentExt, room, target.getId() + "_mark" + furyStacks);
-                    furyStacks++;
-                    ExtensionCommands.createActorFX(
-                            parentExt,
-                            room,
-                            target.getId(),
-                            "fx_mark" + furyStacks,
-                            1000 * 15 * 60,
-                            target.getId() + "_mark" + furyStacks,
-                            true,
-                            "",
-                            true,
-                            false,
-                            target.getTeam());
-                } else {
-                    furyStacks = 0;
-                    ExtensionCommands.removeFx(parentExt, room, target.getId() + "_mark3");
-                    ExtensionCommands.createActorFX(
-                            parentExt,
-                            room,
-                            target.getId(),
-                            "fx_mark4",
-                            500,
-                            target.getId() + "_mark4",
-                            true,
-                            "",
-                            true,
-                            false,
-                            target.getTeam());
-                    if (qActive) {
-                        RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                        for (Actor actor : Champion.getActorsInRadius(handler, location, 2f)) {
-                            if (isNonStructure(actor)) {
-                                JsonNode spellData = parentExt.getAttackData("finn", "spell1");
-                                actor.addToDamageQueue(
-                                        this, getSpellDamage(spellData), spellData, false);
-                            }
-                        }
-                        qActive = false;
-
-                        ExtensionCommands.removeFx(parentExt, room, id + "_shield");
-
-                        ExtensionCommands.playSound(
-                                parentExt, room, id, "sfx_finn_shield_shatter", location);
-                        ExtensionCommands.createActorFX(
-                                parentExt,
-                                room,
-                                id,
-                                "finn_shieldShatter",
-                                1000,
-                                id + "_qShatter",
-                                true,
-                                "",
-                                true,
-                                false,
-                                team);
-                    }
-                }
-            } else {
-                ExtensionCommands.removeFx(
-                        parentExt, room, furyTarget.getId() + "_mark" + furyStacks);
+    public abstract void handlePassive();
+    /*if (furyTarget != null) {
+        if (furyTarget.getId().equalsIgnoreCase(target.getId())) {
+            damage *= (1 + (0.2 * furyStacks));
+            if (furyStacks < 3) {
+                if (furyStacks > 0)
+                    ExtensionCommands.removeFx(
+                            parentExt, room, target.getId() + "_mark" + furyStacks);
+                furyStacks++;
                 ExtensionCommands.createActorFX(
                         parentExt,
                         room,
                         target.getId(),
-                        "fx_mark1",
+                        "fx_mark" + furyStacks,
                         1000 * 15 * 60,
-                        target.getId() + "_mark1",
+                        target.getId() + "_mark" + furyStacks,
                         true,
                         "",
                         true,
                         false,
                         target.getTeam());
-                furyTarget = target;
-                furyStacks = 1;
+            } else {
+                furyStacks = 0;
+                ExtensionCommands.removeFx(parentExt, room, target.getId() + "_mark3");
+                ExtensionCommands.createActorFX(
+                        parentExt,
+                        room,
+                        target.getId(),
+                        "fx_mark4",
+                        500,
+                        target.getId() + "_mark4",
+                        true,
+                        "",
+                        true,
+                        false,
+                        target.getTeam());
+                if (qActive) {
+                    RoomHandler handler = parentExt.getRoomHandler(room.getName());
+                    for (Actor actor : Champion.getActorsInRadius(handler, location, 2f)) {
+                        if (isNonStructure(actor)) {
+                            JsonNode spellData = parentExt.getAttackData("finn", "spell1");
+                            actor.addToDamageQueue(
+                                    this, getSpellDamage(spellData), spellData, false);
+                        }
+                    }
+                    qActive = false;
+
+                    ExtensionCommands.removeFx(parentExt, room, id + "_shield");
+
+                    ExtensionCommands.playSound(
+                            parentExt, room, id, "sfx_finn_shield_shatter", location);
+                    ExtensionCommands.createActorFX(
+                            parentExt,
+                            room,
+                            id,
+                            "finn_shieldShatter",
+                            1000,
+                            id + "_qShatter",
+                            true,
+                            "",
+                            true,
+                            false,
+                            team);
+                }
             }
         } else {
+            ExtensionCommands.removeFx(
+                    parentExt, room, furyTarget.getId() + "_mark" + furyStacks);
             ExtensionCommands.createActorFX(
                     parentExt,
                     room,
@@ -883,10 +790,25 @@ public class Bot extends Actor {
             furyTarget = target;
             furyStacks = 1;
         }
-        return damage;
+    } else {
+        ExtensionCommands.createActorFX(
+                parentExt,
+                room,
+                target.getId(),
+                "fx_mark1",
+                1000 * 15 * 60,
+                target.getId() + "_mark1",
+                true,
+                "",
+                true,
+                false,
+                target.getTeam());
+        furyTarget = target;
+        furyStacks = 1;
     }
+    return damage;*/
 
-    private void attackClosestActor(List<Actor> targets) {
+    protected void attackClosestActor(List<Actor> targets) {
         double distance = 10000;
         Actor target = null;
         for (Actor a : targets) {
@@ -895,10 +817,13 @@ public class Bot extends Actor {
                 target = a;
             }
         }
-        attemptAttack(target);
+        if (target != null) {
+            this.target = target;
+            attemptAttack(target);
+        }
     }
 
-    private void regenHealth() {
+    protected void regenHealth() {
         double healthRegen = getPlayerStat("healthRegen");
         if (currentHealth + healthRegen <= 0) healthRegen = (currentHealth - 1) * -1;
         changeHealth((int) healthRegen);
@@ -923,13 +848,13 @@ public class Bot extends Actor {
         setStat("healthRegen", getStat("healthRegen") + 15);
     }
 
-    private void run() {
+    protected void run() {
         // Console.debugLog("Run");
         Point2D runPoint = new Point2D.Float((float) location.getX() + 5, (float) location.getY());
         handleMoving(runPoint);
     }
 
-    private boolean shouldAttackJungleCamp(boolean owls) {
+    protected boolean shouldAttackJungleCamp(boolean owls) {
         if (level > 2 && level < 6 && getPHealth() > HP_PERCENT_OWLS_LOW_LV && owls
                 || level > 5 && getPHealth() > HP_PERCENT_OWLS_HIGH_LV && owls) {
             return true;
@@ -937,7 +862,7 @@ public class Bot extends Actor {
         return level > 4 && getPHealth() > HP_PERCENT_GNOMES && enemyTower.isDead() && !owls;
     }
 
-    private boolean shouldAttackTarget(Actor a) {
+    protected boolean shouldAttackTarget(Actor a) {
         float towerY = MapData.L1_TOWER_Z;
         float purpleTower0X = MapData.L1_PURPLE_TOWER_0[0];
         float purpleTower1X = MapData.L1_PURPLE_TOWER_1[0];
@@ -1012,110 +937,109 @@ public class Bot extends Actor {
         }
     }
 
-    private void levelUpStats() {
-        switch (level) {
-            case 1:
-                setStat("attackDamage", 70);
-                setStat("spellDamage", 17);
-                setStat("armor", 21);
-                setStat("spellResist", 11);
-                setStat("attackSpeed", 1450);
-                setStat("health", 550);
-                setStat("healthRegen", 3);
-                maxHealth = 550;
-                break;
-            case 2:
-                setStat("attackDamage", 90);
-                setStat("spellDamage", 19);
-                setStat("armor", 22);
-                setStat("spellResist", 12);
-                setStat("attackSpeed", 1400);
-                setStat("health", 600);
-                setStat("healthRegen", 4);
-                maxHealth = 600;
-                break;
-            case 3:
-                setStat("attackDamage", 95);
-                setStat("spellDamage", 21);
-                setStat("armor", 33);
-                setStat("spellResist", 13);
-                setStat("attackSpeed", 1350);
-                setStat("health", 650);
-                setStat("healthRegen", 5);
-                maxHealth = 650;
-                break;
-            case 4:
-                setStat("attackDamage", 100);
-                setStat("spellDamage", 23);
-                setStat("armor", 49);
-                setStat("spellResist", 14);
-                setStat("attackSpeed", 1300);
-                setStat("health", 700);
-                setStat("healthRegen", 6);
-                maxHealth = 700;
-                break;
-            case 5:
-                setStat("attackDamage", 135);
-                setStat("spellDamage", 25);
-                setStat("armor", 50);
-                setStat("spellResist", 15);
-                setStat("attackSpeed", 1250);
-                setStat("health", 750);
-                setStat("healthRegen", 7);
-                maxHealth = 750;
-                break;
-            case 6:
-                setStat("attackDamage", 140);
-                setStat("spellDamage", 27);
-                setStat("armor", 51);
-                setStat("spellResist", 26);
-                setStat("attackSpeed", 1200);
-                setStat("health", 800);
-                setStat("healthRegen", 8);
-                maxHealth = 800;
-                break;
-            case 7:
-                setStat("attackDamage", 185);
-                setStat("spellDamage", 29);
-                setStat("armor", 52);
-                setStat("spellResist", 27);
-                setStat("attackSpeed", 1150);
-                setStat("health", 850);
-                setStat("healthRegen", 9);
-                maxHealth = 850;
-                break;
-            case 8:
-                setStat("attackDamage", 190);
-                setStat("spellDamage", 31);
-                setStat("armor", 78);
-                setStat("spellResist", 28);
-                setStat("attackSpeed", 1100);
-                setStat("health", 900);
-                setStat("healthRegen", 10);
-                maxHealth = 900;
-                break;
-            case 9:
-                setStat("attackDamage", 195);
-                setStat("spellDamage", 33);
-                setStat("armor", 129);
-                setStat("spellResist", 29);
-                setStat("attackSpeed", 1050);
-                setStat("health", 950);
-                setStat("healthRegen", 11);
-                maxHealth = 950;
-                break;
-            case 10:
-                setStat("attackDamage", 200);
-                setStat("spellDamage", 35);
-                setStat("armor", 130);
-                setStat("spellResist", 45);
-                setStat("attackSpeed", 1000);
-                setStat("health", 1000);
-                setStat("healthRegen", 12);
-                maxHealth = 1000;
-                break;
-        }
-    }
+    public abstract void levelUpStats();
+    /*switch (level) {
+        case 1:
+            setStat("attackDamage", 70);
+            setStat("spellDamage", 17);
+            setStat("armor", 21);
+            setStat("spellResist", 11);
+            setStat("attackSpeed", 1450);
+            setStat("health", 550);
+            setStat("healthRegen", 3);
+            maxHealth = 550;
+            break;
+        case 2:
+            setStat("attackDamage", 90);
+            setStat("spellDamage", 19);
+            setStat("armor", 22);
+            setStat("spellResist", 12);
+            setStat("attackSpeed", 1400);
+            setStat("health", 600);
+            setStat("healthRegen", 4);
+            maxHealth = 600;
+            break;
+        case 3:
+            setStat("attackDamage", 95);
+            setStat("spellDamage", 21);
+            setStat("armor", 33);
+            setStat("spellResist", 13);
+            setStat("attackSpeed", 1350);
+            setStat("health", 650);
+            setStat("healthRegen", 5);
+            maxHealth = 650;
+            break;
+        case 4:
+            setStat("attackDamage", 100);
+            setStat("spellDamage", 23);
+            setStat("armor", 49);
+            setStat("spellResist", 14);
+            setStat("attackSpeed", 1300);
+            setStat("health", 700);
+            setStat("healthRegen", 6);
+            maxHealth = 700;
+            break;
+        case 5:
+            setStat("attackDamage", 135);
+            setStat("spellDamage", 25);
+            setStat("armor", 50);
+            setStat("spellResist", 15);
+            setStat("attackSpeed", 1250);
+            setStat("health", 750);
+            setStat("healthRegen", 7);
+            maxHealth = 750;
+            break;
+        case 6:
+            setStat("attackDamage", 140);
+            setStat("spellDamage", 27);
+            setStat("armor", 51);
+            setStat("spellResist", 26);
+            setStat("attackSpeed", 1200);
+            setStat("health", 800);
+            setStat("healthRegen", 8);
+            maxHealth = 800;
+            break;
+        case 7:
+            setStat("attackDamage", 185);
+            setStat("spellDamage", 29);
+            setStat("armor", 52);
+            setStat("spellResist", 27);
+            setStat("attackSpeed", 1150);
+            setStat("health", 850);
+            setStat("healthRegen", 9);
+            maxHealth = 850;
+            break;
+        case 8:
+            setStat("attackDamage", 190);
+            setStat("spellDamage", 31);
+            setStat("armor", 78);
+            setStat("spellResist", 28);
+            setStat("attackSpeed", 1100);
+            setStat("health", 900);
+            setStat("healthRegen", 10);
+            maxHealth = 900;
+            break;
+        case 9:
+            setStat("attackDamage", 195);
+            setStat("spellDamage", 33);
+            setStat("armor", 129);
+            setStat("spellResist", 29);
+            setStat("attackSpeed", 1050);
+            setStat("health", 950);
+            setStat("healthRegen", 11);
+            maxHealth = 950;
+            break;
+        case 10:
+            setStat("attackDamage", 200);
+            setStat("spellDamage", 35);
+            setStat("armor", 130);
+            setStat("spellResist", 45);
+            setStat("attackSpeed", 1000);
+            setStat("health", 1000);
+            setStat("healthRegen", 12);
+            maxHealth = 1000;
+            break;
+    }*/
 
     public void respawn() {
         dead = false;
@@ -1209,18 +1133,15 @@ public class Bot extends Actor {
 
     @Override
     public void attack(Actor a) {
-        if (this.attackCooldown == 0) {
-            this.applyStopMovingDuringAttack();
-            PassiveAttack passiveAttack = new PassiveAttack(a, handleAttack(a));
-            parentExt.getTaskScheduler().schedule(passiveAttack, 500, TimeUnit.MILLISECONDS);
-            passiveStart = System.currentTimeMillis();
-            if (canUseQ()) {
-                useQ();
-            }
-        }
+        /*PassiveAttack passiveAttack = new PassiveAttack(a, handleAttack(a));
+        parentExt.getTaskScheduler().schedule(passiveAttack, 500, TimeUnit.MILLISECONDS);
+        passiveStart = System.currentTimeMillis();
+        if (canUseQ()) {
+            useQ();
+        }*/
     }
 
-    private class PassiveAttack implements Runnable {
+    /*private class PassiveAttack implements Runnable {
 
         Actor target;
         boolean crit;
@@ -1241,9 +1162,9 @@ public class Bot extends Actor {
             new Champion.DelayedAttack(parentExt, Bot.this, target, (int) damage, "basicAttack")
                     .run();
         }
-    }
+    }*/
 
-    protected boolean handleAttack(
+    /*protected boolean handleAttack(
             Actor a) { // To be used if you're not using the standard DelayedAttack Runnable
         if (this.attackCooldown == 0) {
             double critChance = this.getPlayerStat("criticalChance") / 100d;
@@ -1263,15 +1184,41 @@ public class Bot extends Actor {
             return crit;
         }
         return false;
-    }
+    }*/
 
-    private void applyStopMovingDuringAttack() {
+    protected void applyStopMovingDuringAttack() {
         stopMoving();
         isAutoAttacking = true;
         Runnable resetIsAttacking = () -> isAutoAttacking = false;
         parentExt
                 .getTaskScheduler()
                 .schedule(resetIsAttacking, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
+    }
+
+    protected void scheduleTask(Runnable task, int timeMs) {
+        parentExt.getTaskScheduler().schedule(task, timeMs, TimeUnit.MILLISECONDS);
+    }
+
+    protected boolean handleAttack(Actor a) {
+        if (this.attackCooldown == 0) {
+            double critChance = this.getPlayerStat("criticalChance") / 100d;
+            double random = Math.random();
+            boolean crit = random < critChance;
+
+            ExtensionCommands.attackActor(
+                    parentExt,
+                    room,
+                    this.id,
+                    a.getId(),
+                    (float) a.getLocation().getX(),
+                    (float) a.getLocation().getY(),
+                    crit,
+                    true);
+
+            this.attackCooldown = this.getPlayerStat("attackSpeed");
+            return crit;
+        }
+        return false;
     }
 
     @Override

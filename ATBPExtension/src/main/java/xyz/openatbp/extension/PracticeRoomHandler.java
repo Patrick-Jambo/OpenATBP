@@ -11,13 +11,14 @@ import com.smartfoxserver.v2.entities.User;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
+import xyz.openatbp.extension.game.bots.IceKingBot;
 
 public class PracticeRoomHandler extends RoomHandler {
 
     private HashMap<User, UserActor> dcPlayers = new HashMap<>();
     private List<Actor> companions = new ArrayList<>();
-    private Point2D finnBotRespawnPoint;
-    private Bot finnBot;
+
+    private IceKingBot iceKingBot;
 
     public PracticeRoomHandler(
             ATBPExtension parentExt, Room room, String[] SPAWNS, int HP_SPAWN_RATE) {
@@ -36,9 +37,10 @@ public class PracticeRoomHandler extends RoomHandler {
         if (this.players.size() == 1) {
             Point2D purpleSpawn = MapData.L1_PURPLE_SPAWNS[1];
             float x = (float) purpleSpawn.getX();
-            float finnBotSpawnX = x * -1;
-            finnBotRespawnPoint = new Point2D.Float(finnBotSpawnX, (float) purpleSpawn.getY());
-            finnBot = new Bot(parentExt, room, "finn", 1, finnBotRespawnPoint);
+            float iceKingBotSpawnX = x * -1;
+            Point2D iceKingBotRespawnPoint =
+                    new Point2D.Float(iceKingBotSpawnX, (float) purpleSpawn.getY());
+            iceKingBot = new IceKingBot(parentExt, room, "iceking", 1, iceKingBotRespawnPoint);
         }
         FOUNTAIN_RADIUS = 6f;
     }
@@ -47,8 +49,8 @@ public class PracticeRoomHandler extends RoomHandler {
     public void run() {
         if (gameOver) return;
         super.run();
-        if (finnBot != null && !gameOver) {
-            finnBot.update(mSecondsRan);
+        if (iceKingBot != null && !gameOver) {
+            iceKingBot.update(mSecondsRan);
         }
     }
 
@@ -291,7 +293,7 @@ public class PracticeRoomHandler extends RoomHandler {
     @Override
     public List<Actor> getActors() {
         List<Actor> actors = new ArrayList<>();
-        if (finnBot != null) actors.add(finnBot);
+        if (iceKingBot != null) actors.add(iceKingBot);
         actors.addAll(towers);
         actors.addAll(baseTowers);
         actors.addAll(minions);
@@ -306,7 +308,7 @@ public class PracticeRoomHandler extends RoomHandler {
     @Override
     public List<Actor> getActorsInRadius(Point2D center, float radius) {
         List<Actor> actorsInRadius = new ArrayList<>();
-        if (finnBot != null) actorsInRadius.add(finnBot);
+        if (iceKingBot != null) actorsInRadius.add(iceKingBot);
         actorsInRadius.addAll(towers);
         actorsInRadius.addAll(baseTowers);
         actorsInRadius.addAll(minions);
@@ -323,7 +325,7 @@ public class PracticeRoomHandler extends RoomHandler {
     @Override
     public List<Actor> getEnemiesInPolygon(int team, Path2D polygon) {
         List<Actor> enemiesInPolygon = new ArrayList<>();
-        if (finnBot != null) enemiesInPolygon.add(finnBot);
+        if (iceKingBot != null) enemiesInPolygon.add(iceKingBot);
         enemiesInPolygon.addAll(towers);
         enemiesInPolygon.addAll(baseTowers);
         enemiesInPolygon.addAll(minions);
@@ -341,7 +343,7 @@ public class PracticeRoomHandler extends RoomHandler {
     @Override
     public List<Actor> getNonStructureEnemies(int team) {
         List<Actor> nonStructureEnemies = new ArrayList<>();
-        if (finnBot != null) nonStructureEnemies.add(finnBot);
+        if (iceKingBot != null) nonStructureEnemies.add(iceKingBot);
         nonStructureEnemies.addAll(towers);
         nonStructureEnemies.addAll(baseTowers);
         nonStructureEnemies.addAll(minions);
@@ -365,7 +367,7 @@ public class PracticeRoomHandler extends RoomHandler {
             boolean towerFilter,
             boolean baseFilter) {
         List<Actor> eligibleActors = new ArrayList<>();
-        if (finnBot != null) eligibleActors.add(finnBot);
+        if (iceKingBot != null) eligibleActors.add(iceKingBot);
         eligibleActors.addAll(towers);
         eligibleActors.addAll(baseTowers);
         eligibleActors.addAll(minions);

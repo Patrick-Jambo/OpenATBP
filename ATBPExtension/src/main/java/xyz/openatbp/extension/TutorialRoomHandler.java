@@ -22,6 +22,7 @@ import com.smartfoxserver.v2.entities.data.ISFSObject;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
+import xyz.openatbp.extension.game.bots.TutorialBot;
 
 public class TutorialRoomHandler extends RoomHandler {
 

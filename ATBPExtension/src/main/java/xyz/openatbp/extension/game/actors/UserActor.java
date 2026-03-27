@@ -1592,15 +1592,6 @@ public class UserActor extends Actor {
         return this.canCast[ability - 1];
     }
 
-    public String getChampionName(String avatar) {
-        String[] avatarComponents = avatar.split("_");
-        if (avatarComponents.length > 1) {
-            return avatarComponents[0];
-        } else {
-            return avatar;
-        }
-    }
-
     public boolean isCastingDashAbility(String avatar, int ability) { // all chars except fp
         String defaultAvatar = getChampionName(avatar);
         switch (defaultAvatar) {
@@ -1625,16 +1616,6 @@ public class UserActor extends Actor {
 
     public Line2D getMovementLine() {
         return this.movementLine;
-    }
-
-    public void stopMoving(int delay) {
-        this.stopMoving();
-        this.canMove = false;
-        if (delay > 0) {
-            parentExt
-                    .getTaskScheduler()
-                    .schedule(new MovementStopper(true), delay, TimeUnit.MILLISECONDS);
-        } else this.canMove = true;
     }
 
     public float getRotation(Point2D dest) { // lmao
@@ -2299,32 +2280,6 @@ public class UserActor extends Actor {
         }
     }
 
-    public void fireProjectile(
-            Projectile projectile, Point2D location, Point2D dest, float abilityRange) {
-        double x = location.getX();
-        double y = location.getY();
-        double dx = dest.getX() - location.getX();
-        double dy = dest.getY() - location.getY();
-        double length = Math.sqrt(dx * dx + dy * dy);
-        double unitX = dx / length;
-        double unitY = dy / length;
-        double extendedX = x + abilityRange * unitX;
-        double extendedY = y + abilityRange * unitY;
-        Point2D lineEndPoint = new Point2D.Double(extendedX, extendedY);
-        double speed =
-                parentExt.getActorStats(projectile.getProjectileAsset()).get("speed").asDouble();
-        ExtensionCommands.createProjectile(
-                parentExt,
-                this.room,
-                this,
-                projectile.getId(),
-                projectile.getProjectileAsset(),
-                location,
-                lineEndPoint,
-                (float) speed);
-        this.parentExt.getRoomHandler(this.room.getName()).addProjectile(projectile);
-    }
-
     public void fireMMProjectile(
             Projectile projectile, Point2D location, Point2D dest, float abilityRange) {
         double x = location.getX();
@@ -2587,53 +2542,5 @@ public class UserActor extends Actor {
         }
         // Console.debugLog("Monster count: " + count);
         return count;
-    }
-
-    protected class MovementStopper implements Runnable {
-
-        boolean move;
-
-        public MovementStopper(boolean move) {
-            this.move = move;
-        }
-
-        @Override
-        public void run() {
-            canMove = this.move;
-        }
-    }
-
-    protected class RangedAttack implements Runnable {
-
-        Actor target;
-        Runnable attackRunnable;
-        String projectile;
-        String emitNode;
-
-        public RangedAttack(Actor target, Runnable attackRunnable, String projectile) {
-            this.target = target;
-            this.attackRunnable = attackRunnable;
-            this.projectile = projectile;
-        }
-
-        public RangedAttack(
-                Actor target, Runnable attackRunnable, String projectile, String emitNode) {
-            this.target = target;
-            this.attackRunnable = attackRunnable;
-            this.projectile = projectile;
-            this.emitNode = emitNode;
-        }
-
-        @Override
-        public void run() {
-            String emit = "Bip01";
-            if (this.emitNode != null) emit = this.emitNode;
-            float time = (float) (target.getLocation().distance(location) / 10f);
-            ExtensionCommands.createProjectileFX(
-                    parentExt, room, projectile, id, target.getId(), emit, "targetNode", time);
-            parentExt
-                    .getTaskScheduler()
-                    .schedule(attackRunnable, (int) (time * 1000), TimeUnit.MILLISECONDS);
-        }
     }
 }

@@ -1,6 +1,4 @@
-package xyz.openatbp.extension.game.actors;
-
-import static xyz.openatbp.extension.game.actors.UserActor.BASIC_ATTACK_DELAY;
+package xyz.openatbp.extension.game.bots;
 
 import java.awt.geom.Point2D;
 import java.util.List;
@@ -15,6 +13,8 @@ import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.actors.Actor;
+import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class TutorialBot extends Bot {
@@ -53,15 +53,6 @@ public class TutorialBot extends Bot {
                     .schedule(delayedAttack, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
         }
         this.attackCooldown = getPlayerStat("attackSpeed");
-    }
-
-    private void applyStopMovingDuringAttack() {
-        this.stopMoving();
-        this.isAutoAttacking = true;
-        Runnable resetIsAttacking = () -> this.isAutoAttacking = false;
-        parentExt
-                .getTaskScheduler()
-                .schedule(resetIsAttacking, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
     }
 
     private void ballon() {
@@ -176,4 +167,34 @@ public class TutorialBot extends Bot {
             }
         }
     }
+
+    @Override
+    public boolean canUseQ(List<Actor> enemies) {
+        return false;
+    }
+
+    @Override
+    public void useQ(Point2D destination) {}
+
+    @Override
+    public boolean canUseW(List<Actor> enemies) {
+        return false;
+    }
+
+    @Override
+    public void useW(Point2D destination) {}
+
+    @Override
+    public boolean canUseE(List<Actor> enemies) {
+        return false;
+    }
+
+    @Override
+    public void useE(Point2D destination) {}
+
+    @Override
+    public void handlePassive() {}
+
+    @Override
+    public void levelUpStats() {}
 }

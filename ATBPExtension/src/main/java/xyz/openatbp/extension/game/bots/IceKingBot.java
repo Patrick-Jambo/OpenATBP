@@ -1,0 +1,570 @@
+package xyz.openatbp.extension.game.bots;
+
+import static xyz.openatbp.extension.game.champions.IceKing.*;
+
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+import com.smartfoxserver.v2.entities.Room;
+
+import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.Console;
+import xyz.openatbp.extension.ExtensionCommands;
+import xyz.openatbp.extension.RoomHandler;
+import xyz.openatbp.extension.game.*;
+import xyz.openatbp.extension.game.actors.Actor;
+import xyz.openatbp.extension.game.actors.Bot;
+import xyz.openatbp.extension.game.actors.UserActor;
+
+public class IceKingBot extends Bot {
+    private boolean iceShield = false;
+    private long lastAbilityUsed;
+    private Actor qVictim = null;
+    private long qHitTime = -1;
+    private Map<String, Long> lastWHit;
+    private Point2D wLocation = null;
+    private boolean ultActive = false;
+    private Point2D ultLocation = null;
+    private long wStartTime = 0;
+    private long ultStartTime = 0;
+    private long lasWhirlwindTime = 0;
+
+    private enum AssetBundle {
+        NORMAL,
+        FLIGHT
+    }
+
+    private AssetBundle bundle = AssetBundle.NORMAL;
+
+    public IceKingBot(
+            ATBPExtension parentExt, Room room, String avatar, int team, Point2D spawnPoint) {
+        super(parentExt, room, avatar, team, spawnPoint);
+        qCooldownMs = 10000;
+        wCooldownMs = 12000;
+        eCooldownMs = 70000;
+
+        qGCooldownMs = 250;
+        wGCooldownMs = 250;
+        eGCooldownMs = 250;
+
+        qCastDelayMS = 250;
+        wCastDelayMS = 250;
+        eCastDelayMS = 250;
+
+        currentHealth = 375;
+        maxHealth = 375;
+    }
+
+    @Override
+    public void update(int msRan) {
+        super.update(msRan);
+        handleUlt();
+        handleUpdatePassive();
+        handleWUpdateEnd();
+        handleUpdateEEnd();
+        handleUpdateQ();
+        handleUpdateW();
+    }
+
+    @Override
+    public void attack(Actor a) {
+        super.attack(a);
+        this.target = a;
+        if (this.attackCooldown == 0) {
+            applyStopMovingDuringAttack();
+            String emit = "Bip01";
+            String projectile = "iceKing_projectile";
+            if (this.bundle == AssetBundle.FLIGHT) emit = "Bip001 Neck";
+            BasicAttack basicAttack = new BasicAttack(this, a, handleAttack(a));
+            UserActor.RangedAttack rangedAttack =
+                    new UserActor.RangedAttack(a, basicAttack, projectile, emit);
+            parentExt
+                    .getTaskScheduler()
+                    .schedule(rangedAttack, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    @Override
+    protected void handleSwapFromPoly() {
+        String bundle =
+                this.bundle == AssetBundle.FLIGHT && this.ultActive
+                        ? getFlightAssetbundle()
+                        : getSkinAssetBundle();
+        ExtensionCommands.swapActorAsset(this.parentExt, this.room, this.id, bundle);
+    }
+
+    @Override
+    public boolean damaged(Actor a, int damage, JsonNode attackData) {
+        if (attackData.has("attackName")
+                && attackData.get("attackName").asText().contains("basic_attack")
+                && this.iceShield) {
+            damage /= 2;
+            a.addState(ActorState.SLOWED, PASSIVE_SLOW_VALUE, PASSIVE_SLOW_DURAITON);
+            a.addEffect(
+                    "attackSpeed",
+                    a.getStat("attackSpeed") * PASSIVE_AS_DEBUFF_VALUE,
+                    PASSIVE_AS_DEBUFF_TIME);
+            this.iceShield = false;
+            this.lastAbilityUsed = System.currentTimeMillis() + 5000;
+            Runnable handlePassiveCooldown =
+                    () -> this.lastAbilityUsed = System.currentTimeMillis();
+            ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_iceShield");
+            parentExt
+                    .getTaskScheduler()
+                    .schedule(handlePassiveCooldown, PASSIVE_COOLDOWN, TimeUnit.MILLISECONDS);
+        }
+        return super.damaged(a, damage, attackData);
+    }
+
+    private void handleLastAbilityVar() {
+        if (System.currentTimeMillis() > this.lastAbilityUsed) {
+            this.lastAbilityUsed = System.currentTimeMillis();
+        }
+    }
+
+    @Override
+    public boolean canUseQ(List<Actor> enemies) {
+
+        if (timeOk(1) && target != null) {
+            Console.debugLog("TEST");
+            if (target.getHealth() > 0) {
+
+                if (enemies.size() == 1) return true;
+
+                float maxDistance = (float) location.distance(target.getLocation());
+                int currentDistance = 0;
+                Point2D pointToCheck;
+                while (currentDistance < maxDistance) {
+                    pointToCheck =
+                            Champion.getAbilityLine(location, target.getLocation(), currentDistance)
+                                    .getP2();
+                    currentDistance++;
+
+                    RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                    List<Actor> enemiesInRadius =
+                            Champion.getEnemyActorsInRadius(rh, team, pointToCheck, 0.5f);
+                    if (!enemiesInRadius.stream()
+                            .filter(a -> a != target)
+                            .collect(Collectors.toList())
+                            .isEmpty()) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean canUseW(List<Actor> enemies) {
+        return timeOk(2);
+    }
+
+    @Override
+    public boolean canUseE(List<Actor> enemies) {
+        if (timeOk(3)) {
+            for (Actor a : enemies) {
+                if (a instanceof UserActor && a.getHealth() > 0) {
+                    return a.hasMovementCC();
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void useQ(Point2D destination) {
+        lastQUse = System.currentTimeMillis();
+
+        globalCooldown += qCastDelayMS;
+
+        ExtensionCommands.actorAnimate(this.parentExt, this.room, this.id, "spell1", 100, true);
+        handleLastAbilityVar();
+        stopMoving();
+        String freezeVO = SkinData.getIceKingQVO(avatar);
+        ExtensionCommands.playSound(this.parentExt, this.room, this.id, freezeVO, this.location);
+
+        JsonNode spellData = parentExt.getAttackData("iceking", "spell1");
+
+        IKBotAbilityRunnable r =
+                new IKBotAbilityRunnable(
+                        this, 1, spellData, qCooldownMs, qGCooldownMs, destination);
+        scheduleTask(r, qCastDelayMS);
+    }
+
+    @Override
+    public void useW(Point2D destination) {
+        handleLastAbilityVar();
+        lastWUse = System.currentTimeMillis();
+        globalCooldown += wCastDelayMS;
+
+        stopMoving();
+        this.wStartTime = System.currentTimeMillis();
+        this.wLocation = destination;
+        this.lastWHit = new HashMap<>();
+        String hailStormVO = SkinData.getIceKingWVO("iceking");
+        ExtensionCommands.playSound(
+                this.parentExt, this.room, "", "sfx_ice_king_hailstorm", destination);
+        ExtensionCommands.playSound(this.parentExt, this.room, this.id, hailStormVO, this.location);
+        ExtensionCommands.createActorFX(
+                this.parentExt,
+                this.room,
+                this.id,
+                "ice_king_spell_casting_hand",
+                1000,
+                this.id + "_lHand",
+                true,
+                "Bip001 L Hand",
+                true,
+                false,
+                this.team);
+        ExtensionCommands.createActorFX(
+                this.parentExt,
+                this.room,
+                this.id,
+                "ice_king_spell_casting_hand",
+                1000,
+                this.id + "_rHand",
+                true,
+                "Bip001 R Hand",
+                true,
+                false,
+                this.team);
+        ExtensionCommands.createWorldFX(
+                this.parentExt,
+                this.room,
+                this.id,
+                "AoE_iceking_snowballs",
+                this.id + "_snowBalls",
+                W_DURATION,
+                (float) destination.getX(),
+                (float) destination.getY(),
+                false,
+                this.team,
+                0f);
+        ExtensionCommands.createWorldFX(
+                this.parentExt,
+                this.room,
+                this.id,
+                "fx_target_ring_3",
+                this.id + "_wRing",
+                W_DURATION,
+                (float) destination.getX(),
+                (float) destination.getY(),
+                true,
+                this.team,
+                0f);
+
+        ExtensionCommands.actorAnimate(this.parentExt, this.room, this.id, "spell2", 100, true);
+
+        JsonNode spellData = parentExt.getAttackData("iceking", "spell2");
+        IKBotAbilityRunnable r =
+                new IKBotAbilityRunnable(
+                        this, 2, spellData, wCooldownMs, wGCooldownMs, destination);
+        scheduleTask(r, wCooldownMs);
+    }
+
+    @Override
+    public void useE(Point2D destination) {
+        handleLastAbilityVar();
+        lastEUse = System.currentTimeMillis();
+        globalCooldown += eCastDelayMS;
+
+        stopMoving(qCastDelayMS);
+        this.ultActive = true;
+        this.ultLocation = this.location;
+        this.ultStartTime = System.currentTimeMillis();
+        String ultimateVO = SkinData.getIceKingEVO("iceking");
+        ExtensionCommands.playSound(
+                this.parentExt, this.room, this.id, "sfx_ice_king_ultimate", this.location);
+        ExtensionCommands.playSound(this.parentExt, this.room, this.id, ultimateVO, this.location);
+        ExtensionCommands.actorAnimate(this.parentExt, this.room, this.id, "idle", 100, true);
+        ExtensionCommands.createWorldFX(
+                this.parentExt,
+                this.room,
+                this.id,
+                "fx_target_ring_5.5",
+                this.id + "eRing",
+                E_DURATION,
+                (float) this.location.getX(),
+                (float) this.location.getY(),
+                true,
+                this.team,
+                0f);
+        ExtensionCommands.createWorldFX(
+                this.parentExt,
+                this.room,
+                this.id,
+                "iceKing_freezeGround",
+                this.id + "_ultFreeze",
+                E_DURATION,
+                (float) this.location.getX(),
+                (float) this.location.getY(),
+                false,
+                this.team,
+                0f);
+
+        JsonNode spellData = parentExt.getAttackData("iceking", "spell3");
+        IKBotAbilityRunnable r =
+                new IKBotAbilityRunnable(
+                        this, 3, spellData, eCooldownMs, eGCooldownMs, destination);
+        scheduleTask(r, eCooldownMs);
+    }
+
+    private String getFlightAssetbundle() {
+        return this.avatar.contains("queen")
+                ? "iceking2_icequeen2"
+                : this.avatar.contains("young") ? "iceking2_young2" : "iceking2";
+    }
+
+    @Override
+    public void handlePassive() {}
+
+    public class IceKingBotProjectile extends Projectile {
+        Actor caster;
+
+        public IceKingBotProjectile(
+                ATBPExtension parentExt,
+                Actor caster,
+                Line2D path,
+                float speed,
+                float hitboxRadius,
+                String id) {
+            super(parentExt, caster, path, speed, hitboxRadius, id);
+            this.caster = caster;
+        }
+
+        @Override
+        protected void hit(Actor victim) {
+            JsonNode spellData = parentExt.getAttackData("iceking", "spell1");
+            qVictim = victim;
+            qHitTime = System.currentTimeMillis() + 1750;
+            victim.addToDamageQueue(caster, getSpellDamage(spellData), spellData, false);
+            victim.addState(ActorState.ROOTED, 0d, Q_ROOT_DURATION, "iceKing_snare", "");
+            ExtensionCommands.playSound(
+                    this.parentExt,
+                    victim.getRoom(),
+                    victim.getId(),
+                    "sfx_ice_king_freeze",
+                    victim.getLocation());
+            this.destroy();
+        }
+    }
+
+    private class IKBotAbilityRunnable extends AbilityRunnable {
+        Actor caster;
+
+        public IKBotAbilityRunnable(
+                Actor caster,
+                int ability,
+                JsonNode spellData,
+                int cooldown,
+                int gCooldown,
+                Point2D dest) {
+            super(ability, spellData, cooldown, gCooldown, dest);
+            this.caster = caster;
+        }
+
+        @Override
+        protected void spellQ() {
+            if (getHealth() > 0) {
+                Line2D abilityLine = Champion.getAbilityLine(location, dest, 7.5f);
+                IceKingBotProjectile p =
+                        new IceKingBotProjectile(
+                                parentExt,
+                                caster,
+                                abilityLine,
+                                9f,
+                                0.5f,
+                                "projectile_iceking_deepfreeze");
+                fireProjectile(p, location, dest, 7.5f);
+            }
+        }
+
+        @Override
+        protected void spellW() {}
+
+        @Override
+        protected void spellE() {}
+
+        @Override
+        protected void spellPassive() {}
+    }
+
+    @Override
+    public void levelUpStats() {}
+
+    public void handleUlt() {
+        if (this.ultActive && this.ultLocation != null) {
+            RoomHandler handler = parentExt.getRoomHandler(room.getName());
+            List<Actor> actorsInUlt = Champion.getActorsInRadius(handler, this.ultLocation, 5.5f);
+            boolean containsIceKing = actorsInUlt.contains(this);
+            if (containsIceKing && this.bundle == AssetBundle.NORMAL) {
+                this.bundle = AssetBundle.FLIGHT;
+                if (!this.getState(ActorState.POLYMORPH)) {
+                    ExtensionCommands.swapActorAsset(
+                            this.parentExt, this.room, this.id, getFlightAssetbundle());
+                }
+                if (System.currentTimeMillis() - this.lasWhirlwindTime >= W_WHIRLWIND_CD) {
+                    this.lasWhirlwindTime = System.currentTimeMillis();
+                    ExtensionCommands.createActorFX(
+                            this.parentExt,
+                            this.room,
+                            this.id,
+                            "ice_king_whirlwind",
+                            2500,
+                            this.id + "_whirlWind" + Math.random(),
+                            true,
+                            "",
+                            true,
+                            false,
+                            this.team);
+                }
+            } else if (!containsIceKing && this.bundle == AssetBundle.FLIGHT) {
+                this.bundle = AssetBundle.NORMAL;
+                if (!this.getState(ActorState.POLYMORPH)) {
+                    ExtensionCommands.swapActorAsset(
+                            this.parentExt, this.room, this.id, getSkinAssetBundle());
+                }
+            }
+
+            if (!actorsInUlt.isEmpty()) {
+                for (Actor a : actorsInUlt) {
+                    if (a.equals(this)) {
+                        this.addEffect("speed", this.getStat("speed") * 0.9, 150);
+
+                    } else if (isNonStructureEnemy(a)) {
+                        JsonNode spellData = this.parentExt.getAttackData("iceking", "spell3");
+                        double dmg = getSpellDamage(spellData) / 10d;
+                        a.addToDamageQueue(this, dmg, spellData, true);
+                    }
+                }
+            }
+        }
+    }
+
+    void handleWUpdateEnd() {
+        if (this.wLocation != null && System.currentTimeMillis() - this.wStartTime >= W_DURATION) {
+            this.lastWHit = null;
+            this.wLocation = null;
+        }
+    }
+
+    void handleUpdateEEnd() {
+        if (this.ultActive && System.currentTimeMillis() - this.ultStartTime >= E_DURATION) {
+            this.ultLocation = null;
+            this.ultActive = false;
+            this.bundle = AssetBundle.NORMAL;
+            ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
+        }
+    }
+
+    void handleUpdatePassive() {
+        if (System.currentTimeMillis() - lastAbilityUsed > PASSIVE_TIME) {
+            if (!this.iceShield) {
+                this.iceShield = true;
+                ExtensionCommands.createActorFX(
+                        this.parentExt,
+                        this.room,
+                        this.id,
+                        "ice_king_frost_shield",
+                        1000 * 60 * 15,
+                        this.id + "_iceShield",
+                        true,
+                        "Bip001 Pelvis",
+                        true,
+                        false,
+                        this.team);
+            }
+        }
+    }
+
+    void handleUpdateQ() {
+        if (this.qVictim != null) {
+            if (System.currentTimeMillis() < qHitTime) {
+                JsonNode spellData = parentExt.getAttackData("iceking", "spell1");
+                double dmg = getSpellDamage(spellData) / 10d;
+                this.qVictim.addToDamageQueue(this, dmg, spellData, true);
+            } else {
+                this.qVictim = null;
+                this.qHitTime = -1;
+            }
+        }
+    }
+
+    void handleUpdateW() {
+        if (this.wLocation != null) {
+            RoomHandler handler = parentExt.getRoomHandler(room.getName());
+            for (Actor a : Champion.getActorsInRadius(handler, this.wLocation, 3f)) {
+                if (isNonStructureEnemy(a)) {
+                    if (this.lastWHit != null && this.lastWHit.containsKey(a.getId())) {
+                        if (System.currentTimeMillis() >= this.lastWHit.get(a.getId()) + 500) {
+                            JsonNode spellData = this.parentExt.getAttackData("iceking", "spell2");
+                            double dmg = getSpellDamage(spellData) / 2f;
+                            a.addToDamageQueue(this, dmg, spellData, true);
+                            ExtensionCommands.createActorFX(
+                                    this.parentExt,
+                                    this.room,
+                                    a.getId(),
+                                    "fx_ice_explosion1",
+                                    1000,
+                                    a.getId() + "_" + Math.random(),
+                                    true,
+                                    "",
+                                    true,
+                                    false,
+                                    this.team);
+                            this.lastWHit.put(a.getId(), System.currentTimeMillis());
+                        }
+                    } else if (this.lastWHit != null && !this.lastWHit.containsKey(a.getId())) {
+                        JsonNode spellData = this.parentExt.getAttackData("iceking", "spell2");
+                        a.addToDamageQueue(this, getSpellDamage(spellData) / 2f, spellData, true);
+                        ExtensionCommands.createActorFX(
+                                this.parentExt,
+                                this.room,
+                                a.getId(),
+                                "fx_ice_explosion1",
+                                1000,
+                                a.getId() + "_" + Math.random(),
+                                true,
+                                "",
+                                true,
+                                false,
+                                this.team);
+                        this.lastWHit.put(a.getId(), System.currentTimeMillis());
+                    }
+                }
+            }
+        }
+    }
+
+    private class BasicAttack implements Runnable {
+        Actor attacker;
+        Actor target;
+        boolean crit;
+
+        BasicAttack(Actor a, Actor t, boolean crit) {
+            this.attacker = a;
+            this.target = t;
+            this.crit = crit;
+        }
+
+        @Override
+        public void run() {
+            double damage = this.attacker.getPlayerStat("attackDamage");
+            if (crit) {
+                damage *= 1.25;
+            }
+            new Champion.DelayedAttack(parentExt, attacker, target, (int) damage, "basicAttack")
+                    .run();
+        }
+    }
+}

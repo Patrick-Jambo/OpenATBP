@@ -3,6 +3,7 @@ package xyz.openatbp.extension.game.actors;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -826,4 +827,97 @@ public abstract class Actor {
     }
 
     public abstract void setTarget(Actor a);
+
+    protected class RangedAttack implements Runnable {
+
+        Actor target;
+        Runnable attackRunnable;
+        String projectile;
+        String emitNode;
+
+        public RangedAttack(Actor target, Runnable attackRunnable, String projectile) {
+            this.target = target;
+            this.attackRunnable = attackRunnable;
+            this.projectile = projectile;
+        }
+
+        public RangedAttack(
+                Actor target, Runnable attackRunnable, String projectile, String emitNode) {
+            this.target = target;
+            this.attackRunnable = attackRunnable;
+            this.projectile = projectile;
+            this.emitNode = emitNode;
+        }
+
+        @Override
+        public void run() {
+            String emit = "Bip01";
+            if (this.emitNode != null) emit = this.emitNode;
+            float time = (float) (target.getLocation().distance(location) / 10f);
+            ExtensionCommands.createProjectileFX(
+                    parentExt, room, projectile, id, target.getId(), emit, "targetNode", time);
+            parentExt
+                    .getTaskScheduler()
+                    .schedule(attackRunnable, (int) (time * 1000), TimeUnit.MILLISECONDS);
+        }
+    }
+
+    public void fireProjectile(
+            Projectile projectile, Point2D location, Point2D dest, float abilityRange) {
+        double x = location.getX();
+        double y = location.getY();
+        double dx = dest.getX() - location.getX();
+        double dy = dest.getY() - location.getY();
+        double length = Math.sqrt(dx * dx + dy * dy);
+        double unitX = dx / length;
+        double unitY = dy / length;
+        double extendedX = x + abilityRange * unitX;
+        double extendedY = y + abilityRange * unitY;
+        Point2D lineEndPoint = new Point2D.Double(extendedX, extendedY);
+        double speed =
+                parentExt.getActorStats(projectile.getProjectileAsset()).get("speed").asDouble();
+        ExtensionCommands.createProjectile(
+                parentExt,
+                this.room,
+                this,
+                projectile.getId(),
+                projectile.getProjectileAsset(),
+                location,
+                lineEndPoint,
+                (float) speed);
+        this.parentExt.getRoomHandler(this.room.getName()).addProjectile(projectile);
+    }
+
+    public void stopMoving(int delay) {
+        this.stopMoving();
+        this.canMove = false;
+        if (delay > 0) {
+            parentExt
+                    .getTaskScheduler()
+                    .schedule(new MovementStopper(true), delay, TimeUnit.MILLISECONDS);
+        } else this.canMove = true;
+    }
+
+    public String getChampionName(String avatar) {
+        String[] avatarComponents = avatar.split("_");
+        if (avatarComponents.length > 1) {
+            return avatarComponents[0];
+        } else {
+            return avatar;
+        }
+    }
+
+    protected class MovementStopper implements Runnable {
+
+        boolean move;
+
+        public MovementStopper(boolean move) {
+            this.move = move;
+        }
+
+        @Override
+        public void run() {
+            canMove = this.move;
+        }
+    }
 }
