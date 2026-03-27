@@ -319,6 +319,26 @@ public class IceKingBot extends Bot {
         scheduleTask(r, eCooldownMs);
     }
 
+    @Override
+    public void handleAttackActions(List<Actor> enemyActorsInRadius) {
+        if (enemyActorsInRadius.isEmpty()) return;
+
+        if (enemyActorsInRadius.size() > 1 && canUseW(enemyActorsInRadius)) {
+            if (enemyActorsInRadius.get(0) != null) {
+                useW(enemyActorsInRadius.get(0).getLocation());
+            }
+        }
+
+        for (Actor a : enemyActorsInRadius) {
+            if (a instanceof UserActor) {
+                if (canUseQ(enemyActorsInRadius)) useQ(a.getLocation());
+                if (canUseW(enemyActorsInRadius)) useW(a.getLocation());
+                if (canUseE(enemyActorsInRadius)) useE(a.getLocation());
+                attemptAttack(a);
+            }
+        }
+    }
+
     private String getFlightAssetbundle() {
         return this.avatar.contains("queen")
                 ? "iceking2_icequeen2"
@@ -400,7 +420,100 @@ public class IceKingBot extends Bot {
     }
 
     @Override
-    public void levelUpStats() {}
+    public void levelUpStats() {
+        switch (level) {
+            case 1:
+                setStat("attackDamage", 42);
+                setStat("armor", 11);
+                setStat("attackSpeed", 1235);
+                setStat("spellDamage", 63);
+                setStat("spellResist", 16);
+                setStat("healthRegen", 3);
+                setHealth(getHealth(), 375);
+                break;
+            case 2:
+                setStat("attackDamage", 44);
+                setStat("armor", 12);
+                setStat("attackSpeed", 1220);
+                setStat("spellDamage", 66); // Fixed name
+                setStat("spellResist", 17);
+                setHealth(getHealth(), 400); // Fixed to match Case 1 logic
+                setStat("healthRegen", 4); // Fixed name
+                break;
+            case 3:
+                setStat("attackDamage", 46);
+                setStat("armor", 13);
+                setStat("attackSpeed", 1205);
+                setStat("spellDamage", 69);
+                setStat("spellResist", 18);
+                setHealth(getHealth(), 425);
+                setStat("healthRegen", 5);
+                break;
+            case 4:
+                setStat("attackDamage", 48);
+                setStat("armor", 14);
+                setStat("attackSpeed", 1190);
+                setStat("spellDamage", 72);
+                setStat("spellResist", 19);
+                setHealth(getHealth(), 450);
+                setStat("healthRegen", 6);
+                break;
+            case 5:
+                setStat("attackDamage", 50);
+                setStat("armor", 15);
+                setStat("attackSpeed", 1175);
+                setStat("spellDamage", 75);
+                setStat("spellResist", 20);
+                setHealth(getHealth(), 475);
+                setStat("healthRegen", 7);
+                break;
+            case 6:
+                setStat("attackDamage", 52);
+                setStat("armor", 16);
+                setStat("attackSpeed", 1160);
+                setStat("spellDamage", 78);
+                setStat("spellResist", 21);
+                setHealth(getHealth(), 500);
+                setStat("healthRegen", 8);
+                break;
+            case 7:
+                setStat("attackDamage", 54);
+                setStat("armor", 17);
+                setStat("attackSpeed", 1145);
+                setStat("spellDamage", 81);
+                setStat("spellResist", 22);
+                setHealth(getHealth(), 525);
+                setStat("healthRegen", 9);
+                break;
+            case 8:
+                setStat("attackDamage", 56);
+                setStat("armor", 18);
+                setStat("attackSpeed", 1130);
+                setStat("spellDamage", 84);
+                setStat("spellResist", 23);
+                setHealth(getHealth(), 550);
+                setStat("healthRegen", 10);
+                break;
+            case 9:
+                setStat("attackDamage", 58);
+                setStat("armor", 19);
+                setStat("attackSpeed", 1115);
+                setStat("spellDamage", 87);
+                setStat("spellResist", 24);
+                setHealth(getHealth(), 575);
+                setStat("healthRegen", 11);
+                break;
+            case 10:
+                setStat("attackDamage", 60);
+                setStat("armor", 20);
+                setStat("attackSpeed", 1100);
+                setStat("spellDamage", 90);
+                setStat("spellResist", 25);
+                setHealth(getHealth(), 600);
+                setStat("healthRegen", 12);
+                break;
+        }
+    }
 
     public void handleUlt() {
         if (this.ultActive && this.ultLocation != null) {

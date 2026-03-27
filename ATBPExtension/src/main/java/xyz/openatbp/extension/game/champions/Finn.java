@@ -18,17 +18,18 @@ import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class Finn extends UserActor {
-    private static final int PASSIVE_DURATION = 5000;
-    private static final float Q_ATTACKSPEED_VALUE = 0.2f;
-    private static final float Q_ARMOR_VALUE = 0.15f;
-    private static final float Q_SPEED_VALUE = 0.5f;
-    private static final int Q_ATTACKSPEED_DURATION = 3000;
-    private static final int Q_ARMOR_DURATION = 3000;
-    private static final int Q_SPEED_DURATION = 3000;
-    private static final float W_OFFSET_DISTANCE = 1.25f;
-    private static final int E_DURATION = 5000;
-    private static final int E_ROOT_DURATION = 2000;
-    private static final int E_SELF_CRIPPLE_DURATION = 1200;
+    public static final int PASSIVE_DURATION = 5000;
+    public static final float Q_ATTACKSPEED_VALUE = 0.2f;
+    public static final float Q_ARMOR_VALUE = 0.15f;
+    public static final float Q_SPEED_VALUE = 0.5f;
+    public static final int Q_ATTACKSPEED_DURATION = 3000;
+    public static final int Q_ARMOR_DURATION = 3000;
+    public static final int Q_SPEED_DURATION = 3000;
+    public static final float W_OFFSET_DISTANCE = 1.25f;
+    public static final int E_DURATION = 5000;
+    public static final int E_ROOT_DURATION = 2000;
+    public static final int E_SELF_CRIPPLE_DURATION = 1200;
+
     private int furyStacks = 0;
     private Actor furyTarget = null;
     private boolean qActive = false;

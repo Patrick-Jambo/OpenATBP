@@ -169,6 +169,9 @@ public class TutorialBot extends Bot {
     }
 
     @Override
+    public void handleAttackActions(List<Actor> enemyActorsInRadius) {}
+
+    @Override
     public boolean canUseQ(List<Actor> enemies) {
         return false;
     }

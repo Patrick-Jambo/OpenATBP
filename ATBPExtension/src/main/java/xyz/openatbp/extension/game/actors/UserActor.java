@@ -23,7 +23,6 @@ import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.champions.Fionna;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class UserActor extends Actor {
     protected static final int DEMON_SWORD_AD_BUFF = 15;
@@ -46,7 +45,7 @@ public class UserActor extends Actor {
     protected static final int SIMON_GLASSES_RANGE = 5;
 
     protected static final int BASIC_ATTACK_DELAY = 500;
-    protected static final double DASH_SPEED = 20d;
+    public static final double DASH_SPEED = 20d;
     protected static final int HEALTH_PACK_REGEN = 15;
     protected static final float DC_AD_BUFF = 1.2f;
     protected static final float DC_ARMOR_BUFF = 1.2f;
@@ -74,7 +73,6 @@ public class UserActor extends Actor {
     protected Map<String, ScheduledFuture<?>> iconHandlers = new HashMap<>();
     protected int idleTime = 0;
     protected boolean changeTowerAggro = false;
-    protected boolean isDashing = false;
     private long lastHit = 0;
     protected boolean isAutoAttacking = false;
     // Set debugging options via config.properties next to the extension jar
@@ -745,44 +743,6 @@ public class UserActor extends Actor {
             }
         }
         return false;
-    }
-
-    public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
-        this.isDashing = true;
-        Point2D dashPoint =
-                MovementManager.getDashPoint(this, new Line2D.Float(this.location, dest));
-        if (dashPoint == null) dashPoint = this.location;
-        if (movementDebug)
-            ExtensionCommands.createWorldFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
-                    "gnome_a",
-                    this.id + "_test" + Math.random(),
-                    5000,
-                    (float) dashPoint.getX(),
-                    (float) dashPoint.getY(),
-                    false,
-                    0,
-                    0f);
-        // if(noClip) dashPoint =
-        // Champion.getTeleportPoint(this.parentExt,this.player,this.location,dest);
-        double time = dashPoint.distance(this.location) / dashSpeed;
-        int timeMs = (int) (time * 1000d);
-        this.stopMoving(timeMs);
-        Runnable setIsDashing = () -> this.isDashing = false;
-        parentExt.getTaskScheduler().schedule(setIsDashing, timeMs, TimeUnit.MILLISECONDS);
-        ExtensionCommands.moveActor(
-                this.parentExt,
-                this.room,
-                this.id,
-                this.location,
-                dashPoint,
-                (float) dashSpeed,
-                true);
-        this.setLocation(dashPoint);
-        this.target = null;
-        return dashPoint;
     }
 
     public void dash(Point2D dest, double dashSpeed) {
@@ -1802,10 +1762,6 @@ public class UserActor extends Actor {
                 false,
                 false,
                 this.team);
-    }
-
-    protected void basicAttackReset() {
-        attackCooldown = 500;
     }
 
     public boolean enhanceCrit() {

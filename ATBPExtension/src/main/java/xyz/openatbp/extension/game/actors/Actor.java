@@ -53,6 +53,7 @@ public abstract class Actor {
     protected Map<String, EffectHandler> effectHandlers = new HashMap<>();
     protected Map<String, FxHandler> fxHandlers = new HashMap<>();
     protected UserActor charmer;
+    protected boolean isDashing = false;
 
     public double getPHealth() {
         return currentHealth / maxHealth;
@@ -905,6 +906,48 @@ public abstract class Actor {
         } else {
             return avatar;
         }
+    }
+
+    public void basicAttackReset() {
+        attackCooldown = 500;
+    }
+
+    public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
+        this.isDashing = true;
+        Point2D dashPoint =
+                MovementManager.getDashPoint(this, new Line2D.Float(this.location, dest));
+        if (dashPoint == null) dashPoint = this.location;
+        /*if (movementDebug)
+        ExtensionCommands.createWorldFX(
+                this.parentExt,
+                this.room,
+                this.id,
+                "gnome_a",
+                this.id + "_test" + Math.random(),
+                5000,
+                (float) dashPoint.getX(),
+                (float) dashPoint.getY(),
+                false,
+                0,
+                0f);*/
+        // if(noClip) dashPoint =
+        // Champion.getTeleportPoint(this.parentExt,this.player,this.location,dest);
+        double time = dashPoint.distance(this.location) / dashSpeed;
+        int timeMs = (int) (time * 1000d);
+        this.stopMoving(timeMs);
+        Runnable setIsDashing = () -> this.isDashing = false;
+        parentExt.getTaskScheduler().schedule(setIsDashing, timeMs, TimeUnit.MILLISECONDS);
+        ExtensionCommands.moveActor(
+                this.parentExt,
+                this.room,
+                this.id,
+                this.location,
+                dashPoint,
+                (float) dashSpeed,
+                true);
+        this.setLocation(dashPoint);
+        this.target = null;
+        return dashPoint;
     }
 
     protected class MovementStopper implements Runnable {
