@@ -21,6 +21,7 @@ public class MagicMan extends UserActor {
     private static final double PASSIVE_SPEED_VALUE = 0.2d;
     private static final int Q_CAST_DELAY = 500;
     private static final int Q_SILENCE_DURATION = 2000;
+    private static final int Q_ANGLE = 20;
     private static final int W_STEALTH_DURATION = 3000;
 
     private static final double E_DASH_SPEED = 10d;
@@ -30,8 +31,6 @@ public class MagicMan extends UserActor {
     private static final int E_SLOW_DURATION = 2500;
     private static final int E_DEBUFF_DURATION = 3000;
 
-    private double estimatedQDuration = 0;
-    private long qStartTime = 0;
     private long passiveIconStarted = 0;
     private boolean passiveActivated = false;
     private Point2D wLocation = null;
@@ -124,7 +123,6 @@ public class MagicMan extends UserActor {
             case 1:
                 this.canCast[0] = false;
                 try {
-                    this.qStartTime = System.currentTimeMillis();
                     snakedActors.clear();
                     unveil();
                     stopMoving(castDelay);
@@ -142,9 +140,45 @@ public class MagicMan extends UserActor {
                             this.id,
                             "vo/vo_magicman_snakes",
                             this.location);
-                    Point2D endPoint = Champion.getAbilityLine(this.location, dest, 9.5f).getP2();
-                    this.estimatedQDuration = ((this.location.distance(endPoint) / 7f)) * 1000f;
-                    double dx = endPoint.getX() - this.location.getX();
+
+                    Point2D endPoint = Champion.getAbilityLine(location, dest, 9.5f).getP2();
+                    Line2D pathSP = new Line2D.Float(location, endPoint);
+
+                    Line2D pathSP2 = Champion.getRotatedLine(location, endPoint, Q_ANGLE);
+                    Line2D pathSP3 = Champion.getRotatedLine(location, endPoint, -Q_ANGLE);
+
+                    SnakeProjectile sp =
+                            new SnakeProjectile(
+                                    parentExt,
+                                    this,
+                                    pathSP,
+                                    7f,
+                                    0.25f,
+                                    "projectile_magicman_snake");
+
+                    SnakeProjectile sp2 =
+                            new SnakeProjectile(
+                                    parentExt,
+                                    this,
+                                    pathSP2,
+                                    7f,
+                                    0.25f,
+                                    "projectile_magicman_snake");
+
+                    SnakeProjectile sp3 =
+                            new SnakeProjectile(
+                                    parentExt,
+                                    this,
+                                    pathSP3,
+                                    7f,
+                                    0.25f,
+                                    "projectile_magicman_snake");
+
+                    fireMMProjectile(sp, pathSP.getP1(), pathSP.getP2(), 9.5f);
+                    fireMMProjectile(sp2, pathSP2.getP1(), pathSP2.getP2(), 9.5f);
+                    fireMMProjectile(sp3, pathSP3.getP1(), pathSP3.getP2(), 9.5f);
+
+                    /*double dx = endPoint.getX() - this.location.getX();
                     double dy = endPoint.getY() - this.location.getY();
                     double theta = Math.atan2(dy, dx);
                     double dist = this.location.distance(endPoint);
@@ -190,21 +224,16 @@ public class MagicMan extends UserActor {
                                     "projectile_magicman_snake"),
                             this.location,
                             endPoint3,
-                            9.5f);
+                            9.5f);*/
+
                 } catch (Exception exception) {
                     logExceptionMessage(avatar, ability);
                     exception.printStackTrace();
                 }
                 ExtensionCommands.actorAbilityResponse(
-                        this.parentExt,
-                        this.player,
-                        "q",
-                        true,
-                        getReducedCooldown(cooldown),
-                        gCooldown);
+                        this.parentExt, this.player, "q", true, 0, gCooldown);
                 int globalCD = gCooldown + 1000;
-                scheduleTask(
-                        abilityRunnable(ability, spellData, cooldown, globalCD, dest), gCooldown);
+                scheduleTask(abilityRunnable(ability, spellData, 0, globalCD, dest), gCooldown);
                 break;
             case 2:
                 this.canCast[1] = false;

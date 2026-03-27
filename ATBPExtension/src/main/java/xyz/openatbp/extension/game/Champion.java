@@ -325,6 +325,21 @@ public class Champion {
         return new Line2D.Double(location, lineEndPoint);
     }
 
+    public static Line2D getRotatedLine(Point2D origin, Point2D dest, double angle) {
+        double dx = dest.getX() - origin.getX();
+        double dy = dest.getY() - origin.getY();
+
+        double angleRad = Math.toRadians(angle);
+        double cos = Math.cos(angleRad);
+        double sin = Math.sin(angleRad);
+
+        double rotatedX = dx * cos - dy * sin;
+        double rotatedY = dx * sin + dy * cos;
+
+        Point2D rotatedEnd = new Point2D.Double(origin.getX() + rotatedX, origin.getY() + rotatedY);
+        return new Line2D.Double(origin, rotatedEnd);
+    }
+
     public static HashMap<ActorState, Boolean> getBlankStates() {
         HashMap<ActorState, Boolean> states = new HashMap<>(ActorState.values().length);
         for (ActorState s : ActorState.values()) {
