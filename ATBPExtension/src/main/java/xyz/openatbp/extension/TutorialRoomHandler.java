@@ -359,22 +359,7 @@ public class TutorialRoomHandler extends RoomHandler {
                             "announcer/tut_enemy_champ",
                             new Point2D.Float(0, 0));
 
-                    Runnable spawnBot =
-                            () -> {
-                                jakeBot =
-                                        new TutorialBot(
-                                                parentExt, room, 1, new Point2D.Float(48, 0));
-                                jakeBot.setLocation(new Point2D.Float(48, 0));
-                                ExtensionCommands.snapActor(
-                                        parentExt,
-                                        room,
-                                        jakeBot.getId(),
-                                        jakeBot.getLocation(),
-                                        new Point2D.Float(48, 0),
-                                        true);
-                            };
-
-                    parentExt.getTaskScheduler().schedule(spawnBot, 5000, TimeUnit.MILLISECONDS);
+                    // TODO: SPAWN BOT AND MAKE THE BOT WORK :/
                 }
             }
         } catch (Exception e) {

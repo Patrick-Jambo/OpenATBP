@@ -27,8 +27,11 @@ public class IceKing extends UserActor {
     public static final int Q_CAST_DELAY = 250;
     public static final int Q_ROOT_DURATION = 1750;
     public static final int W_WHIRLWIND_CD = 2000;
+    public static final float W_RADIUS = 3f;
     public static final int W_DURATION = 3000;
     public static final int E_DURATION = 6000;
+    public static final float E_RADIUS = 5.5f;
+    public static final float Q_RANGE = 7.5f;
 
     private boolean iceShield = false;
     private long lastAbilityUsed;
@@ -59,7 +62,8 @@ public class IceKing extends UserActor {
         super.update(msRan);
         if (this.ultActive && this.ultLocation != null) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
-            List<Actor> actorsInUlt = Champion.getActorsInRadius(handler, this.ultLocation, 5.5f);
+            List<Actor> actorsInUlt =
+                    Champion.getActorsInRadius(handler, this.ultLocation, E_RADIUS);
             boolean containsIceKing = actorsInUlt.contains(this);
             if (containsIceKing && this.bundle == AssetBundle.NORMAL) {
                 this.bundle = AssetBundle.FLIGHT;
@@ -147,7 +151,7 @@ public class IceKing extends UserActor {
 
         if (this.wLocation != null) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
-            for (Actor a : Champion.getActorsInRadius(handler, this.wLocation, 3f)) {
+            for (Actor a : Champion.getActorsInRadius(handler, this.wLocation, W_RADIUS)) {
                 if (isNeitherTowerNorAlly(a)) {
                     if (this.lastWHit != null && this.lastWHit.containsKey(a.getId())) {
                         if (System.currentTimeMillis() >= this.lastWHit.get(a.getId()) + 500) {
@@ -451,7 +455,7 @@ public class IceKing extends UserActor {
             int delay = getReducedCooldown(cooldown) - Q_CAST_DELAY;
             scheduleTask(enableQCasting, delay);
             if (getHealth() > 0) {
-                Line2D abilityLine = Champion.getAbilityLine(location, dest, 7.5f);
+                Line2D abilityLine = Champion.getAbilityLine(location, dest, Q_RANGE);
                 fireProjectile(
                         new IceKingProjectile(
                                 parentExt,
@@ -462,7 +466,7 @@ public class IceKing extends UserActor {
                                 "projectile_iceking_deepfreeze"),
                         location,
                         dest,
-                        7.5f);
+                        Q_RANGE);
             }
         }
 

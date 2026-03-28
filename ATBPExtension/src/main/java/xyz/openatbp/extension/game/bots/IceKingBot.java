@@ -43,9 +43,12 @@ public class IceKingBot extends Bot {
 
     private AssetBundle bundle = AssetBundle.NORMAL;
 
+    // TODO: CHECK THIS VALUE
+    private int MAX_W_CAST_DISTANCE = 5;
+
     public IceKingBot(
-            ATBPExtension parentExt, Room room, String avatar, int team, Point2D spawnPoint) {
-        super(parentExt, room, avatar, team, spawnPoint);
+            ATBPExtension parentExt, Room room, String avatar, int team, BotMapConfig mapConfig) {
+        super(parentExt, room, avatar, team, mapConfig);
         qCooldownMs = 10000;
         wCooldownMs = 12000;
         eCooldownMs = 70000;
@@ -57,9 +60,6 @@ public class IceKingBot extends Bot {
         qCastDelayMS = 250;
         wCastDelayMS = 250;
         eCastDelayMS = 250;
-
-        currentHealth = 375;
-        maxHealth = 375;
     }
 
     @Override
@@ -123,6 +123,30 @@ public class IceKingBot extends Bot {
         return super.damaged(a, damage, attackData);
     }
 
+    @Override
+    public void handleFightingAbilities() {
+
+        if (target != null) {
+            if (canUseQ() && target.getLocation().distance(location) <= Q_RANGE)
+                useQ(target.getLocation());
+
+            RoomHandler rh = parentExt.getRoomHandler(room.getName());
+            List<Actor> enemies =
+                    Champion.getEnemyActorsInRadius(rh, team, target.getLocation(), W_RADIUS);
+
+            if (canUseW()
+                    && (target instanceof UserActor || enemies.size() > 1)
+                    && target.getLocation().distance(location) <= MAX_W_CAST_DISTANCE + W_RADIUS) {
+                useW(target.getLocation());
+            }
+
+            if (canUseE()) useE(target.getLocation());
+        }
+    }
+
+    @Override
+    public void handleRetreatAbilities() {}
+
     private void handleLastAbilityVar() {
         if (System.currentTimeMillis() > this.lastAbilityUsed) {
             this.lastAbilityUsed = System.currentTimeMillis();
@@ -130,12 +154,13 @@ public class IceKingBot extends Bot {
     }
 
     @Override
-    public boolean canUseQ(List<Actor> enemies) {
-        if (enemies.isEmpty()) return false;
+    public boolean canUseQ() {
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+        List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, Q_RANGE);
         if (timeOk(1) && target != null) {
 
             AbilityShape qShape =
-                    AbilityShape.createRectangle(location, target.getLocation(), 7.5f, 0.5f);
+                    AbilityShape.createRectangle(location, target.getLocation(), Q_RANGE, 0.5f);
 
             boolean isTargetOnlyActorInQ = true;
             for (Actor a : enemies) {
@@ -152,12 +177,14 @@ public class IceKingBot extends Bot {
     }
 
     @Override
-    public boolean canUseW(List<Actor> enemies) {
+    public boolean canUseW() {
         return timeOk(2);
     }
 
     @Override
-    public boolean canUseE(List<Actor> enemies) {
+    public boolean canUseE() {
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+        List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, E_RADIUS);
         if (timeOk(3)) {
             for (Actor a : enemies) {
                 if (a instanceof UserActor && a.getHealth() > 0) {
@@ -172,7 +199,7 @@ public class IceKingBot extends Bot {
     public void useQ(Point2D destination) {
         lastQUse = System.currentTimeMillis();
 
-        globalCooldown += qCastDelayMS;
+        globalCooldown = qCastDelayMS;
 
         ExtensionCommands.actorAnimate(this.parentExt, this.room, this.id, "spell1", 100, true);
         handleLastAbilityVar();
@@ -192,7 +219,7 @@ public class IceKingBot extends Bot {
     public void useW(Point2D destination) {
         handleLastAbilityVar();
         lastWUse = System.currentTimeMillis();
-        globalCooldown += wCastDelayMS;
+        globalCooldown = wCastDelayMS;
 
         stopMoving();
         this.wStartTime = System.currentTimeMillis();
@@ -264,7 +291,7 @@ public class IceKingBot extends Bot {
     public void useE(Point2D destination) {
         handleLastAbilityVar();
         lastEUse = System.currentTimeMillis();
-        globalCooldown += eCastDelayMS;
+        globalCooldown = eCastDelayMS;
 
         stopMoving(qCastDelayMS);
         this.ultActive = true;
@@ -307,34 +334,11 @@ public class IceKingBot extends Bot {
         scheduleTask(r, eCooldownMs);
     }
 
-    @Override
-    public void handleAttackActions(List<Actor> enemyActorsInRadius) {
-        if (enemyActorsInRadius.isEmpty()) return;
-
-        if (enemyActorsInRadius.size() > 1 && canUseW(enemyActorsInRadius)) {
-            if (enemyActorsInRadius.get(0) != null) {
-                useW(enemyActorsInRadius.get(0).getLocation());
-            }
-        }
-
-        for (Actor a : enemyActorsInRadius) {
-            if (a instanceof UserActor) {
-                if (canUseQ(enemyActorsInRadius)) useQ(a.getLocation());
-                if (canUseW(enemyActorsInRadius)) useW(a.getLocation());
-                if (canUseE(enemyActorsInRadius)) useE(a.getLocation());
-                attemptAttack(a);
-            }
-        }
-    }
-
     private String getFlightAssetbundle() {
         return this.avatar.contains("queen")
                 ? "iceking2_icequeen2"
                 : this.avatar.contains("young") ? "iceking2_young2" : "iceking2";
     }
-
-    @Override
-    public void handlePassive() {}
 
     public class IceKingBotProjectile extends Projectile {
         Actor caster;
@@ -423,10 +427,10 @@ public class IceKingBot extends Bot {
                 setStat("attackDamage", 44);
                 setStat("armor", 12);
                 setStat("attackSpeed", 1220);
-                setStat("spellDamage", 66); // Fixed name
+                setStat("spellDamage", 66);
                 setStat("spellResist", 17);
-                setHealth(getHealth(), 400); // Fixed to match Case 1 logic
-                setStat("healthRegen", 4); // Fixed name
+                setHealth(getHealth(), 400);
+                setStat("healthRegen", 4);
                 break;
             case 3:
                 setStat("attackDamage", 46);
@@ -604,7 +608,7 @@ public class IceKingBot extends Bot {
     void handleUpdateW() {
         if (this.wLocation != null) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
-            for (Actor a : Champion.getActorsInRadius(handler, this.wLocation, 3f)) {
+            for (Actor a : Champion.getActorsInRadius(handler, this.wLocation, W_RADIUS)) {
                 if (isNonStructureEnemy(a)) {
                     if (this.lastWHit != null && this.lastWHit.containsKey(a.getId())) {
                         if (System.currentTimeMillis() >= this.lastWHit.get(a.getId()) + 500) {

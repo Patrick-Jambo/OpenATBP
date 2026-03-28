@@ -12,6 +12,7 @@ import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.ActorType;
+import xyz.openatbp.extension.game.BotMapConfig;
 import xyz.openatbp.extension.game.Champion;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Bot;
@@ -20,8 +21,8 @@ import xyz.openatbp.extension.pathfinding.MovementManager;
 public class TutorialBot extends Bot {
     private long lastBallon = 0;
 
-    public TutorialBot(ATBPExtension parentExt, Room room, int team, Point2D spawnPoint) {
-        super(parentExt, room, "bot_jake", team, spawnPoint);
+    public TutorialBot(ATBPExtension parentExt, Room room, int team, BotMapConfig mapConfig) {
+        super(parentExt, room, "bot_jake", team, mapConfig);
     }
 
     @Override
@@ -120,6 +121,12 @@ public class TutorialBot extends Bot {
     }
 
     @Override
+    public void handleFightingAbilities() {}
+
+    @Override
+    public void handleRetreatAbilities() {}
+
+    @Override
     public void update(int msRan) {
         handleDamageQueue();
         handleActiveEffects();
@@ -168,10 +175,7 @@ public class TutorialBot extends Bot {
     }
 
     @Override
-    public void handleAttackActions(List<Actor> enemyActorsInRadius) {}
-
-    @Override
-    public boolean canUseQ(List<Actor> enemies) {
+    public boolean canUseQ() {
         return false;
     }
 
@@ -179,7 +183,7 @@ public class TutorialBot extends Bot {
     public void useQ(Point2D destination) {}
 
     @Override
-    public boolean canUseW(List<Actor> enemies) {
+    public boolean canUseW() {
         return false;
     }
 
@@ -187,15 +191,12 @@ public class TutorialBot extends Bot {
     public void useW(Point2D destination) {}
 
     @Override
-    public boolean canUseE(List<Actor> enemies) {
+    public boolean canUseE() {
         return false;
     }
 
     @Override
     public void useE(Point2D destination) {}
-
-    @Override
-    public void handlePassive() {}
 
     @Override
     public void levelUpStats() {}

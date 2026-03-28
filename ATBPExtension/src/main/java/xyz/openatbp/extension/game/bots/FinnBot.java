@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.Room;
 
 import xyz.openatbp.extension.ATBPExtension;
-import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
@@ -36,8 +35,8 @@ public class FinnBot extends Bot {
     private Path2D finnUltRing;
 
     public FinnBot(
-            ATBPExtension parentExt, Room room, String avatar, int team, Point2D spawnPoint) {
-        super(parentExt, room, avatar, team, spawnPoint);
+            ATBPExtension parentExt, Room room, String avatar, int team, BotMapConfig mapConfig) {
+        super(parentExt, room, avatar, team, mapConfig);
         qCooldownMs = 10000;
         wCooldownMs = 12000;
         eCooldownMs = 40000;
@@ -49,13 +48,6 @@ public class FinnBot extends Bot {
         qCastDelayMS = 0;
         wCastDelayMS = 0;
         eCastDelayMS = 500;
-
-        currentHealth = 460;
-        maxHealth = 460;
-
-        for (String stat : stats.keySet()) {
-            Console.debugLog(stat);
-        }
     }
 
     @Override
@@ -70,7 +62,7 @@ public class FinnBot extends Bot {
     @Override
     public void attack(Actor a) {
         if (this.attackCooldown == 0) {
-            if (canUseQ(null)) useQ(null);
+            if (canUseQ()) useQ(null);
             this.applyStopMovingDuringAttack();
             PassiveAttack passiveAttack = new PassiveAttack(a, this.handleAttack(a));
             scheduleTask(passiveAttack, BASIC_ATTACK_DELAY);
@@ -126,20 +118,25 @@ public class FinnBot extends Bot {
     }
 
     @Override
-    public void handleAttackActions(List<Actor> enemyActorsInRadius) {
-        if (enemyActorsInRadius.isEmpty()) return;
-        for (Actor a : enemyActorsInRadius) {
-            if (a instanceof UserActor) {
-                if (canUseW(enemyActorsInRadius)) useW(a.getLocation());
+    public void handleFightingAbilities() {
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
 
-                if (a.getLocation().distance(location) <= 3.5
-                        && a.getPHealth() <= 0.4
-                        && canUseE(enemyActorsInRadius)) {
-                    useE(location);
-                }
-                attemptAttack(a);
-            }
+        if (target != null) {
+            double distance = target.getLocation().distance(location);
+            if (distance <= 5f && canUseQ()) useQ(target.getLocation());
+            if (distance <= 3.5 && target.getPHealth() <= 0.4 && canUseE())
+                useE(target.getLocation());
         }
+
+        if (target != null && target.getLocation().distance(location) <= 5f) {}
+    }
+
+    @Override
+    public void handleRetreatAbilities() {
+        Point2D fleePoint = getNextFleeWaypoint();
+        Point2D dashPoint = Champion.getAbilityLine(location, fleePoint, 5f).getP2();
+
+        if (canUseE()) useW(dashPoint);
     }
 
     @Override
@@ -426,12 +423,12 @@ public class FinnBot extends Bot {
     }
 
     @Override
-    public boolean canUseQ(List<Actor> enemies) {
+    public boolean canUseQ() {
         return timeOk(1) && (!isCastingUlt && !isDashing);
     }
 
     @Override
-    public boolean canUseW(List<Actor> enemies) {
+    public boolean canUseW() {
         if (target != null && target.getLocation().distance(location) <= 5) {
             return timeOk(2) && !isCastingUlt;
         }
@@ -439,12 +436,9 @@ public class FinnBot extends Bot {
     }
 
     @Override
-    public boolean canUseE(List<Actor> enemies) {
+    public boolean canUseE() {
         return timeOk(3) && !isDashing;
     }
-
-    @Override
-    public void handlePassive() {}
 
     @Override
     public void levelUpStats() {

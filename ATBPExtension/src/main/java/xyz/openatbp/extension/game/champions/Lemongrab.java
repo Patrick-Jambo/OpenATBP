@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
@@ -16,25 +17,30 @@ import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class Lemongrab extends UserActor {
-    private static final int PASSIVE_COOLDOWN = 2000;
-    private static final int PASSIVE_STACK_DURATION = 6000;
-    private static final int W_CAST_DELAY = 1000;
-    private static final int W_BLIND_DURATION = 4000;
-    private static final int W_SILENCE_DURATION = 2000;
-    private static final int W_FX_DELAY = 500;
-    private static final int W_DELAY = 1000;
+    public static final int PASSIVE_COOLDOWN = 2000;
+    public static final int PASSIVE_STACK_DURATION = 6000;
     public static final int Q_SLOW_DURATION = 2500;
-    private static final double Q_SLOW_VALUE = 0.4d;
-    private static final double W_CENTER_DMG_MULTIPLIER = 1.25;
+    public static final double Q_SLOW_VALUE = 0.4d;
+    public static final float Q_OFFSET_DISTANCE_BOTTOM = 1.5f;
+    public static final float Q_OFFSET_DISTANCE_TOP = 4f;
+    public static final float Q_SPELL_RANGE = 6f;
+
+    public static final int W_CAST_DELAY = 1000;
+    public static final int W_BLIND_DURATION = 4000;
+    public static final int W_SILENCE_DURATION = 2000;
+    public static final int W_FX_DELAY = 500;
+    public static final int W_DELAY = 1000;
+
+    public static final double W_CENTER_DMG_MULTIPLIER = 1.25;
+    public static final float W_RADIUS = 2f;
+    public static final float E_RADIUS = 2.5f;
+
     private int unacceptableLevels = 0;
     private long lastHit = -1;
     private String lastIcon = "lemon0";
     private boolean isCastingUlt = false;
     private boolean juice = false;
     private int ultDelay;
-    private static final float Q_OFFSET_DISTANCE_BOTTOM = 1.5f;
-    private static final float Q_OFFSET_DISTANCE_TOP = 4f;
-    private static final float Q_SPELL_RANGE = 6f;
 
     public Lemongrab(User u, ATBPExtension parentExt) {
         super(u, parentExt);
@@ -133,6 +139,7 @@ public class Lemongrab extends UserActor {
             Point2D dest) {
         switch (ability) {
             case 1:
+                Console.debugLog(location.distance(dest));
                 this.canCast[0] = false;
                 try {
                     stopMoving(castDelay);
@@ -204,6 +211,7 @@ public class Lemongrab extends UserActor {
                 scheduleTask(abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay);
                 break;
             case 2:
+                Console.debugLog(location.distance(dest));
                 this.canCast[1] = false;
                 try {
                     stopMoving(castDelay);
@@ -256,6 +264,7 @@ public class Lemongrab extends UserActor {
                         abilityRunnable(ability, spellData, cooldown, gCooldown, dest), W_DELAY);
                 break;
             case 3:
+                Console.debugLog(location.distance(dest));
                 this.canCast[2] = false;
                 try {
                     stopMoving();
@@ -344,7 +353,7 @@ public class Lemongrab extends UserActor {
                 boolean hitPlayer = false;
                 boolean hitAnything = false;
 
-                for (Actor a : Champion.getActorsInRadius(handler, dest, 2f)) {
+                for (Actor a : Champion.getActorsInRadius(handler, dest, W_RADIUS)) {
 
                     double distance = a.getLocation().distance(dest);
                     double damage = getSpellDamage(spellData, false);
@@ -405,7 +414,7 @@ public class Lemongrab extends UserActor {
                 damage *= (1d + (0.1d * unacceptableLevels));
                 duration *= (1d + (0.1d * unacceptableLevels));
                 RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                for (Actor a : Champion.getActorsInRadius(handler, dest, 2.5f)) {
+                for (Actor a : Champion.getActorsInRadius(handler, dest, E_RADIUS)) {
 
                     if (isNeitherTowerNorAlly(a)) {
                         a.addToDamageQueue(Lemongrab.this, damage, spellData, false);

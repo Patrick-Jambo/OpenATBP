@@ -6,6 +6,7 @@ import java.util.*;
 import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 
+import xyz.openatbp.extension.game.BotMapConfig;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
 import xyz.openatbp.extension.game.bots.IceKingBot;
@@ -31,11 +32,9 @@ public class PracticeRoomHandler extends RoomHandler {
             towers.add(new Tower(parentExt, room, key, 1, towers1.get(key)));
         }
         if (this.players.size() == 1) {
-            Point2D purpleSpawn = MapData.L1_PURPLE_SPAWNS[1];
-            float x = (float) purpleSpawn.getX();
 
-            Point2D BotSpawnPoint = new Point2D.Float(x * -1, (float) purpleSpawn.getY());
-            bot = new IceKingBot(parentExt, room, "iceking", 1, BotSpawnPoint);
+            BotMapConfig mapConfig = BotMapConfig.createPractice(1);
+            bot = new IceKingBot(parentExt, room, "iceking", 1, mapConfig);
             companions.add(bot);
         }
         FOUNTAIN_RADIUS = 6f;

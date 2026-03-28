@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -15,7 +14,10 @@ import com.smartfoxserver.v2.entities.Room;
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.ActorType;
+import xyz.openatbp.extension.game.BotMapConfig;
 import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.champions.GooMonster;
+import xyz.openatbp.extension.game.champions.Keeoth;
 import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public abstract class Bot extends Actor {
@@ -41,8 +43,6 @@ public abstract class Bot extends Actor {
     protected int xp = 0;
     protected boolean isAutoAttacking = false;
     protected boolean isDashing = false;
-    protected Long lastAttackedByMinion = 0L;
-    protected Long lastAttackedByTower = 0L;
     protected Actor enemyTower = null;
     protected Actor enemyBaseTower = null;
     protected boolean wentToStartPoint = false;
@@ -74,24 +74,43 @@ public abstract class Bot extends Actor {
 
     protected int globalCooldown = 0;
 
-    public Bot(ATBPExtension parentExt, Room room, String avatar, int team, Point2D spawnPoint) {
+    protected UserActor lastPlayerAttacker = null;
+    protected Long lastPlayerAttackTime = 0L;
+    protected Long lastAttackedByMinion = 0L;
+    protected Long lastAttackedByTower = 0L;
+
+    protected enum BotState {
+        RETREATING, // go to hp packs or return to base
+        FLEEING, // tower/minions are attacking the bot
+        FIGHTING, // attack enemies
+        ALTAR, // focus on capturing an altar
+        JUNGLING, // attack jungle camp
+        PUSHING, // push lane
+    }
+
+    protected Point2D altarToCapture;
+    protected Point2D[] lanePath;
+
+    protected BotMapConfig mapConfig;
+    protected BotState botState;
+
+    public Bot(
+            ATBPExtension parentExt, Room room, String avatar, int team, BotMapConfig mapConfig) {
         this.room = room;
         this.parentExt = parentExt;
-        this.location = spawnPoint;
+        this.mapConfig = mapConfig;
+        this.location = mapConfig.respawnPoint;
         this.avatar = avatar;
         this.id = avatar + "_" + team;
         this.team = team;
         this.movementLine = new Line2D.Float(this.location, this.location);
         this.actorType = ActorType.COMPANION;
         this.stats = initializeStats();
-        this.spawnPoint = spawnPoint;
+        this.spawnPoint = mapConfig.respawnPoint;
         this.displayName = avatar.toUpperCase() + " BOT";
+        this.lanePath = mapConfig.midLanePath; // HARDCODED FOR NOW
 
-        Runnable create =
-                () ->
-                        ExtensionCommands.createActor(
-                                parentExt, room, id, avatar, location, 0f, team);
-        parentExt.getTaskScheduler().schedule(create, 200, TimeUnit.MILLISECONDS);
+        ExtensionCommands.createActor(parentExt, room, id, avatar, location, 0f, team);
 
         if (MOVEMENT_DEBUG) {
             ExtensionCommands.createActor(
@@ -163,6 +182,16 @@ public abstract class Bot extends Actor {
         if (a instanceof UserActor) {
             UserActor ua = (UserActor) a;
             ua.checkTowerAggro(ua);
+
+            lastPlayerAttacker = ua;
+            lastPlayerAttackTime = System.currentTimeMillis();
+        }
+
+        if (a.getActorType() == ActorType.MINION) {
+            lastAttackedByMinion = System.currentTimeMillis();
+        }
+        if (a instanceof Tower) {
+            lastAttackedByTower = System.currentTimeMillis();
         }
 
         if (a.equals(enemy) && location.distance(a.getLocation()) <= 8) {
@@ -174,12 +203,7 @@ public abstract class Bot extends Actor {
             setStat("healthRegen", getStat("healthRegen") - 15);
             ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
         }
-        if (a.getActorType() == ActorType.MINION) {
-            lastAttackedByMinion = System.currentTimeMillis();
-        }
-        if (a instanceof Tower) {
-            lastAttackedByTower = System.currentTimeMillis();
-        }
+
         handlePolymorph(attackData);
         return super.damaged(a, damage, attackData);
     }
@@ -253,26 +277,289 @@ public abstract class Bot extends Actor {
         return globalCooldown <= 0 && System.currentTimeMillis() - lastUse >= cd;
     }
 
+    private Actor getClosestTarget(List<Actor> actors, boolean playerFocus) {
+        Actor closestActor = null;
+        Actor closestPlayer = null;
+        double minActorDistance = 10000;
+        double minPlayerDistance = 10000;
+
+        for (Actor a : actors) {
+            double distanceToActor = a.getLocation().distance(location);
+
+            if (distanceToActor < minActorDistance) {
+                minActorDistance = distanceToActor;
+                closestActor = a;
+            }
+
+            if (a instanceof UserActor && distanceToActor < minPlayerDistance) {
+                minPlayerDistance = distanceToActor;
+                closestPlayer = a;
+            }
+
+            if (playerFocus && closestPlayer != null) {
+                return closestPlayer;
+            }
+        }
+        return closestActor;
+    }
+
+    private Actor getClosestMonster(List<Monster> monsters) {
+        double minDistance = 10000;
+        Actor target = null;
+
+        for (Actor a : monsters) {
+            double distance = a.getLocation().distance(location);
+            if (distance < minDistance) {
+                minDistance = distance;
+                target = a;
+            }
+        }
+        return target;
+    }
+
+    private boolean canWinFight() {
+        // Can win vs champion?
+        if (System.currentTimeMillis() - lastPlayerAttackTime <= 2000) {
+            boolean isUnderAnyTower = false;
+            for (Point2D allyTowerLocation : mapConfig.allyTowers) {
+                if (location.distance(allyTowerLocation) <= TOWER_RANGE / 2.0) {
+                    isUnderAnyTower = true;
+                    break;
+                }
+            }
+
+            if (isUnderAnyTower
+                    && lastPlayerAttacker != null
+                    && lastPlayerAttacker.getLocation().distance(location) <= 3
+                    && !lastPlayerAttacker.isDead()) {
+                return true;
+            }
+
+            if (System.currentTimeMillis() - lastEUse >= eCooldownMs
+                    && lastPlayerAttacker != null
+                    && !lastPlayerAttacker.isDead()) {
+                return true;
+            }
+
+            RoomHandler rh = parentExt.getRoomHandler(room.getName());
+            List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, 6f);
+            enemies.removeIf(a -> !(a instanceof UserActor));
+            if (System.currentTimeMillis() - lastQUse >= qCooldownMs
+                    && System.currentTimeMillis() - lastWUse >= wCooldownMs
+                    && enemies.size() == 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int getClosestWaypointIndex() {
+        double minDist = 10000;
+        int closest = 0;
+        for (int i = 0; i < lanePath.length; i++) {
+            double dist = location.distance(lanePath[i]);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = i;
+            }
+        }
+        return closest;
+    }
+
+    protected Point2D getNextPushWaypoint() {
+        int current = getClosestWaypointIndex();
+        if (current < lanePath.length - 1) {
+            return lanePath[current + 1];
+        }
+        return lanePath[current]; // already at end
+    }
+
+    protected Point2D getNextFleeWaypoint() {
+        int current = getClosestWaypointIndex();
+        if (current > 0) {
+            return lanePath[current - 1];
+        }
+        return mapConfig.respawnPoint; // already at start, go home
+    }
+
+    protected BotState evaluateBotState() {
+        // LOW HP
+        if (getPHealth() <= 0.25) {
+            if (canWinFight() && lastPlayerAttacker != null) {
+                this.target = lastPlayerAttacker;
+                return BotState.FIGHTING;
+            }
+            return BotState.RETREATING;
+        }
+
+        // Attacked by tower or minions
+        if (System.currentTimeMillis() - lastAttackedByTower <= 2000
+                || (System.currentTimeMillis() - lastAttackedByMinion <= 1000
+                        && level < 3
+                        && getPLevel() < 0.4)) {
+            return BotState.FLEEING;
+        }
+
+        // PLAYER ATTACKED THE BOT
+        if (lastPlayerAttacker != null
+                && System.currentTimeMillis() - lastPlayerAttackTime <= 2000) {
+            this.target = lastPlayerAttacker;
+            return BotState.FIGHTING;
+        }
+
+        // DEFEND NEXUS
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+
+        List<Actor> enemies =
+                Champion.getEnemyActorsInRadius(rh, team, mapConfig.allyNexus, TOWER_RANGE);
+        if (!enemies.isEmpty()) {
+            List<BaseTower> baseTowers = rh.getBaseTowers();
+            baseTowers.removeIf(bT -> bT.getTeam() != team);
+            if (baseTowers.isEmpty()) { // enemies can attack nexus, should defend
+                this.target = getClosestTarget(enemies, true);
+                return BotState.FIGHTING;
+            }
+        }
+
+        // DEFEND BASE TOWER
+        List<Tower> towers = rh.getTowers();
+        towers.removeIf(t -> t.getTeam() != team);
+
+        if ((mapConfig.isPractice() && towers.isEmpty())
+                || !mapConfig.isPractice() && towers.size() < 2) {
+            List<BaseTower> baseTowers = rh.getBaseTowers();
+            baseTowers.removeIf(bT -> bT.getTeam() != team);
+
+            if (!baseTowers.isEmpty()) { // check if base tower is alive
+                BaseTower bT = baseTowers.get(0);
+
+                List<Actor> enemiesBaseTower =
+                        Champion.getEnemyActorsInRadius(rh, team, bT.location, TOWER_RANGE);
+
+                if (!enemiesBaseTower.isEmpty()) { // someone is attacking the base tower, defend it
+                    this.target = getClosestTarget(enemiesBaseTower, true);
+                    return BotState.FIGHTING;
+                }
+            }
+        }
+
+        // DEFEND TOWERS
+        if (!towers.isEmpty()) {
+            for (Tower t : towers) {
+                List<Actor> enemiesUnderTower =
+                        Champion.getEnemyActorsInRadius(rh, team, t.location, TOWER_RANGE);
+                if (!enemiesUnderTower.isEmpty()) {
+                    this.target = getClosestTarget(enemiesUnderTower, true);
+                    return BotState.FIGHTING;
+                }
+            }
+        }
+
+        // ATTACK NEARBY ENEMIES (NON MONSTERS)
+        List<Actor> nearbyEnemies =
+                Champion.getEnemyActorsInRadius(rh, team, location, TOWER_RANGE);
+
+        nearbyEnemies.removeIf(a -> a instanceof Monster);
+
+        if (!nearbyEnemies.isEmpty()) {
+            this.target = getClosestTarget(nearbyEnemies, true);
+            return BotState.FIGHTING;
+        }
+
+        // CAPTURE MID ALTAR
+        int midAltarStatus = rh.getAltarStatus(mapConfig.offenseAltar);
+        if (midAltarStatus != 10) { // mid altar can be captured
+            altarToCapture = mapConfig.offenseAltar;
+            return BotState.ALTAR;
+        }
+
+        // ATTACK JUNGLE CAMPS
+        // TODO: Add Keeoth and Goomonster attack action
+        List<Actor> allies = rh.getActorsInRadius(location, 4f);
+        allies.removeIf(a -> !(a instanceof Bot) || a == this || a.getTeam() != team);
+
+        if ((level >= 3 && getPHealth() >= 0.4)
+                || (level == 2 && allies.size() == 1 && getPLevel() >= 0.4)
+                || (allies.size() == 2 && getPLevel() >= 0.4)) {
+            List<Monster> jungleMonsters = rh.getCampMonsters();
+            jungleMonsters.removeIf(jm -> jm instanceof Keeoth || jm instanceof GooMonster);
+
+            this.target = getClosestMonster(jungleMonsters);
+            return BotState.JUNGLING;
+        }
+
+        // PUSH LANES
+        return BotState.PUSHING;
+        // TODO: Implement defense altars?
+    }
+
+    protected void executeBotState(BotState stateToExecute) {
+        switch (stateToExecute) {
+            case FIGHTING:
+            case JUNGLING:
+                handleFightingAbilities();
+                attemptAttack(target);
+                break;
+            case RETREATING:
+                handleRetreatAbilities();
+
+                List<Point2D> validPacks = new ArrayList<>();
+                for (String s : mapConfig.hpPacks.keySet()) {
+                    int healthPackStatus = room.getVariable("spawns").getSFSObjectValue().getInt(s);
+                    if (healthPackStatus == 61) validPacks.add(mapConfig.hpPacks.get(s));
+                }
+
+                Point2D closestPack = null;
+                double minDistance = 10000;
+                for (Point2D pack : validPacks) {
+                    double distance = pack.distance(location);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestPack = pack;
+                    }
+                }
+
+                if (closestPack != null) moveWithCollision(closestPack);
+                else moveWithCollision(mapConfig.respawnPoint);
+
+                break;
+            case FLEEING:
+                handleRetreatAbilities();
+                Point2D fleePoint = getNextFleeWaypoint();
+                moveWithCollision(fleePoint);
+                break;
+            case ALTAR:
+                if (altarToCapture != null) moveWithCollision(altarToCapture);
+                break;
+            case PUSHING:
+                Point2D nextPushPoint = getNextPushWaypoint();
+                moveWithCollision(nextPushPoint);
+                break;
+        }
+    }
+
+    public abstract void handleFightingAbilities();
+
+    public abstract void handleRetreatAbilities();
+
     @Override
     public void update(int msRan) {
         if (dead) return;
 
-        globalCooldown -= msRan;
+        if (globalCooldown > 0) globalCooldown -= 100;
         if (globalCooldown <= 0) globalCooldown = 0;
+        if (attackCooldown > 0) attackCooldown -= 100;
+
         handleDamageQueue();
         handleActiveEffects();
-
-        if (msRan == 3000) {
-            enemy = parentExt.getRoomHandler(room.getName()).getPlayers().get(0);
-        }
-
-        if (attackCooldown > 0) attackCooldown -= 100;
 
         if (!isStopped() && canMove()) timeTraveled += 0.1f;
         location =
                 MovementManager.getRelativePoint(
                         movementLine, getPlayerStat("speed"), timeTraveled);
+
         handlePathing();
+
         if (MOVEMENT_DEBUG)
             ExtensionCommands.moveActor(
                     parentExt,
@@ -283,39 +570,20 @@ public abstract class Bot extends Actor {
                     (float) getPlayerStat("speed"),
                     false);
 
-        if (msRan % 1000 == 0) {
-            if (!testing) {
-                int newDeath = 10 + ((msRan / 1000) / 60);
-                if (newDeath != deathTime) deathTime = newDeath;
-                if (currentHealth < maxHealth) regenHealth();
-            }
-        }
-
-        if (msRan % 500 == 0) {
-            RoomHandler handler = parentExt.getRoomHandler(room.getName());
-            Point2D blueFountain = handler.getFountainsCenter().get(1);
-            if (location.distance(blueFountain) <= TOWER_RANGE && getHealth() != getMaxHealth()) {
-                changeHealth(FOUNTAIN_HEAL);
-                ExtensionCommands.createActorFX(
-                        parentExt,
-                        room,
-                        id,
-                        "fx_health_regen",
-                        3000,
-                        id + "_fountainRegen",
-                        true,
-                        "Bip01",
-                        false,
-                        false,
-                        team);
-            }
-        }
+        handleRespawnTimer(msRan);
+        handleFountainRegen(msRan);
 
         if (msRan % 5000 == 0) {
             handlePassiveXP();
         }
 
-        // bot actions
+        // BOT ACTIONS
+        BotState botState = evaluateBotState();
+        executeBotState(botState);
+
+        Console.debugLog("Bot state: " + botState);
+
+        /*// bot actions
         RoomHandler handler = parentExt.getRoomHandler(room.getName());
 
         float topAltarY = MapData.L1_AALTAR_Z;
@@ -329,11 +597,6 @@ public abstract class Bot extends Actor {
 
         List<Actor> enemyActorsInRadius =
                 Champion.getEnemyActorsInRadius(handler, team, location, 5f);
-
-        if (pickedUpHealthPack && System.currentTimeMillis() - healthPackTime >= CYCLOPS_DURATION) {
-            pickedUpHealthPack = false;
-            ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
-        }
 
         if (getPHealth() < HP_PERCENT_HP_PACK
                 && room.getVariable("spawns").getSFSObjectValue().getInt("bh1") == 91) {
@@ -420,6 +683,45 @@ public abstract class Bot extends Actor {
         } else if (shouldMoveToAltar()) {
             // Console.debugLog("Bot altar");
             handleMoving(botAltarLocation);
+        }*/
+    }
+
+    private void handleFountainRegen(int msRan) {
+        if (msRan % 500 == 0) {
+            RoomHandler handler = parentExt.getRoomHandler(room.getName());
+            Point2D blueFountain = handler.getFountainsCenter().get(1);
+            if (location.distance(blueFountain) <= TOWER_RANGE && getHealth() != getMaxHealth()) {
+                changeHealth(FOUNTAIN_HEAL);
+                ExtensionCommands.createActorFX(
+                        parentExt,
+                        room,
+                        id,
+                        "fx_health_regen",
+                        3000,
+                        id + "_fountainRegen",
+                        true,
+                        "Bip01",
+                        false,
+                        false,
+                        team);
+            }
+        }
+    }
+
+    private void handleRespawnTimer(int msRan) {
+        if (msRan % 1000 == 0) {
+            if (!testing) {
+                int newDeath = 10 + ((msRan / 1000) / 60);
+                if (newDeath != deathTime) deathTime = newDeath;
+                if (currentHealth < maxHealth) regenHealth();
+            }
+        }
+    }
+
+    public void handleHpPackEnd() {
+        if (pickedUpHealthPack && System.currentTimeMillis() - healthPackTime >= CYCLOPS_DURATION) {
+            pickedUpHealthPack = false;
+            ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
         }
     }
 
@@ -430,17 +732,15 @@ public abstract class Bot extends Actor {
         }
     }
 
-    public abstract void handleAttackActions(List<Actor> enemyActorsInRadius);
+    public abstract boolean canUseQ();
 
-    public abstract boolean canUseQ(List<Actor> enemies);
+    public abstract boolean canUseW();
+
+    public abstract boolean canUseE();
 
     public abstract void useQ(Point2D destination);
 
-    public abstract boolean canUseW(List<Actor> enemies);
-
     public abstract void useW(Point2D destination);
-
-    public abstract boolean canUseE(List<Actor> enemies);
 
     public abstract void useE(Point2D destination);
 
@@ -478,8 +778,6 @@ public abstract class Bot extends Actor {
         return firstBlueTower != null || enemy.isDead();
         // move to altars if first tower is not destroyed or when enemy is dead
     }
-
-    public abstract void handlePassive();
 
     protected void attackClosestActor(List<Actor> targets) {
         double distance = 10000;
@@ -704,7 +1002,63 @@ public abstract class Bot extends Actor {
     }
 
     @Override
-    public void attack(Actor a) {}
+    public void attack(Actor a) {
+        if (this.attackCooldown == 0) {
+            this.applyStopMovingDuringAttack();
+            double critChance = this.getPlayerStat("criticalChance") / 100d;
+            double random = Math.random();
+            boolean crit = random < critChance;
+            ExtensionCommands.attackActor(
+                    parentExt,
+                    room,
+                    this.id,
+                    a.getId(),
+                    (float) a.getLocation().getX(),
+                    (float) a.getLocation().getY(),
+                    crit,
+                    true);
+            this.attackCooldown = this.getPlayerStat("attackSpeed");
+            if (this.attackCooldown < BASIC_ATTACK_DELAY) this.attackCooldown = BASIC_ATTACK_DELAY;
+            double damage = this.getPlayerStat("attackDamage");
+            if (crit) {
+                damage *= this.getPlayerStat("criticalDamage");
+            }
+            Champion.DelayedAttack delayedAttack =
+                    new Champion.DelayedAttack(parentExt, this, a, (int) damage, "basicAttack");
+            try {
+                String projectileFx =
+                        this.parentExt
+                                .getActorData(this.getAvatar())
+                                .get("scriptData")
+                                .get("projectileAsset")
+                                .asText();
+                if (projectileFx != null
+                        && !projectileFx.isEmpty()
+                        && !parentExt
+                                .getActorData(this.avatar)
+                                .get("attackType")
+                                .asText()
+                                .equalsIgnoreCase("MELEE")) {
+                    parentExt
+                            .getTaskScheduler()
+                            .schedule(
+                                    new RangedAttack(a, delayedAttack, projectileFx),
+                                    BASIC_ATTACK_DELAY,
+                                    TimeUnit.MILLISECONDS);
+                } else {
+                    parentExt
+                            .getTaskScheduler()
+                            .schedule(delayedAttack, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
+                }
+
+            } catch (NullPointerException e) {
+                // e.printStackTrace();
+                parentExt
+                        .getTaskScheduler()
+                        .schedule(delayedAttack, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
+            }
+        }
+    }
 
     protected void applyStopMovingDuringAttack() {
         stopMoving();
