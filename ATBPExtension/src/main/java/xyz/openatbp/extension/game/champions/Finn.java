@@ -283,8 +283,10 @@ public class Finn extends UserActor {
                 this.canCast[1] = false;
                 float W_SPELL_RANGE =
                         location.distance(dest) >= 5 ? 5 : (float) this.location.distance(dest);
-                Path2D quadrangle =
-                        Champion.createRectangle(location, dest, W_SPELL_RANGE, W_OFFSET_DISTANCE);
+                AbilityShape wRect =
+                        AbilityShape.createRectangle(
+                                location, dest, W_SPELL_RANGE, W_OFFSET_DISTANCE);
+
                 Point2D ogLocation = this.location;
                 Point2D finalDashPoint = this.dash(dest, false, DASH_SPEED);
                 double time = ogLocation.distance(finalDashPoint) / DASH_SPEED;
@@ -311,12 +313,14 @@ public class Finn extends UserActor {
                 ExtensionCommands.playSound(
                         this.parentExt, this.room, this.id, dashSFX, this.location);
 
-                RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
-                List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(this.team, quadrangle);
-                if (!actorsInPolygon.isEmpty() && getHealth() > 0) {
-                    for (Actor a : actorsInPolygon) {
+                RoomHandler rh = this.parentExt.getRoomHandler(this.room.getName());
+                List<Actor> nearbyEnemies =
+                        Champion.getEnemyActorsInRadius(rh, team, location, W_SPELL_RANGE);
+                if (!nearbyEnemies.isEmpty() && getHealth() > 0) {
+                    for (Actor a : nearbyEnemies) {
 
-                        if (isNeitherTowerNorAlly(a)) {
+                        if (isNeitherTowerNorAlly(a)
+                                && wRect.contains(a.getLocation(), a.getCollisionRadius())) {
                             double damage = handlePassive(a, getSpellDamage(spellData, true));
                             a.addToDamageQueue(this, damage, spellData, false);
                             passiveStart = System.currentTimeMillis();

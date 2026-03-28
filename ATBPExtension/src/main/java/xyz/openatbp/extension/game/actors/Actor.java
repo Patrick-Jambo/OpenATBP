@@ -644,6 +644,10 @@ public abstract class Actor {
         }
     }
 
+    public double getCollisionRadius() {
+        return parentExt.getActorData(avatar).get("collisionRadius").asDouble();
+    }
+
     public void setStat(String key, double value) {
         this.stats.put(key, value);
     }

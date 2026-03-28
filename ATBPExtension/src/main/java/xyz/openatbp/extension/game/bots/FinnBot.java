@@ -177,8 +177,10 @@ public class FinnBot extends Bot {
         lastWUse = System.currentTimeMillis();
 
         float W_SPELL_RANGE = (float) location.distance(destination);
-        Path2D quadrangle =
-                Champion.createRectangle(location, destination, W_SPELL_RANGE, W_OFFSET_DISTANCE);
+        AbilityShape wRect =
+                AbilityShape.createRectangle(
+                        location, destination, W_SPELL_RANGE, W_OFFSET_DISTANCE);
+
         Point2D ogLocation = this.location;
         Point2D finalDashPoint = this.dash(destination, false, DASH_SPEED);
 
@@ -206,14 +208,16 @@ public class FinnBot extends Bot {
                 this.team);
         ExtensionCommands.playSound(this.parentExt, this.room, this.id, dashSFX, this.location);
 
-        RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
-        List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(this.team, quadrangle);
-        if (!actorsInPolygon.isEmpty() && getHealth() > 0) {
+        RoomHandler rh = this.parentExt.getRoomHandler(this.room.getName());
+        List<Actor> nearbyEnemies =
+                Champion.getEnemyActorsInRadius(rh, team, location, W_SPELL_RANGE);
+        if (!nearbyEnemies.isEmpty() && getHealth() > 0) {
 
             JsonNode spellData = parentExt.getAttackData(avatar, "spell2");
-            for (Actor a : actorsInPolygon) {
+            for (Actor a : nearbyEnemies) {
 
-                if (isNonStructureEnemy(a)) {
+                if (isNonStructureEnemy(a)
+                        && wRect.contains(a.getLocation(), a.getCollisionRadius())) {
                     double damage = handlePassive(a, getSpellDamage(spellData));
                     a.addToDamageQueue(this, damage, spellData, false);
                     passiveStart = System.currentTimeMillis();

@@ -2,7 +2,6 @@ package xyz.openatbp.extension;
 
 import static com.mongodb.client.model.Filters.eq;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -30,7 +29,6 @@ public class MainMapRoomHandler extends RoomHandler {
     public static final int BASE_ACCOUNT_EXP_VALUE = 10;
     public static final int WINNER_ACCOUNT_EXP_INCREASE = 5;
     private HashMap<User, UserActor> dcPlayers = new HashMap<>();
-    private List<Actor> companions = new ArrayList<>();
     private final boolean IS_RANKED_MATCH = this.room.getGroupId().equals("PVP");
 
     public MainMapRoomHandler(ATBPExtension parentExt, Room room) {
@@ -604,93 +602,5 @@ public class MainMapRoomHandler extends RoomHandler {
         centers.put(0, purpleCenter);
         centers.put(1, blueCenter);
         return centers;
-    }
-
-    @Override
-    public List<Actor> getActors() {
-        List<Actor> actors = new ArrayList<>();
-        actors.addAll(towers);
-        actors.addAll(baseTowers);
-        actors.addAll(minions);
-        Collections.addAll(actors, bases);
-        actors.addAll(players);
-        actors.addAll(campMonsters);
-        actors.addAll(companions);
-        actors.removeIf(a -> a.getHealth() <= 0);
-        return actors;
-    }
-
-    @Override
-    public List<Actor> getActorsInRadius(Point2D center, float radius) {
-        List<Actor> actorsInRadius = new ArrayList<>();
-        actorsInRadius.addAll(towers);
-        actorsInRadius.addAll(baseTowers);
-        actorsInRadius.addAll(minions);
-        Collections.addAll(actorsInRadius, bases);
-        actorsInRadius.addAll(players);
-        actorsInRadius.addAll(campMonsters);
-        actorsInRadius.addAll(companions);
-        actorsInRadius.removeIf(a -> a.getHealth() <= 0);
-        return actorsInRadius.stream()
-                .filter(a -> a.getLocation().distance(center) <= radius)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getEnemiesInPolygon(int team, Path2D polygon) {
-        List<Actor> enemiesInPolygon = new ArrayList<>();
-        enemiesInPolygon.addAll(towers);
-        enemiesInPolygon.addAll(baseTowers);
-        enemiesInPolygon.addAll(minions);
-        Collections.addAll(enemiesInPolygon, bases);
-        enemiesInPolygon.addAll(players);
-        enemiesInPolygon.addAll(campMonsters);
-        enemiesInPolygon.addAll(companions);
-        enemiesInPolygon.removeIf(a -> a.getHealth() <= 0);
-        return enemiesInPolygon.stream()
-                .filter(a -> a.getTeam() != team)
-                .filter(a -> polygon.contains(a.getLocation()))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getNonStructureEnemies(int team) {
-        List<Actor> nonStructureEnemies = new ArrayList<>();
-        nonStructureEnemies.addAll(towers);
-        nonStructureEnemies.addAll(baseTowers);
-        nonStructureEnemies.addAll(minions);
-        Collections.addAll(nonStructureEnemies, bases);
-        nonStructureEnemies.addAll(players);
-        nonStructureEnemies.addAll(campMonsters);
-        nonStructureEnemies.addAll(companions);
-        nonStructureEnemies.removeIf(a -> a.getHealth() <= 0);
-        return nonStructureEnemies.stream()
-                .filter(a -> a.getTeam() != team)
-                .filter(a -> a.getActorType() != ActorType.TOWER)
-                .filter(a -> a.getActorType() != ActorType.BASE)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getEligibleActors(
-            int team,
-            boolean teamFilter,
-            boolean hpFilter,
-            boolean towerFilter,
-            boolean baseFilter) {
-        List<Actor> eligibleActors = new ArrayList<>();
-        eligibleActors.addAll(towers);
-        eligibleActors.addAll(baseTowers);
-        eligibleActors.addAll(minions);
-        Collections.addAll(eligibleActors, bases);
-        eligibleActors.addAll(players);
-        eligibleActors.addAll(campMonsters);
-        eligibleActors.addAll(companions);
-        return eligibleActors.stream()
-                .filter(a -> !hpFilter || a.getHealth() > 0)
-                .filter(a -> !teamFilter || a.getTeam() != team)
-                .filter(a -> !towerFilter || a.getActorType() != ActorType.TOWER)
-                .filter(a -> !baseFilter || a.getActorType() != ActorType.BASE)
-                .collect(Collectors.toList());
     }
 }

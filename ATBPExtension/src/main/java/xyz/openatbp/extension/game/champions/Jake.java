@@ -1,6 +1,5 @@
 package xyz.openatbp.extension.game.champions;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.HashMap;
 import java.util.List;
@@ -61,10 +60,15 @@ public class Jake extends UserActor {
         }
         if (grabActive) {
             if (grabStatus == 5) offsetDistance = 1.75f;
-            Path2D rectangle = Champion.createRectangle(grabPoint, qDestination, 1, offsetDistance);
+
+            AbilityShape qRect =
+                    AbilityShape.createRectangle(grabPoint, qDestination, 1, offsetDistance);
+
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
-            List<Actor> foes = handler.getEnemiesInPolygon(team, rectangle);
+
+            List<Actor> foes = Champion.getActorsInRadius(handler, location, 9f);
             foes.removeIf(f -> f.getActorType() == ActorType.TOWER);
+            foes.removeIf(f -> qRect.contains(f.getLocation(), f.getCollisionRadius()));
 
             if (!foes.isEmpty()) {
                 resetGrab();

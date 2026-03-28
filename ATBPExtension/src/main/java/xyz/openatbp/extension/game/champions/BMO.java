@@ -1,7 +1,6 @@
 package xyz.openatbp.extension.game.champions;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
@@ -157,23 +156,30 @@ public class BMO extends UserActor {
                 this.canCast[0] = false;
                 try {
                     this.stopMoving();
-                    Path2D trapezoid =
-                            Champion.createTrapezoid(
+                    AbilityShape qTrapezoid =
+                            AbilityShape.createTrapezoid(
                                     location,
                                     dest,
                                     Q_SPELL_RANGE,
                                     Q_OFFSET_DISTANCE_BOTTOM,
                                     Q_OFFSET_DISTANCE_TOP);
+
                     RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
-                    List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(this.team, trapezoid);
-                    if (!actorsInPolygon.isEmpty() && getHealth() > 0) {
-                        for (Actor a : actorsInPolygon) {
-                            if (isNeitherStructureNorAlly(a)) {
+
+                    List<Actor> nearbyEnemies =
+                            Champion.getEnemyActorsInRadius(handler, team, location, 9f);
+                    if (!nearbyEnemies.isEmpty() && getHealth() > 0) {
+                        for (Actor a : nearbyEnemies) {
+                            if (isNeitherStructureNorAlly(a)
+                                    && qTrapezoid.contains(
+                                            a.getLocation(), a.getCollisionRadius())) {
                                 a.addState(ActorState.BLINDED, 0d, Q_BLIND_DURATION);
                                 if (this.passiveStacks == 3) applySlow(a);
                             }
 
-                            if (isNeitherTowerNorAlly(a)) {
+                            if (isNeitherTowerNorAlly(a)
+                                    && qTrapezoid.contains(
+                                            a.getLocation(), a.getCollisionRadius())) {
                                 double damage = getSpellDamage(spellData, false);
                                 a.addToDamageQueue(this, damage, spellData, false);
                             }

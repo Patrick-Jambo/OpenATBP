@@ -1,6 +1,5 @@
 package xyz.openatbp.extension.game.champions;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.List;
 
@@ -11,10 +10,7 @@ import com.smartfoxserver.v2.entities.User;
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
-import xyz.openatbp.extension.game.AbilityRunnable;
-import xyz.openatbp.extension.game.ActorState;
-import xyz.openatbp.extension.game.ActorType;
-import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
@@ -140,23 +136,30 @@ public class Lemongrab extends UserActor {
                 this.canCast[0] = false;
                 try {
                     stopMoving(castDelay);
-                    Path2D trapezoid =
-                            Champion.createTrapezoid(
+
+                    AbilityShape qTrapezoid =
+                            AbilityShape.createTrapezoid(
                                     location,
                                     dest,
                                     Q_SPELL_RANGE,
                                     Q_OFFSET_DISTANCE_BOTTOM,
                                     Q_OFFSET_DISTANCE_TOP);
+
                     RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
-                    List<Actor> actorsInTrapezoid =
-                            handler.getEnemiesInPolygon(this.team, trapezoid);
-                    if (!actorsInTrapezoid.isEmpty()) {
-                        for (Actor a : actorsInTrapezoid) {
-                            if (isNeitherStructureNorAlly(a)) {
+                    List<Actor> nearbyEnemies =
+                            Champion.getActorsInRadius(handler, location, Q_SPELL_RANGE + 2);
+
+                    if (!nearbyEnemies.isEmpty()) {
+                        for (Actor a : nearbyEnemies) {
+                            if (isNeitherStructureNorAlly(a)
+                                    && qTrapezoid.contains(
+                                            a.getLocation(), a.getCollisionRadius())) {
                                 a.addState(ActorState.SLOWED, Q_SLOW_VALUE, Q_SLOW_DURATION);
                             }
 
-                            if (isNeitherTowerNorAlly(a)) {
+                            if (isNeitherTowerNorAlly(a)
+                                    && qTrapezoid.contains(
+                                            a.getLocation(), a.getCollisionRadius())) {
                                 double dmg = getSpellDamage(spellData, true);
                                 a.addToDamageQueue(this, dmg, spellData, false);
                             }

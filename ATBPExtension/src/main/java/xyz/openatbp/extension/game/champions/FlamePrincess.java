@@ -1,7 +1,6 @@
 package xyz.openatbp.extension.game.champions;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -511,14 +510,19 @@ public class FlamePrincess extends UserActor {
             Point2D hitPoint = victim.getLocation();
             Point2D endPoint = getBurstEndPoint(hitPoint);
 
-            Path2D rect =
-                    Champion.createRectangle(
+            AbilityShape qRect =
+                    AbilityShape.createRectangle(
                             hitPoint, endPoint, Q_BURST_RECTANGLE_LENGTH, Q_BURST_RECTANGLE_WIDTH);
 
             double burstDamage = damage * Q_BURST_DMG_RATIO;
 
-            for (Actor actor : handler.getEnemiesInPolygon(team, rect)) {
-                if (isNeitherTowerNorAlly(actor) && !actor.equals(victim)) {
+            List<Actor> nearbyEnemies =
+                    Champion.getEnemyActorsInRadius(handler, team, location, 10f);
+
+            for (Actor actor : nearbyEnemies) {
+                if (isNeitherTowerNorAlly(actor)
+                        && !actor.equals(victim)
+                        && qRect.contains(actor.getLocation(), actor.getCollisionRadius())) {
                     actor.addToDamageQueue(FlamePrincess.this, burstDamage, attackData, false);
                 }
             }

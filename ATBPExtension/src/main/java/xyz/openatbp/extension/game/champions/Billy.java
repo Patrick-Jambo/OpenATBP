@@ -1,6 +1,5 @@
 package xyz.openatbp.extension.game.champions;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.List;
 
@@ -11,10 +10,7 @@ import com.smartfoxserver.v2.entities.User;
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
-import xyz.openatbp.extension.game.AbilityRunnable;
-import xyz.openatbp.extension.game.ActorState;
-import xyz.openatbp.extension.game.ActorType;
-import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 
@@ -180,22 +176,25 @@ public class Billy extends UserActor {
                 try {
                     if (getHealth() > 0) {
                         this.stopMoving(Q_SELF_CRIPPLE_DURATION);
-                        Path2D quadrangle =
-                                Champion.createRectangle(
+                        AbilityShape rect =
+                                AbilityShape.createRectangle(
                                         location, dest, Q_SPELL_RANGE, Q_OFFSET_DISTANCE);
-                        RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
-                        List<Actor> actorsInPolygon =
-                                handler.getEnemiesInPolygon(this.team, quadrangle);
-                        if (!actorsInPolygon.isEmpty()) {
-                            for (Actor a : actorsInPolygon) {
-                                if (isNeitherStructureNorAlly(a)) {
-                                    a.knockback(this.location, 3.5f);
-                                    if (this.passiveUses == 3)
-                                        a.addState(ActorState.STUNNED, 0d, Q_STUN_DURATION);
-                                }
-                                if (isNeitherTowerNorAlly(a)) {
-                                    double damage = getSpellDamage(spellData, true);
-                                    a.addToDamageQueue(this, damage, spellData, false);
+
+                        RoomHandler rh = this.parentExt.getRoomHandler(this.room.getName());
+                        List<Actor> nearbyEnemyActors =
+                                Champion.getEnemyActorsInRadius(rh, team, location, Q_SPELL_RANGE);
+                        if (!nearbyEnemyActors.isEmpty()) {
+                            for (Actor a : nearbyEnemyActors) {
+                                if (rect.contains(a.getLocation(), a.getCollisionRadius())) {
+                                    if (isNeitherStructureNorAlly(a)) {
+                                        a.knockback(location, 3.5f);
+                                        if (passiveUses == 3)
+                                            a.addState(ActorState.STUNNED, 0d, Q_STUN_DURATION);
+                                    }
+                                    if (isNeitherTowerNorAlly(a)) {
+                                        double damage = getSpellDamage(spellData, true);
+                                        a.addToDamageQueue(this, damage, spellData, false);
+                                    }
                                 }
                             }
                         }

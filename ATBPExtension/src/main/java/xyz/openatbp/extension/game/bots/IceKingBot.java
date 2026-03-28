@@ -8,14 +8,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
 import com.smartfoxserver.v2.entities.Room;
 
 import xyz.openatbp.extension.ATBPExtension;
-import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
@@ -35,6 +33,8 @@ public class IceKingBot extends Bot {
     private long wStartTime = 0;
     private long ultStartTime = 0;
     private long lasWhirlwindTime = 0;
+
+    private boolean fakeProjectileHit = false;
 
     private enum AssetBundle {
         NORMAL,
@@ -131,34 +131,22 @@ public class IceKingBot extends Bot {
 
     @Override
     public boolean canUseQ(List<Actor> enemies) {
-
+        if (enemies.isEmpty()) return false;
         if (timeOk(1) && target != null) {
-            Console.debugLog("TEST");
-            if (target.getHealth() > 0) {
 
-                if (enemies.size() == 1) return true;
+            AbilityShape qShape =
+                    AbilityShape.createRectangle(location, target.getLocation(), 7.5f, 0.5f);
 
-                float maxDistance = (float) location.distance(target.getLocation());
-                int currentDistance = 0;
-                Point2D pointToCheck;
-                while (currentDistance < maxDistance) {
-                    pointToCheck =
-                            Champion.getAbilityLine(location, target.getLocation(), currentDistance)
-                                    .getP2();
-                    currentDistance++;
-
-                    RoomHandler rh = parentExt.getRoomHandler(room.getName());
-                    List<Actor> enemiesInRadius =
-                            Champion.getEnemyActorsInRadius(rh, team, pointToCheck, 0.5f);
-                    if (!enemiesInRadius.stream()
-                            .filter(a -> a != target)
-                            .collect(Collectors.toList())
-                            .isEmpty()) {
-                        return false;
-                    }
+            boolean isTargetOnlyActorInQ = true;
+            for (Actor a : enemies) {
+                JsonNode actorData = parentExt.getActorData(a.getAvatar());
+                if (actorData != null && actorData.has("collisionRadius")) {
+                    double radius = actorData.get("collisionRadius").asDouble();
+                    if (qShape.contains(a.getLocation(), radius) && a != target)
+                        isTargetOnlyActorInQ = false;
                 }
-                return true;
             }
+            return isTargetOnlyActorInQ;
         }
         return false;
     }

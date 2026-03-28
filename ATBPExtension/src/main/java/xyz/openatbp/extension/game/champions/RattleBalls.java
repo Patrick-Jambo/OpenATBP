@@ -1,6 +1,5 @@
 package xyz.openatbp.extension.game.champions;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.List;
 
@@ -10,10 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.AbilityRunnable;
-import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.Projectile;
-import xyz.openatbp.extension.game.SkinData;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 
@@ -45,7 +41,7 @@ public class RattleBalls extends UserActor {
     private int eCounter = 0;
     private long eStartTime;
 
-    private Path2D qThrustRectangle = null;
+    private AbilityShape qThrustRectangle = null;
     private boolean isDoingCounterAttackAnim = false;
     private Long counterAttackAnimTime = 0L;
 
@@ -197,7 +193,7 @@ public class RattleBalls extends UserActor {
                 canCast[0] = false;
                 if (qUses > 0) {
                     qThrustRectangle =
-                            Champion.createRectangle(
+                            AbilityShape.createRectangle(
                                     location, dest, Q_SPELL_RANGE, Q_OFFSET_DISTANCE);
                 }
                 Point2D ogLocation = location;
@@ -243,11 +239,14 @@ public class RattleBalls extends UserActor {
                 } else { // Q THRUST ATTACK
                     finishQAbility(false);
                     RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                    List<Actor> enemiesInPolygon =
-                            handler.getEnemiesInPolygon(team, qThrustRectangle);
-                    if (!enemiesInPolygon.isEmpty()) {
-                        for (Actor a : enemiesInPolygon) {
-                            if (isNeitherTowerNorAlly(a)) {
+                    List<Actor> nearbyEnemies =
+                            Champion.getActorsInRadius(handler, location, Q_SPELL_RANGE);
+
+                    if (!nearbyEnemies.isEmpty()) {
+                        for (Actor a : nearbyEnemies) {
+                            if (isNeitherTowerNorAlly(a)
+                                    && qThrustRectangle.contains(
+                                            a.getLocation(), a.getCollisionRadius())) {
                                 double dmg = getSpellDamage(spellData, true);
                                 a.addToDamageQueue(this, dmg, spellData, false);
                             }

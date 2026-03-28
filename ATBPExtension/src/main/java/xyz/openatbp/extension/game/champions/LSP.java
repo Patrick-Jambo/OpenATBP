@@ -1,7 +1,6 @@
 package xyz.openatbp.extension.game.champions;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
@@ -230,19 +229,25 @@ public class LSP extends UserActor {
                         true,
                         false,
                         team);
-                Path2D qRect =
-                        Champion.createRectangle(location, dest, Q_SPELL_RANGE, Q_OFFSET_DISTANCE);
+                AbilityShape qRect =
+                        AbilityShape.createRectangle(
+                                location, dest, Q_SPELL_RANGE, Q_OFFSET_DISTANCE);
 
                 List<Actor> affectedActors = new ArrayList<>();
                 RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(team, qRect);
-                if (!actorsInPolygon.isEmpty()) {
-                    for (Actor a : actorsInPolygon) {
-                        if (isNeitherStructureNorAlly(a)) {
+
+                List<Actor> nearbyEnemies =
+                        Champion.getEnemyActorsInRadius(handler, team, location, Q_SPELL_RANGE);
+
+                if (!nearbyEnemies.isEmpty()) {
+                    for (Actor a : nearbyEnemies) {
+                        if (isNeitherStructureNorAlly(a)
+                                && qRect.contains(a.getLocation(), a.getCollisionRadius())) {
                             a.handleFear(LSP.this.location, Q_FEAR_DURATION);
                         }
 
-                        if (isNeitherTowerNorAlly(a)) {
+                        if (isNeitherTowerNorAlly(a)
+                                && qRect.contains(a.getLocation(), a.getCollisionRadius())) {
                             double damage = getSpellDamage(spellData, true);
                             a.addToDamageQueue(LSP.this, damage, spellData, false);
                             affectedActors.add(a);

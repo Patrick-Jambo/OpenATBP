@@ -2,7 +2,6 @@ package xyz.openatbp.extension;
 
 import static com.mongodb.client.model.Filters.eq;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
@@ -69,6 +68,7 @@ public abstract class RoomHandler implements Runnable {
     protected ScheduledFuture<?> scriptHandler;
     protected int dcWeight = 0;
     protected float FOUNTAIN_RADIUS = 4f;
+    protected List<Actor> companions = new ArrayList<>();
 
     private enum PointLeadTeam {
         PURPLE,
@@ -135,20 +135,40 @@ public abstract class RoomHandler implements Runnable {
 
     public abstract HashMap<Integer, Point2D> getFountainsCenter();
 
-    public abstract List<Actor> getActors();
+    public List<Actor> getActors() {
+        List<Actor> actors = new ArrayList<>();
+        actors.addAll(towers);
+        actors.addAll(baseTowers);
+        actors.addAll(minions);
+        Collections.addAll(actors, bases);
+        actors.addAll(players);
+        actors.addAll(campMonsters);
+        actors.addAll(companions);
+        actors.removeIf(a -> a.getHealth() <= 0);
+        return actors;
+    }
 
-    public abstract List<Actor> getActorsInRadius(Point2D center, float radius);
+    public List<Actor> getActorsInRadius(Point2D center, float radius) {
+        List<Actor> actors = getActors();
+        return actors.stream()
+                .filter(a -> a.getLocation().distance(center) <= radius)
+                .collect(Collectors.toList());
+    }
 
-    public abstract List<Actor> getEnemiesInPolygon(int team, Path2D polygon);
-
-    public abstract List<Actor> getNonStructureEnemies(int team);
-
-    public abstract List<Actor> getEligibleActors(
+    public List<Actor> getEligibleActors(
             int team,
             boolean teamFilter,
             boolean hpFilter,
             boolean towerFilter,
-            boolean baseFilter);
+            boolean baseFilter) {
+        List<Actor> actors = getActors();
+        return actors.stream()
+                .filter(a -> !hpFilter || a.getHealth() > 0)
+                .filter(a -> !teamFilter || a.getTeam() != team)
+                .filter(a -> !towerFilter || a.getActorType() != ActorType.TOWER)
+                .filter(a -> !baseFilter || a.getActorType() != ActorType.BASE)
+                .collect(Collectors.toList());
+    }
 
     public ScheduledFuture<?> getScriptHandler() {
         return this.scriptHandler;

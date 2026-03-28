@@ -2,7 +2,6 @@ package xyz.openatbp.extension;
 
 import static com.mongodb.client.model.Filters.eq;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -19,7 +18,6 @@ import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 
-import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
 import xyz.openatbp.extension.game.bots.TutorialBot;
@@ -576,93 +574,5 @@ public class TutorialRoomHandler extends RoomHandler {
         centers.put(0, purpleCenter);
         centers.put(1, blueCenter);
         return centers;
-    }
-
-    @Override
-    public List<Actor> getActors() {
-        List<Actor> actors = new ArrayList<>();
-        if (jakeBot != null) actors.add(jakeBot);
-        if (superMinion != null) actors.add(superMinion);
-        actors.addAll(towers);
-        actors.addAll(minions);
-        Collections.addAll(actors, bases);
-        actors.addAll(players);
-        actors.addAll(campMonsters);
-        actors.removeIf(a -> a.getHealth() <= 0);
-        return actors;
-    }
-
-    @Override
-    public List<Actor> getActorsInRadius(Point2D center, float radius) {
-        List<Actor> actorsInRadius = new ArrayList<>();
-        if (jakeBot != null) actorsInRadius.add(jakeBot);
-        if (superMinion != null) actorsInRadius.add(superMinion);
-        actorsInRadius.addAll(towers);
-        actorsInRadius.addAll(minions);
-        Collections.addAll(actorsInRadius, bases);
-        actorsInRadius.addAll(players);
-        actorsInRadius.addAll(campMonsters);
-        actorsInRadius.removeIf(a -> a.getHealth() <= 0);
-        return actorsInRadius.stream()
-                .filter(a -> a.getLocation().distance(center) <= radius)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getEnemiesInPolygon(int team, Path2D polygon) {
-        List<Actor> enemiesInPolygon = new ArrayList<>();
-        if (jakeBot != null) enemiesInPolygon.add(jakeBot);
-        if (superMinion != null) enemiesInPolygon.add(superMinion);
-        enemiesInPolygon.addAll(towers);
-        enemiesInPolygon.addAll(minions);
-        Collections.addAll(enemiesInPolygon, bases);
-        enemiesInPolygon.addAll(players);
-        enemiesInPolygon.addAll(campMonsters);
-        enemiesInPolygon.removeIf(a -> a.getHealth() <= 0);
-        return enemiesInPolygon.stream()
-                .filter(a -> a.getTeam() != team)
-                .filter(a -> polygon.contains(a.getLocation()))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getNonStructureEnemies(int team) {
-        List<Actor> nonStructureEnemies = new ArrayList<>();
-        if (jakeBot != null) nonStructureEnemies.add(jakeBot);
-        if (superMinion != null) nonStructureEnemies.add(superMinion);
-        nonStructureEnemies.addAll(towers);
-        nonStructureEnemies.addAll(minions);
-        Collections.addAll(nonStructureEnemies, bases);
-        nonStructureEnemies.addAll(players);
-        nonStructureEnemies.addAll(campMonsters);
-        nonStructureEnemies.removeIf(a -> a.getHealth() <= 0);
-        return nonStructureEnemies.stream()
-                .filter(a -> a.getTeam() != team)
-                .filter(a -> a.getActorType() != ActorType.TOWER)
-                .filter(a -> a.getActorType() != ActorType.BASE)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getEligibleActors(
-            int team,
-            boolean teamFilter,
-            boolean hpFilter,
-            boolean towerFilter,
-            boolean baseFilter) {
-        List<Actor> eligibleActors = new ArrayList<>();
-        if (jakeBot != null) eligibleActors.add(jakeBot);
-        if (superMinion != null) eligibleActors.add(superMinion);
-        eligibleActors.addAll(towers);
-        eligibleActors.addAll(minions);
-        Collections.addAll(eligibleActors, bases);
-        eligibleActors.addAll(players);
-        eligibleActors.addAll(campMonsters);
-        return eligibleActors.stream()
-                .filter(a -> !hpFilter || a.getHealth() > 0)
-                .filter(a -> !teamFilter || a.getTeam() != team)
-                .filter(a -> !towerFilter || a.getActorType() != ActorType.TOWER)
-                .filter(a -> !baseFilter || a.getActorType() != ActorType.BASE)
-                .collect(Collectors.toList());
     }
 }

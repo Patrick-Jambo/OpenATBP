@@ -1,7 +1,6 @@
 package xyz.openatbp.extension.game.champions;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.List;
 
@@ -13,6 +12,7 @@ import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.AbilityRunnable;
+import xyz.openatbp.extension.game.AbilityShape;
 import xyz.openatbp.extension.game.Champion;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.Actor;
@@ -28,7 +28,7 @@ public class Gunter extends UserActor {
     private long ultStartTime = 0;
     private int qTime;
 
-    Path2D eTrapezoid = null;
+    AbilityShape eTrapezoid = null;
 
     public Gunter(User u, ATBPExtension parentExt) {
         super(u, parentExt);
@@ -40,10 +40,12 @@ public class Gunter extends UserActor {
         if (this.ultActivated && this.eTrapezoid != null) {
             JsonNode spellData = parentExt.getAttackData(getAvatar(), "spell3");
             RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
-            List<Actor> actorsInTrapezoid = handler.getEnemiesInPolygon(this.team, this.eTrapezoid);
-            if (!actorsInTrapezoid.isEmpty()) {
-                for (Actor a : actorsInTrapezoid) {
-                    if (isNeitherTowerNorAlly(a)) {
+            List<Actor> nearbyEnemies =
+                    Champion.getEnemyActorsInRadius(handler, team, location, E_SPELL_RANGE + 2);
+            if (!nearbyEnemies.isEmpty()) {
+                for (Actor a : nearbyEnemies) {
+                    if (isNeitherTowerNorAlly(a)
+                            && eTrapezoid.contains(a.getLocation(), a.getCollisionRadius())) {
                         double damage = getSpellDamage(spellData, false) / 10d;
                         a.addToDamageQueue(this, damage, spellData, true);
                     }
@@ -200,7 +202,7 @@ public class Gunter extends UserActor {
                     this.ultStartTime = System.currentTimeMillis();
                     this.ultActivated = true;
                     this.eTrapezoid =
-                            Champion.createTrapezoid(
+                            AbilityShape.createTrapezoid(
                                     location,
                                     dest,
                                     E_SPELL_RANGE,

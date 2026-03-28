@@ -1,22 +1,18 @@
 package xyz.openatbp.extension;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 
-import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
-import xyz.openatbp.extension.game.bots.FinnBot;
+import xyz.openatbp.extension.game.bots.IceKingBot;
 
 public class PracticeRoomHandler extends RoomHandler {
 
     private HashMap<User, UserActor> dcPlayers = new HashMap<>();
-    private List<Actor> companions = new ArrayList<>();
 
     private Bot bot;
 
@@ -39,7 +35,8 @@ public class PracticeRoomHandler extends RoomHandler {
             float x = (float) purpleSpawn.getX();
 
             Point2D BotSpawnPoint = new Point2D.Float(x * -1, (float) purpleSpawn.getY());
-            bot = new FinnBot(parentExt, room, "finn", 1, BotSpawnPoint);
+            bot = new IceKingBot(parentExt, room, "iceking", 1, BotSpawnPoint);
+            companions.add(bot);
         }
         FOUNTAIN_RADIUS = 6f;
     }
@@ -48,8 +45,12 @@ public class PracticeRoomHandler extends RoomHandler {
     public void run() {
         if (gameOver) return;
         super.run();
-        if (bot != null && !gameOver) {
-            bot.update(mSecondsRan);
+        try {
+            if (bot != null && !gameOver) {
+                bot.update(mSecondsRan);
+            }
+        } catch (NullPointerException e) {
+            e.printStackTrace();
         }
     }
 
@@ -287,98 +288,5 @@ public class PracticeRoomHandler extends RoomHandler {
         centers.put(0, purpleCenter);
         centers.put(1, blueCenter);
         return centers;
-    }
-
-    @Override
-    public List<Actor> getActors() {
-        List<Actor> actors = new ArrayList<>();
-        if (bot != null) actors.add(bot);
-        actors.addAll(towers);
-        actors.addAll(baseTowers);
-        actors.addAll(minions);
-        Collections.addAll(actors, bases);
-        actors.addAll(players);
-        actors.addAll(campMonsters);
-        actors.addAll(companions);
-        actors.removeIf(a -> a.getHealth() <= 0);
-        return actors;
-    }
-
-    @Override
-    public List<Actor> getActorsInRadius(Point2D center, float radius) {
-        List<Actor> actorsInRadius = new ArrayList<>();
-        if (bot != null) actorsInRadius.add(bot);
-        actorsInRadius.addAll(towers);
-        actorsInRadius.addAll(baseTowers);
-        actorsInRadius.addAll(minions);
-        Collections.addAll(actorsInRadius, bases);
-        actorsInRadius.addAll(players);
-        actorsInRadius.addAll(campMonsters);
-        actorsInRadius.addAll(companions);
-        actorsInRadius.removeIf(a -> a.getHealth() <= 0);
-        return actorsInRadius.stream()
-                .filter(a -> a.getLocation().distance(center) <= radius)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getEnemiesInPolygon(int team, Path2D polygon) {
-        List<Actor> enemiesInPolygon = new ArrayList<>();
-        if (bot != null) enemiesInPolygon.add(bot);
-        enemiesInPolygon.addAll(towers);
-        enemiesInPolygon.addAll(baseTowers);
-        enemiesInPolygon.addAll(minions);
-        Collections.addAll(enemiesInPolygon, bases);
-        enemiesInPolygon.addAll(players);
-        enemiesInPolygon.addAll(campMonsters);
-        enemiesInPolygon.addAll(companions);
-        enemiesInPolygon.removeIf(a -> a.getHealth() <= 0);
-        return enemiesInPolygon.stream()
-                .filter(a -> a.getTeam() != team)
-                .filter(a -> polygon.contains(a.getLocation()))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getNonStructureEnemies(int team) {
-        List<Actor> nonStructureEnemies = new ArrayList<>();
-        if (bot != null) nonStructureEnemies.add(bot);
-        nonStructureEnemies.addAll(towers);
-        nonStructureEnemies.addAll(baseTowers);
-        nonStructureEnemies.addAll(minions);
-        Collections.addAll(nonStructureEnemies, bases);
-        nonStructureEnemies.addAll(players);
-        nonStructureEnemies.addAll(campMonsters);
-        nonStructureEnemies.addAll(companions);
-        nonStructureEnemies.removeIf(a -> a.getHealth() <= 0);
-        return nonStructureEnemies.stream()
-                .filter(a -> a.getTeam() != team)
-                .filter(a -> a.getActorType() != ActorType.TOWER)
-                .filter(a -> a.getActorType() != ActorType.BASE)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getEligibleActors(
-            int team,
-            boolean teamFilter,
-            boolean hpFilter,
-            boolean towerFilter,
-            boolean baseFilter) {
-        List<Actor> eligibleActors = new ArrayList<>();
-        if (bot != null) eligibleActors.add(bot);
-        eligibleActors.addAll(towers);
-        eligibleActors.addAll(baseTowers);
-        eligibleActors.addAll(minions);
-        Collections.addAll(eligibleActors, bases);
-        eligibleActors.addAll(players);
-        eligibleActors.addAll(campMonsters);
-        eligibleActors.addAll(companions);
-        return eligibleActors.stream()
-                .filter(a -> !hpFilter || a.getHealth() > 0)
-                .filter(a -> !teamFilter || a.getTeam() != team)
-                .filter(a -> !towerFilter || a.getActorType() != ActorType.TOWER)
-                .filter(a -> !baseFilter || a.getActorType() != ActorType.BASE)
-                .collect(Collectors.toList());
     }
 }

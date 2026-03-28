@@ -1,7 +1,6 @@
 package xyz.openatbp.extension.game.champions;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.List;
 
@@ -14,6 +13,7 @@ import xyz.openatbp.extension.ChampionData;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.AbilityRunnable;
+import xyz.openatbp.extension.game.AbilityShape;
 import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.Champion;
 import xyz.openatbp.extension.game.actors.Actor;
@@ -36,7 +36,7 @@ public class CinnamonBun extends UserActor {
     private Point2D ultPoint2 = null;
     private int ultUses = 0;
     private long ultStart = 0;
-    private Path2D wPolygon = null;
+    private AbilityShape wPolygon = null;
     private long wStartTime = 0;
     private long lastUltTick = 0;
 
@@ -53,11 +53,14 @@ public class CinnamonBun extends UserActor {
         if (this.wPolygon != null) {
             JsonNode spellData = this.parentExt.getAttackData(this.avatar, "spell2");
 
-            RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
-            List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(this.team, this.wPolygon);
-            if (!actorsInPolygon.isEmpty()) {
-                for (Actor a : actorsInPolygon) {
-                    if (isNeitherTowerNorAlly(a)) {
+            RoomHandler rh = this.parentExt.getRoomHandler(this.room.getName());
+
+            List<Actor> nearbyEnemies =
+                    Champion.getEnemyActorsInRadius(rh, team, location, W_SPELL_RANGE);
+            if (!nearbyEnemies.isEmpty()) {
+                for (Actor a : nearbyEnemies) {
+                    if (isNeitherTowerNorAlly(a)
+                            && wPolygon.contains(a.getLocation(), a.getCollisionRadius())) {
                         int damage = (int) (getSpellDamage(spellData, false) / 10d);
                         a.addToDamageQueue(this, damage, spellData, true);
                     }
@@ -202,15 +205,18 @@ public class CinnamonBun extends UserActor {
                             false,
                             this.team);
                     handlePassive();
-                    Path2D qRect =
-                            Champion.createRectangle(
+
+                    AbilityShape qRect =
+                            AbilityShape.createRectangle(
                                     location, dest, Q_SPELL_RANGE, Q_OFFSET_DISTANCE);
 
                     RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
-                    List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(this.team, qRect);
-                    if (!actorsInPolygon.isEmpty()) {
-                        for (Actor a : actorsInPolygon) {
-                            if (isNeitherTowerNorAlly(a)) {
+                    List<Actor> nearbyEnemies =
+                            Champion.getActorsInRadius(handler, location, Q_SPELL_RANGE);
+                    if (!nearbyEnemies.isEmpty()) {
+                        for (Actor a : nearbyEnemies) {
+                            if (isNeitherTowerNorAlly(a)
+                                    && qRect.contains(a.getLocation(), a.getCollisionRadius())) {
                                 double damage = getSpellDamage(spellData, true);
                                 a.addToDamageQueue(this, damage, spellData, false);
                             }
@@ -254,12 +260,13 @@ public class CinnamonBun extends UserActor {
                             new Point2D.Float(
                                     (float) wPolyLengthLine.getX2(),
                                     (float) wPolyLengthLine.getY2());
-                    this.wPolygon =
-                            Champion.createRectangle(
+                    wPolygon =
+                            AbilityShape.createRectangle(
                                     wPolyStartPoint,
                                     wPolyEndPoint,
                                     W_SPELL_RANGE,
                                     W_OFFSET_DISTANCE);
+
                     ExtensionCommands.createActorFX(
                             this.parentExt,
                             this.room,

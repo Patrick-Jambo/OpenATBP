@@ -18,7 +18,6 @@ import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class TutorialBot extends Bot {
-    private boolean isAutoAttacking = false;
     private long lastBallon = 0;
 
     public TutorialBot(ATBPExtension parentExt, Room room, int team, Point2D spawnPoint) {
