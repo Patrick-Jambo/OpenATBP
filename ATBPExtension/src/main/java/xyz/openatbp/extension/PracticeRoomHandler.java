@@ -9,7 +9,7 @@ import com.smartfoxserver.v2.entities.User;
 import xyz.openatbp.extension.game.BotMapConfig;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
-import xyz.openatbp.extension.game.bots.IceKingBot;
+import xyz.openatbp.extension.game.bots.LemongrabBot;
 
 public class PracticeRoomHandler extends RoomHandler {
 
@@ -34,8 +34,15 @@ public class PracticeRoomHandler extends RoomHandler {
         if (this.players.size() == 1) {
 
             BotMapConfig mapConfig = BotMapConfig.createPractice(1);
-            bot = new IceKingBot(parentExt, room, "iceking", 1, mapConfig);
+            bot = new LemongrabBot(parentExt, room, "lemongrab", 1, mapConfig);
             companions.add(bot);
+
+            mapConfig.displayLanePath(
+                    mapConfig.midLanePath,
+                    bot.getParentExt(),
+                    bot.getRoom(),
+                    bot.getId(),
+                    bot.getTeam());
         }
         FOUNTAIN_RADIUS = 6f;
     }

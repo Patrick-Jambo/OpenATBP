@@ -322,7 +322,7 @@ public class ATBPExtension extends SFSExtension {
 
     public JsonNode getActorData(String actorName) {
         JsonNode node = actorDefinitions.get(actorName);
-        if (node.has("MonoBehaviours")) {
+        if (node != null && node.has("MonoBehaviours")) {
             if (node.get("MonoBehaviours").has("ActorData"))
                 return node.get("MonoBehaviours").get("ActorData");
         }

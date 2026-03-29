@@ -136,7 +136,7 @@ public class IceKingBot extends Bot {
 
             if (canUseW()
                     && (target instanceof UserActor || enemies.size() > 1)
-                    && target.getLocation().distance(location) <= MAX_W_CAST_DISTANCE + W_RADIUS) {
+                    && target.getLocation().distance(location) <= MAX_W_CAST_DISTANCE) {
                 useW(target.getLocation());
             }
 
@@ -145,7 +145,9 @@ public class IceKingBot extends Bot {
     }
 
     @Override
-    public void handleRetreatAbilities() {}
+    public void handleRetreatAbilities() {
+        if (canUseE()) useE(location);
+    }
 
     private void handleLastAbilityVar() {
         if (System.currentTimeMillis() > this.lastAbilityUsed) {
@@ -186,6 +188,13 @@ public class IceKingBot extends Bot {
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
         List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, E_RADIUS);
         if (timeOk(3)) {
+            if (getPHealth() <= 0.15) {
+                /*Console.debugLog("P health is below 0.15");
+                Console.debugLog("P health: " + getPHealth());
+                Console.debugLog("current health: " + getHealth());
+                Console.debugLog("max health: " + getMaxHealth());*/
+                return true;
+            }
             for (Actor a : enemies) {
                 if (a instanceof UserActor && a.getHealth() > 0) {
                     return a.hasMovementCC();
@@ -289,6 +298,7 @@ public class IceKingBot extends Bot {
 
     @Override
     public void useE(Point2D destination) {
+        /*Console.debugLog("E Used!");*/
         handleLastAbilityVar();
         lastEUse = System.currentTimeMillis();
         globalCooldown = eCastDelayMS;

@@ -119,16 +119,22 @@ public class FinnBot extends Bot {
 
     @Override
     public void handleFightingAbilities() {
-        RoomHandler rh = parentExt.getRoomHandler(room.getName());
-
         if (target != null) {
             double distance = target.getLocation().distance(location);
-            if (distance <= 5f && canUseQ()) useQ(target.getLocation());
-            if (distance <= 3.5 && target.getPHealth() <= 0.4 && canUseE())
+
+            boolean targetLowHP = target.getPHealth() <= 0.05;
+
+            if (canUseW() && distance <= 5f && isEnemyProtectedByTower(target) && targetLowHP) {
+                useW(target.getLocation());
+            }
+
+            if (canUseW() && distance <= 5f && !isEnemyProtectedByTower(target)) {
+                useW(target.getLocation());
+            }
+
+            if (distance <= 3.5 && target != null && target.getPHealth() <= 0.4 && canUseE())
                 useE(target.getLocation());
         }
-
-        if (target != null && target.getLocation().distance(location) <= 5f) {}
     }
 
     @Override
@@ -136,7 +142,12 @@ public class FinnBot extends Bot {
         Point2D fleePoint = getNextFleeWaypoint();
         Point2D dashPoint = Champion.getAbilityLine(location, fleePoint, 5f).getP2();
 
-        if (canUseE()) useW(dashPoint);
+        if (canUseW()) useW(dashPoint);
+
+        if (canUseE()
+                && getPHealth() <= 0.1
+                && lastPlayerAttacker != null
+                && lastPlayerAttacker.getLocation().distance(location) <= 3) useE(location);
     }
 
     @Override

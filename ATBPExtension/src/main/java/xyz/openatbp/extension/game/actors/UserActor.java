@@ -83,8 +83,6 @@ public class UserActor extends Actor {
     private static boolean damageDebug;
     protected double hits = 0;
     private Point2D queuedDest = null;
-    protected boolean pickedUpHealthPack = false;
-    protected long healthPackPickUpTime = 0;
     protected boolean hasKeeothBuff = false;
     protected boolean hasGooBuff = false;
     protected long keeothBuffStartTime = 0;
@@ -1344,7 +1342,7 @@ public class UserActor extends Actor {
                 regenHealth();
             }
             if (this.pickedUpHealthPack
-                    && System.currentTimeMillis() - this.healthPackPickUpTime >= 60000) {
+                    && System.currentTimeMillis() - healthPackPickUpTime >= 60000) {
                 this.pickedUpHealthPack = false;
                 this.updateStatMenu("healthRegen");
             }
@@ -1703,27 +1701,6 @@ public class UserActor extends Actor {
             this.charmer = charmer;
             this.addState(ActorState.CHARMED, 0d, duration);
         }
-    }
-
-    public void handleCyclopsHealing() {
-        if (this.getHealth() != this.maxHealth && !this.pickedUpHealthPack) {
-            this.heal((int) (this.getMaxHealth() * 0.15d));
-        }
-        ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.getId(),
-                "fx_health_regen",
-                60000,
-                this.id + "healthPackFX",
-                true,
-                "",
-                false,
-                false,
-                this.getTeam());
-        this.pickedUpHealthPack = true;
-        this.healthPackPickUpTime = System.currentTimeMillis();
-        this.updateStatMenu("healthRegen");
     }
 
     public void respawn() {
@@ -2480,6 +2457,12 @@ public class UserActor extends Actor {
     public void heal(int delta) {
         if (ChampionData.getJunkLevel(this, "junk_1_ax_bass") > 0) return;
         super.heal(delta);
+    }
+
+    @Override
+    public void handleCyclopsHealing() {
+        super.handleCyclopsHealing();
+        this.updateStatMenu("healthRegen");
     }
 
     public int getMonsterBuffCount(String stat) {

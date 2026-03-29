@@ -55,6 +55,9 @@ public abstract class Actor {
     protected UserActor charmer;
     protected boolean isDashing = false;
 
+    protected boolean pickedUpHealthPack = false;
+    protected Long healthPackPickUpTime;
+
     public double getPHealth() {
         return currentHealth / maxHealth;
     }
@@ -645,7 +648,11 @@ public abstract class Actor {
     }
 
     public double getCollisionRadius() {
-        return parentExt.getActorData(avatar).get("collisionRadius").asDouble();
+        JsonNode data = parentExt.getActorData(avatar);
+        if (data == null) return 0.5;
+        JsonNode collisionRadius = data.get("collisionRadius");
+        if (collisionRadius == null) return 0.5;
+        return collisionRadius.asDouble();
     }
 
     public void setStat(String key, double value) {
@@ -952,6 +959,26 @@ public abstract class Actor {
         this.setLocation(dashPoint);
         this.target = null;
         return dashPoint;
+    }
+
+    public void handleCyclopsHealing() {
+        if (this.getHealth() != this.maxHealth && !this.pickedUpHealthPack) {
+            this.heal((int) (this.getMaxHealth() * 0.15d));
+        }
+        ExtensionCommands.createActorFX(
+                this.parentExt,
+                this.room,
+                this.getId(),
+                "fx_health_regen",
+                60000,
+                this.id + "healthPackFX",
+                true,
+                "",
+                false,
+                false,
+                this.getTeam());
+        this.pickedUpHealthPack = true;
+        this.healthPackPickUpTime = System.currentTimeMillis();
     }
 
     protected class MovementStopper implements Runnable {

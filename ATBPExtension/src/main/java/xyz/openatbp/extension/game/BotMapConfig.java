@@ -3,6 +3,10 @@ package xyz.openatbp.extension.game;
 import java.awt.geom.Point2D;
 import java.util.HashMap;
 
+import com.smartfoxserver.v2.entities.Room;
+
+import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.MapData;
 
 public class BotMapConfig {
@@ -155,6 +159,7 @@ public class BotMapConfig {
     }
 
     private static Point2D[] getPracticeMidLanePath(int team) {
+        // TODO: DUPLICATE POINT HERE CAN BUG MOVEMENT
         int xChange = team == 0 ? 1 : -1;
 
         return new Point2D[] {
@@ -165,7 +170,6 @@ public class BotMapConfig {
             new Point2D.Float(-23.244114f * xChange, -2.7537377f),
             new Point2D.Float(-13.155279f * xChange, -2.7126164f),
             new Point2D.Float(-6.6917067f * xChange, -2.280657f),
-            new Point2D.Float(-3.7524607f * xChange, -1.2206067f),
             new Point2D.Float(-3.7524607f * xChange, -1.2206067f),
             new Point2D.Float(6.2069736f * xChange, 1.5437235f),
             new Point2D.Float(9.985384f * xChange, -0.94444215f),
@@ -199,5 +203,23 @@ public class BotMapConfig {
 
     public boolean hasDefenseAlter2() {
         return defenseAltar2 != null;
+    }
+
+    public void displayLanePath(
+            Point2D[] path, ATBPExtension parentExt, Room room, String id, int team) {
+        for (Point2D p : path) {
+            ExtensionCommands.createWorldFX(
+                    parentExt,
+                    room,
+                    id,
+                    "skully",
+                    id + Math.random(),
+                    1000 * 60 * 15,
+                    (float) p.getX(),
+                    (float) p.getY(),
+                    false,
+                    team,
+                    0f);
+        }
     }
 }

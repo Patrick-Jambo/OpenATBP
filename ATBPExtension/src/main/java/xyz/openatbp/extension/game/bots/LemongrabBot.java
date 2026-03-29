@@ -108,7 +108,19 @@ public class LemongrabBot extends Bot {
     }
 
     @Override
-    public void handleRetreatAbilities() {}
+    public void handleRetreatAbilities() {
+        if (lastPlayerAttacker != null) {
+            double distance = lastPlayerAttacker.getLocation().distance(location);
+
+            if (canUseQ() && distance <= Q_MAX_CAST_RANGE) {
+                useQ(lastPlayerAttacker.getLocation());
+            }
+
+            if (canUseE() && getPHealth() <= 0.1 && distance <= E_MAX_CAST_RANGE) {
+                useE(lastPlayerAttacker.getLocation());
+            }
+        }
+    }
 
     @Override
     public void attack(Actor a) {
@@ -117,12 +129,12 @@ public class LemongrabBot extends Bot {
 
     @Override
     public boolean canUseQ() {
-        RoomHandler rh = parentExt.getRoomHandler(room.getName());
-        List<Actor> enemies =
-                Champion.getEnemyActorsInRadius(rh, team, location, Q_SPELL_RANGE + 1);
-        if (timeOk(1)) {
-            if (target != null && target instanceof UserActor) return true;
-            return enemies.size() > 1;
+        if (target != null
+                && timeOk(1)
+                && target.getLocation().distance(location) <= Q_MAX_CAST_RANGE) {
+            if (target instanceof UserActor) return true;
+            RoomHandler rh = parentExt.getRoomHandler(room.getName());
+            return Champion.getEnemyActorsInRadius(rh, team, target.getLocation(), 4f).size() > 1;
         }
         return false;
     }
@@ -130,9 +142,7 @@ public class LemongrabBot extends Bot {
     @Override
     public boolean canUseW() {
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
-        List<Actor> enemies =
-                Champion.getEnemyActorsInRadius(
-                        rh, team, location, W_MAX_CAST_RANGE + (W_RADIUS / 2));
+        List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, W_MAX_CAST_RANGE);
         if (timeOk(2)) {
             if (target != null && target instanceof UserActor) return true;
             return enemies.size() > 1;
@@ -145,8 +155,7 @@ public class LemongrabBot extends Bot {
         return (timeOk(3))
                 && (target.hasMovementCC()
                         || (target != null && target.getState(ActorState.SLOWED))
-                                && target.getLocation().distance(location)
-                                        <= E_MAX_CAST_RANGE + (E_RADIUS / 2.0));
+                                && target.getLocation().distance(location) <= E_MAX_CAST_RANGE);
     }
 
     @Override
@@ -169,7 +178,7 @@ public class LemongrabBot extends Bot {
         JsonNode spellData = parentExt.getAttackData("lemongrab", "spell1");
         RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
         List<Actor> nearbyEnemies =
-                Champion.getActorsInRadius(handler, location, Q_SPELL_RANGE + 2);
+                Champion.getEnemyActorsInRadius(handler, team, destination, Q_SPELL_RANGE);
 
         if (!nearbyEnemies.isEmpty()) {
             for (Actor a : nearbyEnemies) {

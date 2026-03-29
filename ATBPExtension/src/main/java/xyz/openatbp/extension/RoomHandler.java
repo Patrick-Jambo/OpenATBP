@@ -293,16 +293,22 @@ public abstract class RoomHandler implements Runnable {
             if (s.length() == 3) {
                 ISFSObject spawns = room.getVariable("spawns").getSFSObjectValue();
                 if (spawns.getInt(s) == HP_SPAWN_RATE_SEC + 1) {
-                    for (UserActor u : players) {
-                        Point2D currentPoint = u.getLocation();
-                        if (insideHealth(currentPoint, getHealthNum(s)) && u.getHealth() > 0) {
-                            int team = u.getTeam();
+                    List<Actor> actorsToCheck = new ArrayList<>(players);
+                    List<Actor> bots = new ArrayList<>(companions);
+                    bots.removeIf(a -> !(a instanceof Bot));
+
+                    actorsToCheck.addAll(bots);
+
+                    for (Actor a : actorsToCheck) {
+                        Point2D currentPoint = a.getLocation();
+                        if (insideHealth(currentPoint, getHealthNum(s)) && a.getHealth() > 0) {
+                            int team = a.getTeam();
                             Point2D healthLoc = getHealthLocation(getHealthNum(s));
                             ExtensionCommands.removeFx(parentExt, room, s + "_fx");
                             ExtensionCommands.createActorFX(
                                     parentExt,
                                     room,
-                                    String.valueOf(u.getId()),
+                                    a.getId(),
                                     "picked_up_health_cyclops",
                                     2000,
                                     s + "_fx2",
@@ -312,8 +318,8 @@ public abstract class RoomHandler implements Runnable {
                                     false,
                                     team);
                             ExtensionCommands.playSound(
-                                    parentExt, u.getRoom(), "", "sfx_health_picked_up", healthLoc);
-                            u.handleCyclopsHealing();
+                                    parentExt, a.getRoom(), "", "sfx_health_picked_up", healthLoc);
+                            a.handleCyclopsHealing();
                             spawns.putInt(s, 0);
                             break;
                         }
@@ -1323,7 +1329,7 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public ArrayList<UserActor> getPlayers() {
-        return this.players;
+        return new ArrayList<>(this.players);
     }
 
     public Tower findTower(String id) {
@@ -1409,7 +1415,8 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public List<Monster> getCampMonsters() {
-        return this.campMonsters;
+
+        return new ArrayList<>(this.campMonsters);
     }
 
     public List<Monster> getCampMonsters(String id) {
@@ -1432,14 +1439,14 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public List<Tower> getTowers() {
-        return this.towers;
+        return new ArrayList<>(this.towers);
     }
 
     public List<BaseTower> getBaseTowers() {
-        return this.baseTowers;
+        return new ArrayList<>(this.baseTowers);
     }
 
-    protected boolean canSpawnSupers(int team) {
+    public boolean canSpawnSupers(int team) {
         for (Tower t : this.towers) {
             if (t.getTeam() != team) {
                 if (t.getTowerNum() != 3 && t.getTowerNum() != 0 && t.getHealth() > 0) return false;
