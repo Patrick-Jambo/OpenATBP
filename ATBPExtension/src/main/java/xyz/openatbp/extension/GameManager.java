@@ -11,10 +11,8 @@ import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
-import com.smartfoxserver.v2.entities.variables.RoomVariable;
-import com.smartfoxserver.v2.entities.variables.SFSRoomVariable;
-import com.smartfoxserver.v2.entities.variables.SFSUserVariable;
-import com.smartfoxserver.v2.entities.variables.UserVariable;
+import com.smartfoxserver.v2.entities.variables.*;
+import com.smartfoxserver.v2.exceptions.SFSLoginException;
 import com.smartfoxserver.v2.exceptions.SFSVariableException;
 
 import xyz.openatbp.extension.game.actors.UserActor;
@@ -128,78 +126,105 @@ public class GameManager {
         }
     }
 
-    public static void initializeGame(Room room, ATBPExtension parentExt)
+    private static void initializePlayer(
+            ATBPExtension parentExt,
+            User u,
+            Room room,
+            ISFSObject playerInfo,
+            int spawnNum,
+            boolean createActor)
             throws SFSVariableException {
-        room.setProperty("state", 2);
-        int blueNum = 0;
-        int purpleNum = 0;
-        initializeMap(room, parentExt);
-        for (User u : room.getUserList()) {
-            ISFSObject playerInfo = u.getVariable("player").getSFSObjectValue();
-            int team = playerInfo.getInt("team");
-            float px = 0f;
-            float pz = 0f;
-            if (team == 0) {
-                if (room.getGroupId().equals("Practice")
-                        || room.getGroupId().equals("Tutorial")
-                        || room.getGroupId().equals("ARAM")) {
-                    px = (float) MapData.L1_PURPLE_SPAWNS[purpleNum].getX();
-                    pz = (float) MapData.L1_PURPLE_SPAWNS[purpleNum].getY();
-                } else {
-                    px = (float) MapData.L2_PURPLE_SPAWNS[purpleNum].getX();
-                    pz = (float) MapData.L2_PURPLE_SPAWNS[purpleNum].getY();
-                }
-                purpleNum++;
+        boolean practiceMap =
+                room.getGroupId().equals("Practice") || room.getGroupId().equals("Tutorial");
+        int team = playerInfo.getInt("team");
+
+        float px = 0f;
+        float pz = 0f;
+        if (team == 0) {
+            if (practiceMap) {
+                px = (float) MapData.L1_PURPLE_SPAWNS[spawnNum].getX();
+                pz = (float) MapData.L1_PURPLE_SPAWNS[spawnNum].getY();
+            } else {
+                px = (float) MapData.L2_PURPLE_SPAWNS[spawnNum].getX();
+                pz = (float) MapData.L2_PURPLE_SPAWNS[spawnNum].getY();
             }
-            if (team == 1) {
-                if (room.getGroupId().equals("Practice")
-                        || room.getGroupId().equals("Tutorial")
-                        || room.getGroupId().equals("ARAM")) {
-                    px = (float) MapData.L1_PURPLE_SPAWNS[blueNum].getX() * -1;
-                    pz = (float) MapData.L1_PURPLE_SPAWNS[blueNum].getY();
-                } else {
-                    px = (float) MapData.L2_PURPLE_SPAWNS[blueNum].getX() * -1;
-                    pz = (float) MapData.L2_PURPLE_SPAWNS[blueNum].getY();
-                }
-                blueNum++;
+        }
+
+        if (team == 1) {
+            if (practiceMap) {
+                px = (float) MapData.L1_PURPLE_SPAWNS[spawnNum].getX() * -1;
+                pz = (float) MapData.L1_PURPLE_SPAWNS[spawnNum].getY();
+            } else {
+                px = (float) MapData.L2_PURPLE_SPAWNS[spawnNum].getX() * -1;
+                pz = (float) MapData.L2_PURPLE_SPAWNS[spawnNum].getY();
             }
+        }
+        if (createActor) {
             String id = String.valueOf(u.getId());
             String actor = playerInfo.getUtfString("avatar");
             Point2D location = new Point2D.Float(px, pz);
             ExtensionCommands.createActor(parentExt, room, id, actor, location, 0f, team);
-
-            ISFSObject updateData = new SFSObject();
-            updateData.putUtfString("id", String.valueOf(u.getId()));
-            int champMaxHealth =
-                    parentExt
-                            .getActorStats(playerInfo.getUtfString("avatar"))
-                            .get("health")
-                            .asInt();
-            updateData.putInt("currentHealth", champMaxHealth);
-            updateData.putInt("maxHealth", champMaxHealth);
-            updateData.putDouble("pHealth", 1);
-            updateData.putInt("xp", 0);
-            updateData.putDouble("pLevel", 0);
-            updateData.putInt("level", 1);
-            updateData.putInt("availableSpellPoints", 1);
-            updateData.putLong("timeSinceBasicAttack", 0);
-            // SP_CATEGORY 1-5 TBD
-            updateData.putInt("sp_category1", 0);
-            updateData.putInt("sp_category2", 0);
-            updateData.putInt("sp_category3", 0);
-            updateData.putInt("sp_category4", 0);
-            updateData.putInt("sp_category5", 0);
-            updateData.putInt("deaths", 0);
-            updateData.putInt("assists", 0);
-            JsonNode actorStats = parentExt.getActorStats(playerInfo.getUtfString("avatar"));
-            for (Iterator<String> it = actorStats.fieldNames(); it.hasNext(); ) {
-                String k = it.next();
-                updateData.putDouble(k, actorStats.get(k).asDouble());
-            }
-            UserVariable userStat = new SFSUserVariable("stats", updateData);
-            u.setVariable(userStat);
-            ExtensionCommands.updateActorData(parentExt, room, updateData);
         }
+
+        ISFSObject updateData = new SFSObject();
+        updateData.putUtfString("id", String.valueOf(u.getId()));
+        int champMaxHealth =
+                parentExt.getActorStats(playerInfo.getUtfString("avatar")).get("health").asInt();
+        updateData.putInt("currentHealth", champMaxHealth);
+        updateData.putInt("maxHealth", champMaxHealth);
+        updateData.putDouble("pHealth", 1);
+        updateData.putInt("xp", 0);
+        updateData.putDouble("pLevel", 0);
+        updateData.putInt("level", 1);
+        updateData.putInt("availableSpellPoints", 1);
+        updateData.putLong("timeSinceBasicAttack", 0);
+        // SP_CATEGORY 1-5 TBD
+        updateData.putInt("sp_category1", 0);
+        updateData.putInt("sp_category2", 0);
+        updateData.putInt("sp_category3", 0);
+        updateData.putInt("sp_category4", 0);
+        updateData.putInt("sp_category5", 0);
+        updateData.putInt("deaths", 0);
+        updateData.putInt("assists", 0);
+
+        // UPDATE LOCATION
+        ISFSObject playerLoc = u.getVariable("location").getSFSObjectValue();
+        playerLoc.getSFSObject("p1").putFloat("x", px);
+        playerLoc.getSFSObject("p1").putFloat("z", pz);
+        UserVariable locationVar = new SFSUserVariable("location", playerLoc);
+        u.setVariable(locationVar);
+
+        JsonNode actorStats = parentExt.getActorStats(playerInfo.getUtfString("avatar"));
+        for (Iterator<String> it = actorStats.fieldNames(); it.hasNext(); ) {
+            String k = it.next();
+            updateData.putDouble(k, actorStats.get(k).asDouble());
+        }
+        UserVariable userStat = new SFSUserVariable("stats", updateData);
+        u.setVariable(userStat);
+        ExtensionCommands.updateActorData(parentExt, room, updateData);
+    }
+
+    public static void initializeGame(Room room, ATBPExtension parentExt)
+            throws SFSVariableException, SFSLoginException {
+        room.setProperty("state", 2);
+
+        int blueNum = 0;
+        int purpleNum = 0;
+        initializeMap(room, parentExt);
+
+        for (User u : room.getUserList()) {
+            ISFSObject playerInfo = u.getVariable("player").getSFSObjectValue();
+            int team = playerInfo.getInt("team");
+
+            if (team == 0) {
+                initializePlayer(parentExt, u, room, playerInfo, purpleNum, true);
+                purpleNum++;
+            } else {
+                initializePlayer(parentExt, u, room, playerInfo, blueNum, true);
+                blueNum++;
+            }
+        }
+
         try { // Sets all the room variables once the game is about to begin
             setRoomVariables(room);
         } catch (SFSVariableException e) { // TODO: Disconnect all players if this fails

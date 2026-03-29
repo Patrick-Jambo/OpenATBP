@@ -10,6 +10,7 @@ import com.smartfoxserver.v2.extensions.BaseServerEventHandler;
 
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.Console;
+import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.GameManager;
 
 public class JoinRoomEventHandler extends BaseServerEventHandler {
@@ -27,6 +28,24 @@ public class JoinRoomEventHandler extends BaseServerEventHandler {
                 && (int) room.getProperty("state")
                         == 0) { // If all players have loaded into the room
             room.setProperty("state", 1);
+            if (room.getGroupId().equals("PVE")) {
+                String[] avatars = {"jake", "iceking", "finn"};
+                String[] names = {"JAKE BOT", "ICE KING BOT", "FINN BOT"};
+
+                for (int i = 0; i < avatars.length; i++) {
+                    ExtensionCommands.addUser(
+                            parentExt,
+                            room,
+                            i,
+                            names[i],
+                            avatars[i],
+                            1,
+                            avatars[i],
+                            "belt_champion",
+                            0,
+                            false);
+                }
+            }
             GameManager.addPlayer(room, parentExt); // Add users to the game
             GameManager.loadPlayers(room, parentExt); // Load the players into the map
         }
