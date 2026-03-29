@@ -38,8 +38,6 @@ public abstract class Bot extends Actor {
     protected int xp = 0;
     protected boolean isAutoAttacking = false;
     protected boolean isDashing = false;
-    protected boolean pickedUpHealthPack = false;
-    protected Long healthPackTime = 0L;
 
     protected Long lastPolymorphTime = 0L;
     protected boolean isPolymorphed = false;
@@ -654,7 +652,8 @@ public abstract class Bot extends Actor {
     }
 
     public void handleHpPackEnd() {
-        if (pickedUpHealthPack && System.currentTimeMillis() - healthPackTime >= CYCLOPS_DURATION) {
+        if (pickedUpHealthPack
+                && System.currentTimeMillis() - healthPackPickUpTime >= CYCLOPS_DURATION) {
             pickedUpHealthPack = false;
             ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
         }
@@ -664,6 +663,23 @@ public abstract class Bot extends Actor {
         if (isPolymorphed && System.currentTimeMillis() - lastPolymorphTime >= POLYMORPH_DURATION) {
             isPolymorphed = false;
             ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
+        }
+    }
+
+    protected void faceTarget(Actor target) {
+        if (target != null) {
+            Point2D rotationPoint =
+                    Champion.getAbilityLine(location, target.getLocation(), 0.1f).getP2();
+            setLocation(rotationPoint);
+
+            ExtensionCommands.moveActor(
+                    parentExt,
+                    room,
+                    id,
+                    location,
+                    rotationPoint,
+                    (float) getPlayerStat("speed"),
+                    true);
         }
     }
 

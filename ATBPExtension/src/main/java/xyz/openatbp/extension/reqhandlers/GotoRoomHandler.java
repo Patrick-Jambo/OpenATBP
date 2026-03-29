@@ -15,6 +15,7 @@ import com.smartfoxserver.v2.exceptions.SFSJoinRoomException;
 import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 
 import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.MapData;
 
 public class GotoRoomHandler extends BaseClientRequestHandler {
@@ -73,6 +74,7 @@ public class GotoRoomHandler extends BaseClientRequestHandler {
             settings.setName(name);
             settings.setGame(true);
             String roomId = params.getUtfString("room_id");
+            Console.debugLog("Room ID: " + roomId);
 
             if (roomId.contains("tutorial")) {
                 settings.setGroupId("Tutorial");
@@ -81,6 +83,10 @@ public class GotoRoomHandler extends BaseClientRequestHandler {
             } else if (roomId.contains("practice")) {
                 settings.setGroupId("Practice");
                 settings.setMaxUsers(1);
+
+            } else if (roomId.contains("3p")) { // 3vs3 Bot game mode
+                settings.setGroupId("PVE");
+                settings.setMaxUsers(3);
 
             } else if (roomId.contains("custom")) {
                 String[] roomIDSplit = params.getUtfString("room_id").split("_");

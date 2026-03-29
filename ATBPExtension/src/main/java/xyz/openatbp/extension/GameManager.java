@@ -74,21 +74,22 @@ public class GameManager {
         }
     }
 
+    public static String getMapString(Room room, String groupID) {
+        String candyStreets = "AT_1L_Arena"; // PRACTICE MAP
+        String battleLab = "AT_2L_Arena"; // MAIN MAP
+        if (groupID.contains("Practice") || groupID.contains("Tutorial")) return candyStreets;
+        return battleLab;
+    }
+
     public static void loadPlayers(
             Room room, ATBPExtension parentExt) { // Loads the map for everyone
         String groupID = room.getGroupId();
         for (User u : room.getUserList()) {
             ISFSObject data = new SFSObject();
-            if (groupID.equals("Practice")
-                    || groupID.equals("Tutorial")
-                    || groupID.equals("ARAM")
-                    || (room.getMaxUsers() <= 4
-                            && !room.getName().contains("1p")
-                            && !(room.getMaxUsers() == 1 && room.getName().contains("custom")))) {
-                data.putUtfString("set", "AT_1L_Arena");
-            } else {
-                data.putUtfString("set", "AT_2L_Arena");
-            }
+
+            String s1 = getMapString(room, groupID);
+            data.putUtfString("set", s1);
+
             int maxUsers = room.getMaxUsers();
             int userSize = room.getUserList().size();
             data.putUtfString("soundtrack", "music_main1");

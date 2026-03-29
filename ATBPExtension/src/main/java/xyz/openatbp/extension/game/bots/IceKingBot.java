@@ -127,8 +127,10 @@ public class IceKingBot extends Bot {
     public void handleFightingAbilities() {
 
         if (target != null) {
-            if (canUseQ() && target.getLocation().distance(location) <= Q_RANGE)
+            if (canUseQ() && target.getLocation().distance(location) <= Q_RANGE) {
+                faceTarget(target);
                 useQ(target.getLocation());
+            }
 
             RoomHandler rh = parentExt.getRoomHandler(room.getName());
             List<Actor> enemies =
@@ -137,6 +139,7 @@ public class IceKingBot extends Bot {
             if (canUseW()
                     && (target instanceof UserActor || enemies.size() > 1)
                     && target.getLocation().distance(location) <= MAX_W_CAST_DISTANCE) {
+                faceTarget(target);
                 useW(target.getLocation());
             }
 

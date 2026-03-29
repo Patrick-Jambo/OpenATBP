@@ -102,9 +102,19 @@ public class LemongrabBot extends Bot {
     @Override
     public void handleFightingAbilities() {
         if (target == null) return;
-        if (canUseQ()) useQ(target.getLocation());
-        if (canUseW()) useW(target.getLocation());
-        if (target instanceof UserActor && canUseE()) useE(target.getLocation());
+        if (canUseQ()) {
+            faceTarget(target);
+            useQ(target.getLocation());
+        }
+        if (canUseW()) {
+            faceTarget(target);
+            useW(target.getLocation());
+        }
+
+        if (target instanceof UserActor && canUseE()) {
+            faceTarget(target);
+            useE(target.getLocation());
+        }
     }
 
     @Override
@@ -141,11 +151,16 @@ public class LemongrabBot extends Bot {
 
     @Override
     public boolean canUseW() {
-        RoomHandler rh = parentExt.getRoomHandler(room.getName());
-        List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, W_MAX_CAST_RANGE);
         if (timeOk(2)) {
-            if (target != null && target instanceof UserActor) return true;
-            return enemies.size() > 1;
+            double distance = location.distance(target.getLocation());
+            if (distance <= W_MAX_CAST_RANGE) {
+                if (target instanceof UserActor) return true;
+                RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                List<Actor> enemies =
+                        Champion.getEnemyActorsInRadius(rh, team, target.getLocation(), W_RADIUS);
+                enemies.removeIf(a -> a.getActorType() == ActorType.TOWER);
+                return enemies.size() > 2;
+            }
         }
         return false;
     }
@@ -217,9 +232,9 @@ public class LemongrabBot extends Bot {
         lastWUse = System.currentTimeMillis();
         globalCooldown = wGCooldownMs;
 
+        stopMoving(wCastDelayMS);
         ExtensionCommands.actorAnimate(parentExt, room, id, "spell2", 2000, false);
 
-        stopMoving(wCastDelayMS);
         ExtensionCommands.playSound(
                 this.parentExt, this.room, this.id, "vo/vo_lemongrab_my_juice", this.location);
         ExtensionCommands.createWorldFX(
