@@ -19,7 +19,7 @@ Most core gameplay systems are functional. Areas still needing improvement inclu
 - Lobby server (queues and party logic)
 
 Adding new content is possible, though the pipeline involves working with legacy Unity
-tooling. For the most up-to-date progress, check the [Trello board](link).
+tooling. For the most up-to-date progress, check the [Trello board](https://trello.com/b/DcrsFKB1/openatbp).
 Contributions are always welcome!
 
 ## Server Architecture
