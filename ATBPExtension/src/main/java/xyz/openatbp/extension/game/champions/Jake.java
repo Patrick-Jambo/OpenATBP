@@ -19,18 +19,18 @@ import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class Jake extends UserActor {
-    private static final int PASSIVE_PER_TARGET_CD = 8000;
-    private static final double PASSIVE_ATTACKDAMAGE_VALUE = 0.4d;
-    private static final double PASSIVE_SLOW_VALUE = 0.5d;
-    private static final int PASSIVE_SLOW_DURATION = 1500;
-    private static final int PASSIVE_ROOT_DURATION = 1000;
-    private static final int Q_RESTRAINT_TIME = 1600;
-    private static final int Q_STUN_DURATION = 2000;
-    private static final int Q_UNLOCK_SKILLS_DELAY = 500;
-    private static final double E_SPEED_VALUE = 0.8;
-    private static final int E_DURATION = 5000;
-    private static final int E_STOMP_CD = 500;
-    private static final int Q_DASH_SPEED = 13;
+    public static final int PASSIVE_PER_TARGET_CD = 8000;
+    public static final double PASSIVE_ATTACKDAMAGE_VALUE = 0.4d;
+    public static final int PASSIVE_ROOT_DURATION = 1000;
+    public static final int Q_RESTRAINT_TIME = 1600;
+    public static final int Q_STUN_DURATION = 2000;
+    public static final int Q_UNLOCK_SKILLS_DELAY = 500;
+    public static final float MAX_Q_RANGE = 9f;
+    public static final double E_SPEED_VALUE = 0.8;
+    public static final int E_DURATION = 5000;
+    public static final int E_STOMP_CD = 500;
+    public static final int Q_DASH_SPEED = 13;
+
     private boolean grabActive = false;
     private Point2D grabPoint;
     private float grabStatus = 0;
@@ -66,9 +66,9 @@ public class Jake extends UserActor {
 
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
 
-            List<Actor> foes = Champion.getActorsInRadius(handler, location, 9f);
+            List<Actor> foes = Champion.getActorsInRadius(handler, location, MAX_Q_RANGE);
             foes.removeIf(f -> f.getActorType() == ActorType.TOWER);
-            foes.removeIf(f -> qRect.contains(f.getLocation(), f.getCollisionRadius()));
+            foes.removeIf(f -> !(qRect.contains(f.getLocation(), f.getCollisionRadius())));
 
             if (!foes.isEmpty()) {
                 resetGrab();

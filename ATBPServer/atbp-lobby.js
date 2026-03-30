@@ -530,160 +530,160 @@ function updateMatchmaking() {
 }
 
 function startGame(players, type) {
-    //Note, custom games do not use this.
-    var queueSize = 1;
-    var aram = false;
-    if (type.includes('p') && type != 'practice')
-        queueSize = Number(type.replace('p', ''));
+  //Note, custom games do not use this.
+  var queueSize = 1;
+  var aram = false;
+  if (type.includes('p') && type != 'practice')
+    queueSize = Number(type.replace('p', ''));
 
-    var isPvE = (queueSize == 3);
+  var isPvE = queueSize == 3;
 
-    var blue = [];
-    var purple = [];
+  var blue = [];
+  var purple = [];
 
-    if (isPvE) {
-        for (var p of players) {
-            purple.push(p);
-        }
-    } else {
-        var allTeams = matchmaking.getRandomTeams(players, teams, queueSize / 2);
-        console.log(allTeams);
-        if (allTeams == undefined) return;
-        blue = allTeams.blue;
-        purple = allTeams.purple;
-    }
-
-    var failed = false;
-    var playerIds = [];
+  if (isPvE) {
     for (var p of players) {
-        playerIds.push(p.teg_id);
-        var user = users.find((u) => u.player.teg_id == p.teg_id);
-        if (user != undefined) {
-            user.player.stage = 2;
-            var t = teams.find((tm) => tm.players.includes(user.player.teg_id));
-            if (t != undefined) removeTeam(t);
-        }
+      purple.push(p);
     }
-    var queueObj = {
-        type: type,
-        players: playerIds,
-        queueNum: -1,
-        blue: [],
-        purple: [],
-        ready: 0,
-        max: isPvE ? 3 : queueSize, // if PvE only 3 players need to ready up
-        inGame: false,
-        endTime: Date.now() + 61 * 1000,
+  } else {
+    var allTeams = matchmaking.getRandomTeams(players, teams, queueSize / 2);
+    console.log(allTeams);
+    if (allTeams == undefined) return;
+    blue = allTeams.blue;
+    purple = allTeams.purple;
+  }
+
+  var failed = false;
+  var playerIds = [];
+  for (var p of players) {
+    playerIds.push(p.teg_id);
+    var user = users.find((u) => u.player.teg_id == p.teg_id);
+    if (user != undefined) {
+      user.player.stage = 2;
+      var t = teams.find((tm) => tm.players.includes(user.player.teg_id));
+      if (t != undefined) removeTeam(t);
+    }
+  }
+  var queueObj = {
+    type: type,
+    players: playerIds,
+    queueNum: -1,
+    blue: [],
+    purple: [],
+    ready: 0,
+    max: isPvE ? 3 : queueSize, // if PvE only 3 players need to ready up
+    inGame: false,
+    endTime: Date.now() + 61 * 1000,
+  };
+
+  // Build blue player objects (empty for PvE)
+  for (var bp of blue) {
+    var user = users.find((u) => u.player.teg_id == bp.teg_id);
+    if (user == undefined) {
+      failed = true;
+      break;
+    } else {
+      var playerObj = {
+        name: user.player.name,
+        player: user.player.player,
+        teg_id: `${user.player.teg_id}`,
+        avatar: 'unassigned',
+        is_ready: false,
+      };
+      queueObj.blue.push(playerObj);
+    }
+  }
+
+  if (!failed) {
+    // Build purple player objects
+    for (var pp of purple) {
+      var user = users.find((u) => u.player.teg_id == pp.teg_id);
+      if (user == undefined) {
+        return;
+      } else {
+        var playerObj = {
+          name: user.player.name,
+          player: user.player.player,
+          teg_id: `${user.player.teg_id}`,
+          avatar: 'unassigned',
+          is_ready: false,
+        };
+        queueObj.purple.push(playerObj);
+      }
+    }
+    queueObj.queueNum = queueNum;
+    removeDuplicateQueues(playerIds, queueNum);
+    queueNum++;
+    queues.push(queueObj);
+
+    // Send game_ready and team_update to purple players
+    var gameDataPurple = {
+      countdown: 60,
+      ip: config.lobbyserver.gameIp,
+      port: config.lobbyserver.gamePort,
+      policy_port: config.sockpol.port,
+      room_id: `GAME${queueObj.queueNum}_${type}`,
+      password: '',
+      team: 'PURPLE',
     };
 
-    // Build blue player objects (empty for PvE)
-    for (var bp of blue) {
-        var user = users.find((u) => u.player.teg_id == bp.teg_id);
-        if (user == undefined) {
-            failed = true;
-            break;
-        } else {
-            var playerObj = {
-                name: user.player.name,
-                player: user.player.player,
-                teg_id: `${user.player.teg_id}`,
-                avatar: 'unassigned',
-                is_ready: false,
-            };
-            queueObj.blue.push(playerObj);
-        }
-    }
-
-    if (!failed) {
-        // Build purple player objects
-        for (var pp of purple) {
-            var user = users.find((u) => u.player.teg_id == pp.teg_id);
-            if (user == undefined) {
-                return;
-            } else {
-                var playerObj = {
-                    name: user.player.name,
-                    player: user.player.player,
-                    teg_id: `${user.player.teg_id}`,
-                    avatar: 'unassigned',
-                    is_ready: false,
-                };
-                queueObj.purple.push(playerObj);
-            }
-        }
-        queueObj.queueNum = queueNum;
-        removeDuplicateQueues(playerIds, queueNum);
-        queueNum++;
-        queues.push(queueObj);
-
-        // Send game_ready and team_update to purple players
-        var gameDataPurple = {
-            countdown: 60,
-            ip: config.lobbyserver.gameIp,
-            port: config.lobbyserver.gamePort,
-            policy_port: config.sockpol.port,
-            room_id: `GAME${queueObj.queueNum}_${type}`,
-            password: '',
-            team: 'PURPLE',
+    safeSendAll(
+      users.filter(
+        (u) => purple.find((p) => p.teg_id == u.player.teg_id) != undefined
+      ),
+      'game_ready',
+      gameDataPurple
+    )
+      .then(() => {
+        var teamPackagePurple = {
+          team: 'PURPLE',
+          players: queueObj.purple,
         };
-
         safeSendAll(
+          users.filter(
+            (u) => purple.find((p) => p.teg_id == u.player.teg_id) != undefined
+          ),
+          'team_update',
+          teamPackagePurple
+        ).catch(console.error);
+      })
+      .catch(console.error);
+
+    // send blue data only if not PvE
+    if (!isPvE) {
+      var gameDataBlue = {
+        countdown: 60,
+        ip: config.lobbyserver.gameIp,
+        port: config.lobbyserver.gamePort,
+        policy_port: config.sockpol.port,
+        room_id: `GAME${queueObj.queueNum}_${type}`,
+        password: '',
+        team: 'BLUE',
+      };
+
+      safeSendAll(
+        users.filter(
+          (u) => blue.find((p) => p.teg_id == u.player.teg_id) != undefined
+        ),
+        'game_ready',
+        gameDataBlue
+      )
+        .then(() => {
+          var teamPackageBlue = {
+            team: 'BLUE',
+            players: queueObj.blue,
+          };
+          safeSendAll(
             users.filter(
-                (u) => purple.find((p) => p.teg_id == u.player.teg_id) != undefined
+              (u) => blue.find((p) => p.teg_id == u.player.teg_id) != undefined
             ),
-            'game_ready',
-            gameDataPurple
-        )
-            .then(() => {
-                var teamPackagePurple = {
-                    team: 'PURPLE',
-                    players: queueObj.purple,
-                };
-                safeSendAll(
-                    users.filter(
-                        (u) => purple.find((p) => p.teg_id == u.player.teg_id) != undefined
-                    ),
-                    'team_update',
-                    teamPackagePurple
-                ).catch(console.error);
-            })
-            .catch(console.error);
-
-        // send blue data only if not PvE
-        if (!isPvE) {
-            var gameDataBlue = {
-                countdown: 60,
-                ip: config.lobbyserver.gameIp,
-                port: config.lobbyserver.gamePort,
-                policy_port: config.sockpol.port,
-                room_id: `GAME${queueObj.queueNum}_${type}`,
-                password: '',
-                team: 'BLUE',
-            };
-
-            safeSendAll(
-                users.filter(
-                    (u) => blue.find((p) => p.teg_id == u.player.teg_id) != undefined
-                ),
-                'game_ready',
-                gameDataBlue
-            )
-                .then(() => {
-                    var teamPackageBlue = {
-                        team: 'BLUE',
-                        players: queueObj.blue,
-                    };
-                    safeSendAll(
-                        users.filter(
-                            (u) => blue.find((p) => p.teg_id == u.player.teg_id) != undefined
-                        ),
-                        'team_update',
-                        teamPackageBlue
-                    ).catch(console.error);
-                })
-                .catch(console.error);
-        }
+            'team_update',
+            teamPackageBlue
+          ).catch(console.error);
+        })
+        .catch(console.error);
     }
+  }
 }
 
 function leaveTeam(socket, disconnected) {
@@ -753,9 +753,9 @@ function leaveTeam(socket, disconnected) {
 function joinQueue(sockets, type) {
   var queueSize = 1;
   if (type.includes('p') && type != 'practice')
-      queueSize = Number(type.replace('p', ''));
+    queueSize = Number(type.replace('p', ''));
   //if (queueSize == 3) queueSize = 4; //Turns bots to 2v2
-    /*queueSize = Number(type.replace('aram_', '').replace('p', ''));
+  /*queueSize = Number(type.replace('aram_', '').replace('p', ''));
 
   if (type.includes('aram')) queueSize = 6; //Testing number for ARAM*/
   for (var s of sockets) {

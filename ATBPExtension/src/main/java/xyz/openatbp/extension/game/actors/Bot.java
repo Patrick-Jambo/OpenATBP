@@ -106,6 +106,7 @@ public abstract class Bot extends Actor {
                     parentExt, room, id + "moveDebug", "creep1", location, 0f, 1);
         }
         levelUpStats();
+        simulateBackpackLevelUp("belt_champions");
     }
 
     @Override
@@ -165,9 +166,188 @@ public abstract class Bot extends Actor {
                 && a.getActorType() != ActorType.TOWER);
     }
 
+    private void setBackpackStat(int itemNum, int value) {
+        String stat = "";
+        switch (itemNum) {
+            case 0:
+                stat = "attackDamage";
+                break;
+            case 1:
+                stat = "spellDamage";
+                break;
+            case 2:
+                stat = "armor";
+                break;
+            case 3:
+                stat = "spellResist";
+                break;
+            case 4:
+                stat = "health";
+                break;
+        }
+
+        try {
+            if (!stat.equals("health")) {
+                double valueToSet = getStat(stat) + value;
+                setStat(stat, valueToSet);
+            } else {
+                int newMaxHealth = getMaxHealth() + value;
+                setHealth(getHealth(), newMaxHealth);
+            }
+
+            Console.debugLog("BOT BAG LEVEL UP: " + stat + " by " + value);
+
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void levelUpCooldowns() {
+        int lv1Q;
+        int lv1W;
+        int lv1E;
+
+        int qPerLv;
+        int wPerLv;
+        int ePerLv;
+
+        switch (avatar) {
+            case "finn":
+                lv1Q = 10000;
+                lv1W = 12000;
+                lv1E = 40000;
+
+                qPerLv = 200;
+                wPerLv = 200;
+                ePerLv = 1400;
+                break;
+
+            case "iceking":
+                lv1Q = 10000;
+                lv1W = 12000;
+                lv1E = 70000;
+
+                qPerLv = 300;
+                wPerLv = 400;
+                ePerLv = 2000;
+                break;
+
+            case "lemongrab":
+                lv1Q = 10000;
+                lv1W = 12000;
+                lv1E = 45000;
+
+                qPerLv = 200;
+                wPerLv = 200;
+                ePerLv = 1000;
+                break;
+
+            case "jake":
+                lv1Q = 12000;
+                lv1W = 14000;
+                lv1E = 60000;
+
+                qPerLv = 400;
+                wPerLv = 200;
+                ePerLv = 1500;
+                break;
+            default:
+                return;
+        }
+
+        qCooldownMs = lv1Q - ((level - 1) * qPerLv);
+        wCooldownMs = lv1W - ((level - 1) * wPerLv);
+        eCooldownMs = lv1E - ((level - 1) * ePerLv);
+    }
+
+    public void logCooldowns() {
+        Console.log("Q: " + qCooldownMs + " W: " + wCooldownMs + " E: " + eCooldownMs);
+    }
+
+    public void simulateBackpackLevelUp(String bag) {
+        // TODO: REMOVE THIS IF TAB VIEW AND END GAME SUMMARY ARE IMPLEMENTED - USE USER LEVEL BAG
+        // LOGIC
+        int focusItem = -1;
+        int secondaryItem = -1;
+        int lastItem = -1;
+
+        switch (avatar) {
+            case "finn":
+                focusItem = 0;
+                secondaryItem = 2;
+                lastItem = 4;
+                break;
+
+            case "iceking":
+                focusItem = 1;
+                secondaryItem = 0;
+                lastItem = 2;
+                break;
+
+            case "jake":
+                focusItem = 2;
+                secondaryItem = 3;
+                lastItem = 4;
+                break;
+
+            case "lemongrab":
+                focusItem = 2;
+                secondaryItem = 1;
+                lastItem = 3;
+        }
+
+        HashMap<Integer, Integer[]> beltChampions = new HashMap<>();
+        beltChampions.put(1, new Integer[] {15, 20, 10, 10, 100});
+        beltChampions.put(2, new Integer[] {15, 30, 15, 10, 125});
+        beltChampions.put(3, new Integer[] {30, 50, 15, 10, 125});
+        beltChampions.put(4, new Integer[] {40, 100, 20, 20, 150});
+
+        switch (bag) {
+            case "belt_champions":
+            default:
+                switch (level) {
+                    case 1:
+                    case 2:
+                        setBackpackStat(focusItem, beltChampions.get(level)[focusItem]);
+                        break;
+
+                    case 5:
+                        setBackpackStat(focusItem, beltChampions.get(3)[focusItem]);
+                        break;
+                    case 7:
+                        setBackpackStat(focusItem, beltChampions.get(4)[focusItem]);
+                        break;
+
+                    case 3:
+                        setBackpackStat(secondaryItem, beltChampions.get(1)[focusItem]);
+                        break;
+
+                    case 4:
+                        setBackpackStat(secondaryItem, beltChampions.get(2)[focusItem]);
+                        break;
+                    case 6:
+                        setBackpackStat(secondaryItem, beltChampions.get(3)[focusItem]);
+                        break;
+                    case 8:
+                        setBackpackStat(secondaryItem, beltChampions.get(4)[focusItem]);
+                        break;
+
+                    case 9:
+                        setBackpackStat(lastItem, beltChampions.get(1)[focusItem]);
+                        break;
+                    case 10:
+                        setBackpackStat(lastItem, beltChampions.get(2)[focusItem]);
+                        break;
+                }
+        }
+    }
+
     @Override
     public boolean damaged(Actor a, int damage, JsonNode attackData) {
         agressors.put(a, System.currentTimeMillis());
+
+        handleElectrodeGun(a, attackData);
+
         if (a instanceof UserActor) {
             UserActor ua = (UserActor) a;
             ua.checkTowerAggro(ua);
@@ -800,7 +980,12 @@ public abstract class Bot extends Actor {
             updateData.put("pLevel", getPLevel());
 
             ExtensionCommands.updateActorData(parentExt, room, id, updateData);
+
             levelUpStats();
+            simulateBackpackLevelUp("belt_champions");
+            levelUpCooldowns();
+            logCooldowns();
+
             ExtensionCommands.playSound(parentExt, room, id, "sfx_level_up_beam", location);
 
             ExtensionCommands.createActorFX(

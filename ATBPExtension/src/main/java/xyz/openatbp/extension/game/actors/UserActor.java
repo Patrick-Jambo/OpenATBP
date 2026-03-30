@@ -114,7 +114,7 @@ public class UserActor extends Actor {
     protected HashMap<UserActor, Integer> simonGlassesBuffProviders = new HashMap<>(2);
     protected int eGunStacks = 0;
     protected Long lastEGunStack = 0L;
-    private static final int E_GUN_STACK_CD = 3000;
+    public static final int E_GUN_STACK_CD = 3000;
 
     // TODO: Add all stats into UserActor object instead of User Variables
     public UserActor(User u, ATBPExtension parentExt) {
@@ -423,6 +423,8 @@ public class UserActor extends Actor {
                 }
             }
 
+            handleElectrodeGun(a, attackData);
+
             AttackType type = this.getAttackType(attackData);
             this.preventStealth();
             double moonChance = ChampionData.getCustomJunkStat(this, "junk_3_battle_moon");
@@ -463,9 +465,6 @@ public class UserActor extends Actor {
                         double junkStat = ChampionData.getCustomJunkStat(ua, item);
                         newDamage += (int) (newDamage * junkStat);
                     }
-                }
-                if (type == AttackType.SPELL) {
-                    handleElectrodeGun(ua);
                 }
 
                 if (this.maxHealth > ua.getMaxHealth()
@@ -513,79 +512,6 @@ public class UserActor extends Actor {
         } catch (Exception e) {
             e.printStackTrace();
             return false;
-        }
-    }
-
-    public void handleElectrodeGun(UserActor ua) {
-        int gunLevel = ChampionData.getJunkLevel(ua, "junk_2_electrode_gun");
-        if (gunLevel > 0) {
-            String desc =
-                    "Abilities grant a stack on hit (3s CD). At 3 stacks, next ability stuns the first champion hit for 0.5/1/1.5/2s.";
-            String name = "icon_electrode_gun_";
-            if (ua.eGunStacks == 3) {
-                int stunDuration = 500 * gunLevel;
-
-                this.addState(ActorState.STUNNED, 0, stunDuration);
-                ExtensionCommands.createActorFX(
-                        parentExt,
-                        room,
-                        id,
-                        "magicman_snake_explosion",
-                        1000,
-                        id + "_eGunProc",
-                        true,
-                        "",
-                        false,
-                        false,
-                        team);
-                ExtensionCommands.playSound(parentExt, room, id, "electrode_gun_effect", location);
-
-                ExtensionCommands.removeStatusIcon(
-                        ua.getParentExt(), ua.player, name + ua.eGunStacks);
-                ExtensionCommands.removeFx(ua.parentExt, ua.room, ua.getId() + "_eGunBuff");
-
-                ua.eGunStacks = 0;
-                ExtensionCommands.addStatusIcon(
-                        ua.getParentExt(),
-                        ua.player,
-                        name + ua.eGunStacks,
-                        desc,
-                        name + ua.eGunStacks,
-                        E_GUN_STACK_CD);
-
-            } else if (System.currentTimeMillis() - lastEGunStack >= E_GUN_STACK_CD) {
-                lastEGunStack = System.currentTimeMillis();
-
-                ExtensionCommands.removeStatusIcon(
-                        ua.getParentExt(), ua.player, name + ua.eGunStacks);
-
-                ua.eGunStacks++;
-
-                int duration = ua.eGunStacks != 3 ? E_GUN_STACK_CD : 0;
-
-                ExtensionCommands.addStatusIcon(
-                        ua.getParentExt(),
-                        ua.player,
-                        name + ua.eGunStacks,
-                        desc,
-                        name + ua.eGunStacks,
-                        duration);
-
-                if (ua.eGunStacks == 3) {
-                    ExtensionCommands.createActorFX(
-                            ua.parentExt,
-                            ua.room,
-                            ua.id,
-                            "electrode_gun_buff",
-                            1000 * 60 * 15,
-                            ua.getId() + "_eGunBuff",
-                            true,
-                            "",
-                            false,
-                            false,
-                            ua.team);
-                }
-            }
         }
     }
 

@@ -1,5 +1,7 @@
 package xyz.openatbp.extension.game.actors;
 
+import static xyz.openatbp.extension.game.actors.UserActor.E_GUN_STACK_CD;
+
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.*;
@@ -395,6 +397,84 @@ public abstract class Actor {
     }
 
     public abstract void handleKill(Actor a, JsonNode attackData);
+
+    public void handleElectrodeGun(Actor attacker, JsonNode attackData) {
+        AttackType type = getAttackType(attackData);
+        if (attacker instanceof UserActor && type == AttackType.SPELL) {
+            UserActor ua = (UserActor) attacker;
+            int gunLevel = ChampionData.getJunkLevel(ua, "junk_2_electrode_gun");
+            if (gunLevel > 0) {
+                String desc =
+                        "Abilities grant a stack on hit (3s CD). At 3 stacks, next ability stuns the first champion hit for 0.5/1/1.5/2s.";
+                String name = "icon_electrode_gun_";
+                if (ua.eGunStacks == 3) {
+                    int stunDuration = 500 * gunLevel;
+
+                    this.addState(ActorState.STUNNED, 0, stunDuration);
+                    ExtensionCommands.createActorFX(
+                            parentExt,
+                            room,
+                            id,
+                            "magicman_snake_explosion",
+                            1000,
+                            id + "_eGunProc",
+                            true,
+                            "",
+                            false,
+                            false,
+                            team);
+                    ExtensionCommands.playSound(
+                            parentExt, room, id, "electrode_gun_effect", location);
+
+                    ExtensionCommands.removeStatusIcon(
+                            ua.getParentExt(), ua.player, name + ua.eGunStacks);
+                    ExtensionCommands.removeFx(ua.parentExt, ua.room, ua.getId() + "_eGunBuff");
+
+                    ua.eGunStacks = 0;
+                    ExtensionCommands.addStatusIcon(
+                            ua.getParentExt(),
+                            ua.player,
+                            name + ua.eGunStacks,
+                            desc,
+                            name + ua.eGunStacks,
+                            E_GUN_STACK_CD);
+
+                } else if (System.currentTimeMillis() - ua.lastEGunStack >= E_GUN_STACK_CD) {
+                    ua.lastEGunStack = System.currentTimeMillis();
+
+                    ExtensionCommands.removeStatusIcon(
+                            ua.getParentExt(), ua.player, name + ua.eGunStacks);
+
+                    ua.eGunStacks++;
+
+                    int duration = ua.eGunStacks != 3 ? E_GUN_STACK_CD : 0;
+
+                    ExtensionCommands.addStatusIcon(
+                            ua.getParentExt(),
+                            ua.player,
+                            name + ua.eGunStacks,
+                            desc,
+                            name + ua.eGunStacks,
+                            duration);
+
+                    if (ua.eGunStacks == 3) {
+                        ExtensionCommands.createActorFX(
+                                ua.parentExt,
+                                ua.room,
+                                ua.id,
+                                "electrode_gun_buff",
+                                1000 * 60 * 15,
+                                ua.getId() + "_eGunBuff",
+                                true,
+                                "",
+                                false,
+                                false,
+                                ua.team);
+                    }
+                }
+            }
+        }
+    }
 
     public boolean damaged(Actor a, int damage, JsonNode attackData) {
         if (a.getClass() == IceKing.class && this.hasMovementCC()) damage *= 1.1;

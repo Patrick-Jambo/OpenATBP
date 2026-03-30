@@ -66,17 +66,12 @@ public class Finn extends UserActor {
                 updateStatMenu("attackSpeed");
             }
         }
-        if (this.ultActivated && System.currentTimeMillis() - this.eStartTime >= E_DURATION) {
-            this.wallLines = null;
-            this.wallsActivated = new boolean[] {false, false, false, false};
-            this.ultActivated = false;
-            this.finnUltRing = null;
-            this.updateStatMenu("attackSpeed");
-        }
+
         if (this.qActive && this.qStartTime + 3000 <= System.currentTimeMillis()) {
             this.qActive = false;
         }
-        if (this.ultActivated) {
+
+        if (this.ultActivated && wallLines != null) {
             for (int i = 0; i < this.wallLines.length; i++) {
                 if (this.wallsActivated[i]) {
                     RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
@@ -128,6 +123,15 @@ public class Finn extends UserActor {
                 }
             }
         }
+
+        if (this.ultActivated && System.currentTimeMillis() - this.eStartTime >= E_DURATION) {
+            this.wallLines = null;
+            this.wallsActivated = new boolean[] {false, false, false, false};
+            this.ultActivated = false;
+            this.finnUltRing = null;
+            this.updateStatMenu("attackSpeed");
+        }
+
         if (furyStacks > 0) {
             if (System.currentTimeMillis() - passiveStart >= PASSIVE_DURATION) {
                 ExtensionCommands.removeFx(

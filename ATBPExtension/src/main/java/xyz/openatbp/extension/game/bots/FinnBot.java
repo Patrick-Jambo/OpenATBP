@@ -20,6 +20,8 @@ import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class FinnBot extends Bot {
+    public static final double ATTACK_RANGE = 1.5;
+    public static final double E_AREA = 3.5;
     private int furyStacks = 0;
     private Actor furyTarget = null;
     private boolean qActive = false;
@@ -53,9 +55,9 @@ public class FinnBot extends Bot {
     @Override
     public void update(int msRan) {
         super.update(msRan);
+        handleUlt();
         handleUpdateEEnd();
         handleUpdateQEnd();
-        handleUlt();
         handleUpdateFuryStacks();
     }
 
@@ -132,8 +134,7 @@ public class FinnBot extends Bot {
                 useW(target.getLocation());
             }
 
-            if (distance <= 3.5 && target != null && target.getPHealth() <= 0.4 && canUseE())
-                useE(target.getLocation());
+            if (canUseE()) useE(target.getLocation());
         }
     }
 
@@ -144,10 +145,7 @@ public class FinnBot extends Bot {
 
         if (canUseW()) useW(dashPoint);
 
-        if (canUseE()
-                && getPHealth() <= 0.1
-                && lastPlayerAttacker != null
-                && lastPlayerAttacker.getLocation().distance(location) <= 3) useE(location);
+        if (canUseE()) useE(location);
     }
 
     @Override
@@ -448,7 +446,19 @@ public class FinnBot extends Bot {
 
     @Override
     public boolean canUseE() {
-        return timeOk(3) && !isDashing;
+        if (timeOk(3) && target != null && !isDashing) {
+
+            // DEFENSIVE ULT
+            if (lastPlayerAttacker != null) {
+                double distance = lastPlayerAttacker.getLocation().distance(location);
+                if (getPHealth() <= 0.1 && distance >= E_AREA && distance < 6) return true;
+            }
+
+            // OFFENSIVE ULT
+            double distance = location.distance(target.getLocation());
+            return distance <= E_AREA && distance > ATTACK_RANGE && target.getPHealth() <= 0.4;
+        }
+        return false;
     }
 
     @Override
@@ -563,7 +573,7 @@ public class FinnBot extends Bot {
     }
 
     private void handleUlt() {
-        if (this.ultActivated) {
+        if (this.ultActivated && wallLines != null) {
             for (int i = 0; i < this.wallLines.length; i++) {
                 if (this.wallsActivated[i]) {
                     RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
