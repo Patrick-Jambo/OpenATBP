@@ -1,29 +1,45 @@
 package xyz.openatbp.extension;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.smartfoxserver.v2.entities.Room;
 
-import xyz.openatbp.extension.game.BotMapConfig;
+import xyz.openatbp.extension.game.GameMode;
 import xyz.openatbp.extension.game.actors.Bot;
-import xyz.openatbp.extension.game.bots.FinnBot;
-import xyz.openatbp.extension.game.bots.IceKingBot;
 
 public class PvERoomHandler extends MainMapRoomHandler {
-    private Bot[] bots = new Bot[3];
+    private final Bot[] botList = new Bot[3];
 
     public PvERoomHandler(ATBPExtension parentExt, Room room) {
         super(parentExt, room);
 
-        BotMapConfig mapConfig = BotMapConfig.createMainMap(1);
-        bots[0] = new FinnBot(parentExt, room, "finn", 1, mapConfig);
-        bots[1] = new IceKingBot(parentExt, room, "iceking", 1, mapConfig);
-        bots[2] = new IceKingBot(parentExt, room, "lemeongrab", 1, mapConfig);
+        List<String> botAvatars = new ArrayList<>(3);
+
+        /*Bot b = GameModeSpawns.createRandomBot(botAvatars, false, parentExt, room, 1, GameMode.PVB);
+        if (b != null) {
+            botAvatars.add(b.getAvatar());
+            botList[0] = b;
+            companions.add(b);
+        }*/
+
+        for (int i = 0; i < 3; i++) {
+            Bot b =
+                    GameModeSpawns.createRandomBot(
+                            botAvatars, false, parentExt, room, 1, GameMode.PVB);
+            if (b != null) {
+                botAvatars.add(b.getAvatar());
+                botList[i] = b;
+                companions.add(b);
+            }
+        }
     }
 
     @Override
     public void run() {
         super.run();
 
-        for (Bot b : bots) {
+        for (Bot b : botList) {
             if (b != null) b.update(mSecondsRan);
         }
     }

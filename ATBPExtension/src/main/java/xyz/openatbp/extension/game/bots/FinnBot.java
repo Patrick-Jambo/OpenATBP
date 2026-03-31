@@ -37,8 +37,13 @@ public class FinnBot extends Bot {
     private Path2D finnUltRing;
 
     public FinnBot(
-            ATBPExtension parentExt, Room room, String avatar, int team, BotMapConfig mapConfig) {
-        super(parentExt, room, avatar, team, mapConfig);
+            ATBPExtension parentExt,
+            Room room,
+            String avatar,
+            String displayName,
+            int team,
+            BotMapConfig mapConfig) {
+        super(parentExt, room, avatar, displayName, team, mapConfig);
         qCooldownMs = 10000;
         wCooldownMs = 12000;
         eCooldownMs = 40000;
@@ -241,6 +246,8 @@ public class FinnBot extends Bot {
         this.stopMoving(E_SELF_CRIPPLE_DURATION);
         Runnable enableDashCasting = () -> this.isCastingUlt = false;
         scheduleTask(enableDashCasting, E_SELF_CRIPPLE_DURATION);
+
+        ExtensionCommands.actorAnimate(parentExt, room, id, "spell3", eCastDelayMS, true);
 
         Runnable cast =
                 () -> {
@@ -451,7 +458,12 @@ public class FinnBot extends Bot {
             // DEFENSIVE ULT
             if (lastPlayerAttacker != null) {
                 double distance = lastPlayerAttacker.getLocation().distance(location);
-                if (getPHealth() <= 0.1 && distance >= E_AREA && distance < 6) return true;
+                RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                List<Actor> enemiesInArea = Champion.getEnemyActorsInRadius(rh, team, location, 3);
+                if (getPHealth() <= 0.2
+                        && distance >= E_AREA
+                        && distance < 6
+                        && enemiesInArea.isEmpty()) return true;
             }
 
             // OFFENSIVE ULT

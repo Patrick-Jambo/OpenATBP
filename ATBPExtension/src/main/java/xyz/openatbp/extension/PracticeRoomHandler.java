@@ -6,10 +6,9 @@ import java.util.*;
 import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 
-import xyz.openatbp.extension.game.BotMapConfig;
+import xyz.openatbp.extension.game.GameMode;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
-import xyz.openatbp.extension.game.bots.FinnBot;
 
 public class PracticeRoomHandler extends RoomHandler {
 
@@ -33,16 +32,11 @@ public class PracticeRoomHandler extends RoomHandler {
         }
         if (this.players.size() == 1) {
 
-            BotMapConfig mapConfig = BotMapConfig.createPractice(1);
-            bot = new FinnBot(parentExt, room, "finn", 1, mapConfig);
+            List<String> bots = new ArrayList<>();
+            bot =
+                    GameModeSpawns.createRandomBot(
+                            bots, false, parentExt, room, 1, GameMode.PRACTICE);
             companions.add(bot);
-
-            mapConfig.displayLanePath(
-                    mapConfig.midLanePath,
-                    bot.getParentExt(),
-                    bot.getRoom(),
-                    bot.getId(),
-                    bot.getTeam());
         }
         FOUNTAIN_RADIUS = 6f;
     }

@@ -30,8 +30,13 @@ public class LemongrabBot extends Bot {
     private float Q_MAX_CAST_RANGE = 6f;
 
     public LemongrabBot(
-            ATBPExtension parentExt, Room room, String avatar, int team, BotMapConfig mapConfig) {
-        super(parentExt, room, avatar, team, mapConfig);
+            ATBPExtension parentExt,
+            Room room,
+            String avatar,
+            String displayName,
+            int team,
+            BotMapConfig mapConfig) {
+        super(parentExt, room, avatar, displayName, team, mapConfig);
 
         this.qCooldownMs = 10000;
         this.wCooldownMs = 12000;

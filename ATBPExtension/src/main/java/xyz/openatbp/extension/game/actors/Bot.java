@@ -12,10 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.Room;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.ActorState;
-import xyz.openatbp.extension.game.ActorType;
-import xyz.openatbp.extension.game.BotMapConfig;
-import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
 import xyz.openatbp.extension.pathfinding.MovementManager;
@@ -27,6 +24,7 @@ public abstract class Bot extends Actor {
     private static final float TOWER_RANGE = 6f;
     public static final int INT = 15;
     public static final int HP_PACK_REGEN = INT;
+    public static final double LOW_HP_PERCENTAGE_ACTION = 0.3;
     private final Point2D spawnPoint;
     private static final int POLYMORPH_DURATION = 3000;
     private static final int FOUNTAIN_HEAL = 250;
@@ -83,13 +81,19 @@ public abstract class Bot extends Actor {
     protected BotMapConfig mapConfig;
 
     public Bot(
-            ATBPExtension parentExt, Room room, String avatar, int team, BotMapConfig mapConfig) {
+            ATBPExtension parentExt,
+            Room room,
+            String avatar,
+            String displayName,
+            int team,
+            BotMapConfig mapConfig) {
         this.room = room;
         this.parentExt = parentExt;
         this.mapConfig = mapConfig;
         this.location = mapConfig.respawnPoint;
         this.avatar = avatar;
-        this.id = avatar + "_" + team;
+        this.displayName = displayName;
+        this.id = "bot_" + avatar + "_" + team + "_" + Math.random();
         this.team = team;
         this.movementLine = new Line2D.Float(this.location, this.location);
         this.actorType = ActorType.COMPANION;
@@ -97,7 +101,11 @@ public abstract class Bot extends Actor {
         this.spawnPoint = mapConfig.respawnPoint;
         this.displayName = avatar.toUpperCase() + " BOT";
         this.xpWorth = 25;
-        this.lanePath = mapConfig.midLanePath; // TODO: HARDCODED FOR NOW
+
+        if (GameManager.getMap(mapConfig.gameMode) == GameMap.PRACTICE) {
+            this.lanePath = mapConfig.midLanePath;
+            ;
+        }
 
         ExtensionCommands.createActor(parentExt, room, id, avatar, location, 0f, team);
 
@@ -265,8 +273,8 @@ public abstract class Bot extends Actor {
     }
 
     public void simulateBackpackLevelUp(String bag) {
-        // TODO: REMOVE THIS IF TAB VIEW AND END GAME SUMMARY ARE IMPLEMENTED - USE USER LEVEL BAG
-        // LOGIC
+        // TODO: REMOVE THIS IF TAB VIEW AND END GAME SUMMARY ARE IMPLEMENTED - USE USER BAG LEVEL
+        // UP METHODS
         int focusItem = -1;
         int secondaryItem = -1;
         int lastItem = -1;
@@ -525,9 +533,33 @@ public abstract class Bot extends Actor {
         return false;
     }
 
+    private void setClosestLanePath(Point2D locationToCheck) {
+        if (GameManager.getMap(mapConfig.gameMode) == GameMap.PRACTICE)
+            return; // PRACTICE MODE HAS ONLY ONE LANE
+
+        double minDistanceTop = 10000;
+        for (Point2D p : mapConfig.topLanePath) {
+            double distance = p.distance(locationToCheck);
+            if (distance < minDistanceTop) {
+                minDistanceTop = distance;
+            }
+        }
+
+        double minDistanceBot = 10000;
+        for (Point2D p : mapConfig.botLanePath) {
+            double distance = p.distance(locationToCheck);
+            if (distance < minDistanceBot) {
+                minDistanceBot = distance;
+            }
+        }
+        lanePath = minDistanceTop < minDistanceBot ? mapConfig.topLanePath : mapConfig.botLanePath;
+    }
+
     private int getClosestWaypointIndex(Point2D locationToCheck) {
         double minDist = 10000;
         int closest = 0;
+
+        setClosestLanePath(locationToCheck);
         for (int i = 0; i < lanePath.length; i++) {
             double dist = locationToCheck.distance(lanePath[i]);
             if (dist < minDist) {
@@ -544,11 +576,6 @@ public abstract class Bot extends Actor {
     }
 
     protected Point2D getNextPushWaypoint() {
-        if (lanePath == null) {
-            Console.logWarning("WARNING: lanePath is null in getNextPushWaypoint()!");
-            return null;
-        }
-
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
         List<Actor> actors = rh.getActors();
         actors.removeIf(a -> a.getTeam() != team || !(a instanceof Minion));
@@ -592,7 +619,7 @@ public abstract class Bot extends Actor {
         if (getHealth() <= 0 || isDead()) return null;
 
         // LOW HP
-        if (getPHealth() <= 0.25) {
+        if (getPHealth() <= LOW_HP_PERCENTAGE_ACTION) {
             if (canWinFight() && lastPlayerAttacker != null) {
                 this.target = lastPlayerAttacker;
                 return BotState.FIGHTING;
@@ -794,7 +821,8 @@ public abstract class Bot extends Actor {
         // BOT ACTIONS
         BotState botState = evaluateBotState();
         if (botState != null) {
-            // Console.debugLog("Bot state: " + botState);
+            /* Console.debugLog("Bot state: " + botState);
+            Console.debugLog("location: " + location);*/
             executeBotState(botState);
         }
     }

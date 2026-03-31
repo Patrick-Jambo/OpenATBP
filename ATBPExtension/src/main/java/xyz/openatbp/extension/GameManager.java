@@ -15,6 +15,8 @@ import com.smartfoxserver.v2.entities.variables.*;
 import com.smartfoxserver.v2.exceptions.SFSLoginException;
 import com.smartfoxserver.v2.exceptions.SFSVariableException;
 
+import xyz.openatbp.extension.game.GameMap;
+import xyz.openatbp.extension.game.GameMode;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class GameManager {
@@ -105,6 +107,16 @@ public class GameManager {
             if (u.getProperty("joined") != null && (boolean) u.getProperty("joined")) num++;
         }
         return num == gameSize;
+    }
+
+    public static GameMap getMap(GameMode gameMode) {
+        switch (gameMode) {
+            case PVP:
+            case PVB:
+                return GameMap.MAIN;
+            default:
+                return GameMap.PRACTICE;
+        }
     }
 
     public static boolean playersReady(Room room) { // Checks if all clients are ready

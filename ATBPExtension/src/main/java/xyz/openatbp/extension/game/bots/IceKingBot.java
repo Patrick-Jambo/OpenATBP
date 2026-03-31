@@ -47,8 +47,13 @@ public class IceKingBot extends Bot {
     private int MAX_W_CAST_DISTANCE = 5;
 
     public IceKingBot(
-            ATBPExtension parentExt, Room room, String avatar, int team, BotMapConfig mapConfig) {
-        super(parentExt, room, avatar, team, mapConfig);
+            ATBPExtension parentExt,
+            Room room,
+            String avatar,
+            String displayName,
+            int team,
+            BotMapConfig mapConfig) {
+        super(parentExt, room, avatar, displayName, team, mapConfig);
         qCooldownMs = 10000;
         wCooldownMs = 12000;
         eCooldownMs = 70000;

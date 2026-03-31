@@ -1,10 +1,19 @@
 package xyz.openatbp.extension;
 
 import java.awt.geom.Point2D;
+import java.util.List;
+import java.util.Random;
 
 import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
+
+import xyz.openatbp.extension.game.BotMapConfig;
+import xyz.openatbp.extension.game.GameMode;
+import xyz.openatbp.extension.game.actors.Bot;
+import xyz.openatbp.extension.game.bots.FinnBot;
+import xyz.openatbp.extension.game.bots.IceKingBot;
+import xyz.openatbp.extension.game.bots.LemongrabBot;
 
 public class GameModeSpawns {
 
@@ -175,5 +184,59 @@ public class GameModeSpawns {
         guardian.putFloat("rotation", 0f);
         guardian.putInt("team", team);
         return guardian;
+    }
+
+    public static Bot createRandomBot(
+            List<String> botAvatars,
+            boolean duplicatesAllowed,
+            ATBPExtension parentExt,
+            Room room,
+            int team,
+            GameMode mode) {
+        BotMapConfig mapConfig = null;
+        switch (mode) {
+            case PVB:
+                mapConfig = BotMapConfig.createMainMap(team);
+                break;
+            case PRACTICE:
+            case TUTORIAL:
+                mapConfig = BotMapConfig.createPractice(team);
+                break;
+        }
+
+        String[] avatars = {"finn", "iceking", "lemongrab"};
+        String[] names = {"FINN BOT", "ICE KING BOT", "LEMONGRAB BOT"};
+
+        Random rand = new Random();
+
+        int randomIndex = 0;
+        String avatar = "finn";
+        String displayName = "FINN BOT";
+
+        if (!duplicatesAllowed) {
+            do {
+                randomIndex = rand.nextInt(avatars.length);
+                avatar = avatars[randomIndex];
+                displayName = names[randomIndex];
+            } while (botAvatars.contains(avatar));
+        } else {
+            randomIndex = rand.nextInt(avatars.length);
+            avatar = avatars[randomIndex];
+            displayName = names[randomIndex];
+        }
+
+        switch (avatar) {
+            case "finn":
+                return new FinnBot(parentExt, room, avatar, displayName, team, mapConfig);
+            case "iceking":
+                return new IceKingBot(parentExt, room, avatar, displayName, team, mapConfig);
+            case "jake":
+                // TODO: add jake bot
+                break;
+            case "lemongrab":
+                return new LemongrabBot(parentExt, room, avatar, displayName, team, mapConfig);
+        }
+
+        return null;
     }
 }

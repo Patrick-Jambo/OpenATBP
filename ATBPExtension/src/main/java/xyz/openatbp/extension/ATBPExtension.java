@@ -381,6 +381,9 @@ public class ATBPExtension extends SFSExtension {
                     break;
 
                 case "PVE":
+                    roomHandlers.put(rName, new PvERoomHandler(this, room));
+                    break;
+
                 case "PVP":
                     roomHandlers.put(rName, new MainMapRoomHandler(this, room));
                     break;

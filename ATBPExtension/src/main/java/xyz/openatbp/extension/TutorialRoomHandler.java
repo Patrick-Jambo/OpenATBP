@@ -20,7 +20,6 @@ import com.smartfoxserver.v2.entities.data.ISFSObject;
 
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
-import xyz.openatbp.extension.game.bots.TutorialBot;
 
 public class TutorialRoomHandler extends RoomHandler {
 
@@ -39,7 +38,7 @@ public class TutorialRoomHandler extends RoomHandler {
     private int minionNum = 0;
     private List<Minion> minionsToDestroy = new ArrayList<>();
     private boolean enemyMinionsDestroyed = false;
-    private TutorialBot jakeBot;
+    private Bot jakeBot;
 
     public TutorialRoomHandler(ATBPExtension parentExt, Room room) {
         super(parentExt, room, GameManager.L1_SPAWNS, MapData.NORMAL_HP_SPAWN_RATE);

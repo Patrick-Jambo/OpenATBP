@@ -80,6 +80,14 @@ public class MapData {
     public static final float[] L2_PURPLE_BASE_TOWER = {(float) -34.36, (float) 0.0};
     public static final float[] L2_BLUE_BASE_TOWER = {(float) 34.51, (float) 0.0};
 
+    public static final Point2D L2_PURPLE_HP_BASE_1 = new Point2D.Float(-27.1f, -2.45f); // TOP
+    public static final Point2D L2_PURPLE_HP_BASE_2 = new Point2D.Float(-27.1f, 2.45f); // BOTTOM
+    public static final Point2D L2_PURPLE_HP_JG = new Point2D.Float(-12.5f, -0.05f); // yes
+
+    public static final Point2D L2_BLUE_HP_BASE_1 = new Point2D.Float(27.1f, -2.45f); // TOP
+    public static final Point2D L2_BLUE_HP_BASE_2 = new Point2D.Float(27.1f, 2.45f); // BOTTOM
+    public static final Point2D L2_BLUE_HP_JG = new Point2D.Float(12.5f, 0.05f); // yes
+
     public static ISFSObject getBaseActorData(int team, String roomGroup) {
         float x;
         float z;
