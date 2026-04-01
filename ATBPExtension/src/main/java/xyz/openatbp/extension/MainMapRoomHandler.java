@@ -31,8 +31,15 @@ public class MainMapRoomHandler extends RoomHandler {
     private HashMap<User, UserActor> dcPlayers = new HashMap<>();
     private final boolean IS_RANKED_MATCH = this.room.getGroupId().equals("PVP");
 
-    public MainMapRoomHandler(ATBPExtension parentExt, Room room) {
-        super(parentExt, room, GameManager.L2_SPAWNS, MapData.NORMAL_HP_SPAWN_RATE);
+    public MainMapRoomHandler(
+            ATBPExtension parentExt, Room room, Point2D[] mapBoundary, List<Point2D[]> obstacles) {
+        super(
+                parentExt,
+                room,
+                GameManager.L2_SPAWNS,
+                MapData.NORMAL_HP_SPAWN_RATE,
+                mapBoundary,
+                obstacles);
         baseTowers.add(new BaseTower(parentExt, room, "purple_tower3", 0));
         baseTowers.add(new BaseTower(parentExt, room, "blue_tower3", 1));
 

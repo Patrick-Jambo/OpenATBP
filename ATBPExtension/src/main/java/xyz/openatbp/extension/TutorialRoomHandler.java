@@ -40,8 +40,15 @@ public class TutorialRoomHandler extends RoomHandler {
     private boolean enemyMinionsDestroyed = false;
     private Bot jakeBot;
 
-    public TutorialRoomHandler(ATBPExtension parentExt, Room room) {
-        super(parentExt, room, GameManager.L1_SPAWNS, MapData.NORMAL_HP_SPAWN_RATE);
+    public TutorialRoomHandler(
+            ATBPExtension parentExt, Room room, Point2D[] mapBoundary, List<Point2D[]> obstacles) {
+        super(
+                parentExt,
+                room,
+                GameManager.L1_SPAWNS,
+                MapData.NORMAL_HP_SPAWN_RATE,
+                mapBoundary,
+                obstacles);
         HashMap<String, Point2D> towers0 = MapData.getPTowerActorData(0);
         HashMap<String, Point2D> towers1 = MapData.getPTowerActorData(1);
         for (String key : towers0.keySet()) {

@@ -1,5 +1,6 @@
 package xyz.openatbp.extension;
 
+import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,8 +12,9 @@ import xyz.openatbp.extension.game.actors.Bot;
 public class PvERoomHandler extends MainMapRoomHandler {
     private final Bot[] botList = new Bot[3];
 
-    public PvERoomHandler(ATBPExtension parentExt, Room room) {
-        super(parentExt, room);
+    public PvERoomHandler(
+            ATBPExtension parentExt, Room room, Point2D[] mapBoundary, List<Point2D[]> obstacles) {
+        super(parentExt, room, mapBoundary, obstacles);
 
         List<String> botAvatars = new ArrayList<>(3);
 

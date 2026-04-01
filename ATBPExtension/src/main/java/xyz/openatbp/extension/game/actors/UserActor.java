@@ -990,6 +990,9 @@ public class UserActor extends Actor {
     public void update(int msRan) {
         this.handleDamageQueue();
         this.handleActiveEffects();
+
+        handleMovementUpdate();
+
         if (this.dead) {
             if (this.currentHealth > 0
                     && System.currentTimeMillis() > this.timeKilled + (deathTime * 1500L))
@@ -1095,22 +1098,22 @@ public class UserActor extends Actor {
                     0f);
         }
 
-        if (this.canMove()
+        /*if (this.canMove()
                 && !this.isAutoAttacking
                 && !this.isDashing
                 && this.queuedDest != null
                 && this.target == null) { // TODO: This could probably just be merged into canMove
             this.moveWithCollision(this.queuedDest);
             this.queuedDest = null;
-        }
-        if (!this.isStopped()) {
+        }*/
+        /*if (!this.isStopped()) {
             this.updateMovementTime();
-        }
+        }*/
         if (this.hits > 0) {
             this.hits -= 0.1d;
         } else if (this.hits < 0) this.hits = 0;
-        this.location = this.getRelativePoint(false);
-        this.handlePathing();
+        /*this.location = this.getRelativePoint(false);
+        this.handlePathing();*/
 
         if (!this.flameCloakEffectActivated
                 && ChampionData.getJunkLevel(this, "junk_4_flame_cloak") > 0) {

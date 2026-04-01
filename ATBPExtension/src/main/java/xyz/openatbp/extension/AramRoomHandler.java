@@ -1,5 +1,8 @@
 package xyz.openatbp.extension;
 
+import java.awt.geom.Point2D;
+import java.util.List;
+
 import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 
@@ -17,8 +20,15 @@ public class AramRoomHandler extends PracticeRoomHandler {
         "gnome_a", "grassbear", "goomonster", "keeoth", "ironowl_a", "hugwolf"
     };
 
-    public AramRoomHandler(ATBPExtension parentExt, Room room) {
-        super(parentExt, room, GameManager.ARAM_SPAWNS, MapData.ARAM_HP_SPAWN_RATE);
+    public AramRoomHandler(
+            ATBPExtension parentExt, Room room, Point2D[] mapBoundary, List<Point2D[]> mapHoles) {
+        super(
+                parentExt,
+                room,
+                GameManager.ARAM_SPAWNS,
+                MapData.ARAM_HP_SPAWN_RATE,
+                mapBoundary,
+                mapHoles);
         Console.debugLog("Aram room handler activated!");
     }
 

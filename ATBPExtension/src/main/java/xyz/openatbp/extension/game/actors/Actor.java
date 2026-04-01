@@ -57,6 +57,14 @@ public abstract class Actor {
     protected UserActor charmer;
     protected boolean isDashing = false;
 
+    protected long elapsedMoveTimeMs;
+    protected long totalMoveTimeMs;
+    protected boolean isMoving = false;
+    protected float moveSpeed = 3;
+    protected Point2D moveStartPoint;
+    protected Point2D moveEndPoint;
+    protected List<Point2D> movePointsToDest;
+
     protected boolean pickedUpHealthPack = false;
     protected Long healthPackPickUpTime;
 
@@ -654,7 +662,7 @@ public abstract class Actor {
     public abstract void update(int msRan);
 
     public void rangedAttack(Actor a) {
-        System.out.println(this.id + " is using an undefined method.");
+        Console.debugLog(this.id + " is using an undefined method.");
     }
 
     public Room getRoom() {
@@ -1059,6 +1067,53 @@ public abstract class Actor {
                 this.getTeam());
         this.pickedUpHealthPack = true;
         this.healthPackPickUpTime = System.currentTimeMillis();
+    }
+
+    public void startMoveTo(Point2D endPoint) {
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+        PathFinder pF = rh.getPathFinder();
+
+        movePointsToDest = pF.getMovePointsToDest(location, endPoint);
+        if (movePointsToDest.isEmpty()) return;
+
+        moveStartPoint = new Point2D.Float((float) location.getX(), (float) this.location.getY());
+        moveEndPoint = movePointsToDest.get(0);
+
+        elapsedMoveTimeMs = 0;
+
+        double distance = location.distance(moveEndPoint);
+
+        if (distance < 0.001) {
+            isMoving = false;
+            return;
+        }
+
+        totalMoveTimeMs = (long) ((distance / moveSpeed) * 1000.0);
+        isMoving = true;
+
+        ExtensionCommands.moveActor(parentExt, room, id, location, moveEndPoint, moveSpeed, true);
+    }
+
+    public void handleMovementUpdate() {
+        if (isMoving) {
+            elapsedMoveTimeMs += 100;
+
+            if (elapsedMoveTimeMs >= totalMoveTimeMs) {
+                elapsedMoveTimeMs = 0;
+                isMoving = false;
+                location = moveEndPoint;
+            } else {
+                double progress = (double) elapsedMoveTimeMs / totalMoveTimeMs;
+                double startX = moveStartPoint.getX();
+                double startY = moveStartPoint.getY();
+                double endX = moveEndPoint.getX();
+                double endY = moveEndPoint.getY();
+
+                double x = startX + (endX - startX) * progress;
+                double y = startY + (endY - startY) * progress;
+                location = new Point2D.Float((float) x, (float) y);
+            }
+        }
     }
 
     protected class MovementStopper implements Runnable {

@@ -24,6 +24,7 @@ import com.smartfoxserver.v2.util.TaskScheduler;
 
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.PathFinder;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
 
@@ -70,6 +71,8 @@ public abstract class RoomHandler implements Runnable {
     protected float FOUNTAIN_RADIUS = 4f;
     protected List<Actor> companions = new ArrayList<>();
 
+    private PathFinder pathFinder;
+
     private enum PointLeadTeam {
         PURPLE,
         BLUE
@@ -81,7 +84,13 @@ public abstract class RoomHandler implements Runnable {
     private static final int SINGLE_KILL_COOLDOWN = 5000;
     private long lastSingleKillAnnouncement = 0;
 
-    public RoomHandler(ATBPExtension parentExt, Room room, String[] spawns, int HP_SPAWN_RATE) {
+    public RoomHandler(
+            ATBPExtension parentExt,
+            Room room,
+            String[] spawns,
+            int HP_SPAWN_RATE,
+            Point2D[] mapBoundary,
+            List<Point2D[]> mapHoles) {
         this.parentExt = parentExt;
         this.room = room;
         this.minions = new ArrayList<>();
@@ -105,6 +114,8 @@ public abstract class RoomHandler implements Runnable {
 
         TaskScheduler scheduler = parentExt.getTaskScheduler();
         scriptHandler = scheduler.scheduleAtFixedRate(this, 100, 100, TimeUnit.MILLISECONDS);
+
+        pathFinder = new PathFinder(mapBoundary, mapHoles);
     }
 
     public abstract void handleMinionSpawns();
@@ -134,6 +145,10 @@ public abstract class RoomHandler implements Runnable {
     public abstract void addProjectile(Projectile p);
 
     public abstract HashMap<Integer, Point2D> getFountainsCenter();
+
+    public PathFinder getPathFinder() {
+        return pathFinder;
+    }
 
     public List<Actor> getActors() {
         List<Actor> actors = new ArrayList<>();

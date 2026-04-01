@@ -15,7 +15,6 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public abstract class Bot extends Actor {
     private static final boolean MOVEMENT_DEBUG = false;
@@ -758,21 +757,21 @@ public abstract class Bot extends Actor {
                     }
                 }
 
-                if (closestPack != null) moveWithCollision(closestPack);
-                else moveWithCollision(mapConfig.respawnPoint);
+                if (closestPack != null) startMoveTo(closestPack);
+                else startMoveTo(mapConfig.respawnPoint);
 
                 break;
             case FLEEING:
                 handleRetreatAbilities();
                 Point2D fleePoint = getNextFleeWaypoint();
-                moveWithCollision(fleePoint);
+                startMoveTo(fleePoint);
                 break;
             case ALTAR:
-                if (altarToCapture != null) moveWithCollision(altarToCapture);
+                if (altarToCapture != null) startMoveTo(altarToCapture);
                 break;
             case PUSHING:
                 Point2D nextPushPoint = getNextPushWaypoint();
-                if (nextPushPoint != null) moveWithCollision(nextPushPoint);
+                if (nextPushPoint != null) startMoveTo(nextPushPoint);
                 break;
         }
     }
@@ -791,13 +790,7 @@ public abstract class Bot extends Actor {
 
         handleDamageQueue();
         handleActiveEffects();
-
-        if (!isStopped() && canMove()) timeTraveled += 0.1f;
-        location =
-                MovementManager.getRelativePoint(
-                        movementLine, getPlayerStat("speed"), timeTraveled);
-
-        handlePathing();
+        handleMovementUpdate();
 
         if (MOVEMENT_DEBUG)
             ExtensionCommands.moveActor(
@@ -903,12 +896,6 @@ public abstract class Bot extends Actor {
         return super.canAttack();
     }
 
-    protected void handleMoving(Point2D destination) {
-        if (location.distance(destination) > 0.1) {
-            moveWithCollision(destination);
-        }
-    }
-
     @Override
     public double getPlayerStat(String stat) {
         if (stat.equals("healthRegen") && pickedUpHealthPack)
@@ -926,7 +913,7 @@ public abstract class Bot extends Actor {
         if (target != null) {
             this.target = target;
             if (!withinRange(target) && canMove()) {
-                handleMoving(target.getLocation());
+                startMoveTo(target.getLocation());
             } else if (withinRange(target)) {
                 if (!isStopped()) stopMoving();
                 if (canAttack()) attack(target);
