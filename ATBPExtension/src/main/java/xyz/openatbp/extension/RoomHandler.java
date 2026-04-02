@@ -71,7 +71,7 @@ public abstract class RoomHandler implements Runnable {
     protected float FOUNTAIN_RADIUS = 4f;
     protected List<Actor> companions = new ArrayList<>();
 
-    private PathFinder pathFinder;
+    protected PathFinder pathFinder;
 
     private enum PointLeadTeam {
         PURPLE,
@@ -107,15 +107,18 @@ public abstract class RoomHandler implements Runnable {
         bases[1] = new Base(parentExt, room, 1);
         guardians[0] = new GumballGuardian(parentExt, room, 0);
         guardians[1] = new GumballGuardian(parentExt, room, 1);
-        for (User u : room.getUserList()) {
-            players.add(Champion.getCharacterClass(u, parentExt));
-        }
         this.campMonsters = new ArrayList<>();
 
         TaskScheduler scheduler = parentExt.getTaskScheduler();
         scriptHandler = scheduler.scheduleAtFixedRate(this, 100, 100, TimeUnit.MILLISECONDS);
 
         pathFinder = new PathFinder(mapBoundary, mapHoles);
+    }
+
+    public void initPlayers() {
+        for (User u : room.getUserList()) {
+            players.add(Champion.getCharacterClass(u, parentExt));
+        }
     }
 
     public abstract void handleMinionSpawns();

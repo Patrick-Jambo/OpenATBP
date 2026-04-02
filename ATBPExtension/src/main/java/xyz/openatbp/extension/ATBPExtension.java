@@ -415,42 +415,44 @@ public class ATBPExtension extends SFSExtension {
             String[] pSpawns = GameManager.L1_SPAWNS;
             String rName = room.getName();
 
+            RoomHandler rh;
+
             switch (groupId) {
                 case "Tutorial":
-                    roomHandlers.put(
-                            rName,
-                            new TutorialRoomHandler(
-                                    this, room, mainMapBoundary, mainMapObstacles2));
+                    rh = new TutorialRoomHandler(this, room, mainMapBoundary, mainMapObstacles2);
+                    roomHandlers.put(rName, rh);
+                    rh.initPlayers();
                     break;
 
                 case "Practice":
-                    roomHandlers.put(
-                            rName,
+                    rh =
                             new PracticeRoomHandler(
                                     this,
                                     room,
                                     pSpawns,
                                     HP_RATE,
                                     mainMapBoundary,
-                                    mainMapObstacles2));
+                                    mainMapObstacles2);
+                    roomHandlers.put(rName, rh);
+                    rh.initPlayers();
                     break;
 
                 case "ARAM":
-                    roomHandlers.put(
-                            rName,
-                            new AramRoomHandler(this, room, mainMapBoundary, mainMapObstacles2));
+                    rh = new AramRoomHandler(this, room, mainMapBoundary, mainMapObstacles2);
+                    roomHandlers.put(rName, rh);
+                    rh.initPlayers();
                     break;
 
                 case "PVE":
-                    roomHandlers.put(
-                            rName,
-                            new PvERoomHandler(this, room, mainMapBoundary, mainMapObstacles2));
+                    rh = new PvERoomHandler(this, room, mainMapBoundary, mainMapObstacles2);
+                    roomHandlers.put(rName, rh);
+                    rh.initPlayers();
                     break;
 
                 case "PVP":
-                    roomHandlers.put(
-                            rName,
-                            new MainMapRoomHandler(this, room, mainMapBoundary, mainMapObstacles2));
+                    rh = new MainMapRoomHandler(this, room, mainMapBoundary, mainMapObstacles2);
+                    roomHandlers.put(rName, rh);
+                    rh.initPlayers();
                     break;
             }
             Console.debugLog("Starting script for room " + room.getName());

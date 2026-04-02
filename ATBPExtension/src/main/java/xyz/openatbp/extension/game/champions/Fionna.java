@@ -8,12 +8,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
-import xyz.openatbp.extension.game.AbilityRunnable;
-import xyz.openatbp.extension.game.ActorState;
-import xyz.openatbp.extension.game.ActorType;
-import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 
@@ -75,6 +73,12 @@ public class Fionna extends UserActor {
         this.updateStatMenu(statsToUpdate);
         this.previousAttackDamage = this.getPlayerStat("attackDamage");
         this.previousSpellDamage = this.getPlayerStat("spellDamage");
+
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+        PathFinder pf = rh.getPathFinder();
+
+        pf.displayMapBoundaries(parentExt, room, id, team);
+        pf.displayObstacles(parentExt, room, id, team);
     }
 
     @Override

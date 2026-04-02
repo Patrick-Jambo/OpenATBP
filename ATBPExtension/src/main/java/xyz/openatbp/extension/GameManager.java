@@ -12,7 +12,6 @@ import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 import com.smartfoxserver.v2.entities.variables.*;
-import com.smartfoxserver.v2.exceptions.SFSLoginException;
 import com.smartfoxserver.v2.exceptions.SFSVariableException;
 
 import xyz.openatbp.extension.game.GameMap;
@@ -217,7 +216,7 @@ public class GameManager {
     }
 
     public static void initializeGame(Room room, ATBPExtension parentExt)
-            throws SFSVariableException, SFSLoginException {
+            throws SFSVariableException {
         room.setProperty("state", 2);
 
         int blueNum = 0;

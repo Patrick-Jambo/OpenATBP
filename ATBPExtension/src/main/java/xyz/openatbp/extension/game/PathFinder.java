@@ -6,21 +6,34 @@ import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.smartfoxserver.v2.entities.Room;
+
+import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.ExtensionCommands;
+
 public class PathFinder {
+    private Point2D[] mapBoundary;
+    private List<Point2D[]> obstacles;
+
     public static float INTERSECTION_STOP_DISTANCE = 0.5f;
     private List<Obs> obstacleList;
     private final Path2D mapArea;
+    private final List<Line2D> mapEdges;
 
-    public PathFinder(Point2D[] mapBoundaries, List<Point2D[]> obstacles) {
+    public PathFinder(Point2D[] mapBoundary, List<Point2D[]> obstacles) {
+        this.mapBoundary = mapBoundary;
+        this.obstacles = obstacles;
+
         Path2D area = new Path2D.Float();
-        area.moveTo(mapBoundaries[0].getX(), mapBoundaries[0].getY());
+        area.moveTo(mapBoundary[0].getX(), mapBoundary[0].getY());
 
-        for (int i = 1; i < mapBoundaries.length; i++) {
-            area.lineTo(mapBoundaries[i].getX(), mapBoundaries[i].getY());
+        for (int i = 1; i < mapBoundary.length; i++) {
+            area.lineTo(mapBoundary[i].getX(), mapBoundary[i].getY());
         }
 
         area.closePath();
         this.mapArea = area;
+        this.mapEdges = getEdges(List.of(mapBoundary));
 
         List<Obs> obsList = new ArrayList<>();
 
@@ -32,7 +45,7 @@ public class PathFinder {
         this.obstacleList = obsList;
     }
 
-    private static Obs getObs(Point2D[] obstacle) {
+    public static Obs getObs(Point2D[] obstacle) {
         Path2D obstacleShape = new Path2D.Float();
         obstacleShape.moveTo(obstacle[0].getX(), obstacle[0].getY());
 
@@ -41,17 +54,20 @@ public class PathFinder {
         }
         obstacleShape.closePath();
 
+        List<Line2D> edges = getEdges(List.of(obstacle));
+        return new Obs(obstacleShape, edges);
+    }
+
+    public static List<Line2D> getEdges(List<Point2D> verticesList) {
         List<Line2D> edges = new ArrayList<>();
 
-        for (int i = 0; i < obstacle.length; i++) {
-            Point2D p1 = obstacle[i];
-            Point2D p2 = obstacle[(i + 1) % obstacle.length];
-
+        for (int i = 0; i < verticesList.size(); i++) {
+            Point2D p1 = verticesList.get(i);
+            Point2D p2 = verticesList.get((i + 1) % verticesList.size());
             Line2D line = new Line2D.Float(p1, p2);
             edges.add(line);
         }
-        Obs obs = new Obs(obstacleShape, edges);
-        return obs;
+        return edges;
     }
 
     public Path2D getMapShape() {
@@ -69,7 +85,7 @@ public class PathFinder {
 
         Line2D movementLine = new Line2D.Float(start, end);
 
-        boolean intersection = false;
+        boolean obstacleIntersection = false;
         Point2D intersectionPoint = null;
         boolean isInside = false;
 
@@ -80,38 +96,62 @@ public class PathFinder {
 
             for (Line2D edge : obs.getEdges()) {
                 if (edge.intersectsLine(movementLine)) {
-                    intersection = true;
+                    obstacleIntersection = true;
                     intersectionPoint = getIntersectionPoint(movementLine, edge);
                     break;
                 }
             }
-            if (intersection) break;
+            if (obstacleIntersection) break;
         }
 
         List<Point2D> movePointsToDest = new ArrayList<>();
-        if (!intersection && !isInside && mapArea.contains(end)) {
+        if (!obstacleIntersection && !isInside && mapArea.contains(end)) {
             movePointsToDest.add(end);
         }
 
         if (isInside
-                && intersection
+                && obstacleIntersection
                 && intersectionPoint != null
                 && mapArea.contains(intersectionPoint)) {
-            double distToIntersection = start.distance(intersectionPoint);
+            Point2D validPoint = getValidMovePointToIntersection(start, intersectionPoint);
+            movePointsToDest.add(validPoint);
+        }
 
-            float lDist = (float) distToIntersection - INTERSECTION_STOP_DISTANCE;
-            Line2D line = Champion.getAbilityLine(start, intersectionPoint, lDist);
-            movePointsToDest.add(line.getP2());
+        if (!isInside && !obstacleIntersection) {
+            // move point outside the map
+
+            Point2D mapIntersection = null;
+
+            for (Line2D edge : mapEdges) {
+                if (edge.intersectsLine(movementLine)) {
+                    mapIntersection = getIntersectionPoint(movementLine, edge);
+                    break;
+                }
+            }
+
+            if (mapIntersection != null) {
+                Point2D validPoint = getValidMovePointToIntersection(start, mapIntersection);
+                movePointsToDest.add(validPoint);
+            }
         }
 
         return movePointsToDest;
     }
 
-    private double calculateDet(Point2D p1, Point2D p2) {
+    public static Point2D getValidMovePointToIntersection(
+            Point2D startPoint, Point2D exactIntersection) {
+        float distance = (float) startPoint.distance(exactIntersection);
+        float newDistance = distance - INTERSECTION_STOP_DISTANCE;
+
+        Line2D line = Champion.getAbilityLine(startPoint, exactIntersection, newDistance);
+        return line.getP2();
+    }
+
+    private static double calculateDet(Point2D p1, Point2D p2) {
         return (p1.getX() * p2.getY()) - (p2.getX() * p1.getY());
     }
 
-    public Point2D getIntersectionPoint(Line2D line1, Line2D line2) {
+    public static Point2D getIntersectionPoint(Line2D line1, Line2D line2) {
         // first point L1
         double L1_x1 = line1.getX1();
         double L1_y1 = line1.getY1();
@@ -144,5 +184,41 @@ public class PathFinder {
         double x = calculateDet(d, x_Diff) / divisorDet;
         double y = calculateDet(d, y_Diff) / divisorDet;
         return new Point2D.Double(x, y);
+    }
+
+    public void displayMapBoundaries(ATBPExtension parentExt, Room room, String id, int team) {
+        for (Point2D p : mapBoundary) {
+            ExtensionCommands.createWorldFX(
+                    parentExt,
+                    room,
+                    id,
+                    "skully",
+                    id + Math.random(),
+                    1000 * 60 * 15,
+                    (float) p.getX(),
+                    (float) p.getY(),
+                    false,
+                    team,
+                    0f);
+        }
+    }
+
+    public void displayObstacles(ATBPExtension parentExt, Room room, String id, int team) {
+        for (Point2D[] obstacle : obstacles) {
+            for (Point2D p : obstacle) {
+                ExtensionCommands.createWorldFX(
+                        parentExt,
+                        room,
+                        id,
+                        "skully",
+                        id + Math.random(),
+                        1000 * 60 * 15,
+                        (float) p.getX(),
+                        (float) p.getY(),
+                        false,
+                        team,
+                        0f);
+            }
+        }
     }
 }
