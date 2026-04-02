@@ -57,13 +57,17 @@ public abstract class Actor {
     protected UserActor charmer;
     protected boolean isDashing = false;
 
+    protected Point2D moveStartPoint;
+    protected Point2D moveDestination;
+    protected List<Point2D> movePointsToDest;
+    protected int movePointsIndex = 0;
+
     protected long elapsedMoveTimeMs;
     protected long totalMoveTimeMs;
+    protected int visualTargetIndex = 0;
+
     protected boolean isMoving = false;
     protected float moveSpeed = 3;
-    protected Point2D moveStartPoint;
-    protected Point2D moveEndPoint;
-    protected List<Point2D> movePointsToDest;
 
     protected boolean pickedUpHealthPack = false;
     protected Long healthPackPickUpTime;
@@ -1074,46 +1078,169 @@ public abstract class Actor {
         PathFinder pF = rh.getPathFinder();
 
         movePointsToDest = pF.getMovePointsToDest(location, endPoint);
-        if (movePointsToDest.isEmpty()) return;
 
-        moveStartPoint = new Point2D.Float((float) location.getX(), (float) this.location.getY());
-        moveEndPoint = movePointsToDest.get(0);
+        if (movePointsToDest.size() > 1) {
+            for (Point2D p : movePointsToDest) {
+                ExtensionCommands.createWorldFX(
+                        parentExt,
+                        room,
+                        id,
+                        "gnome_a",
+                        id + Math.random(),
+                        5000,
+                        (float) p.getX(),
+                        (float) p.getY(),
+                        false,
+                        team,
+                        0f);
+            }
 
+        } else if (movePointsToDest.size() == 1) {
+            Point2D p = movePointsToDest.get(0);
+            ExtensionCommands.createWorldFX(
+                    parentExt,
+                    room,
+                    id,
+                    "candy_caster",
+                    id + Math.random(),
+                    2000,
+                    (float) p.getX(),
+                    (float) p.getY(),
+                    false,
+                    team,
+                    0f);
+        }
+
+        movePointsIndex = 0;
         elapsedMoveTimeMs = 0;
 
-        double distance = location.distance(moveEndPoint);
-
-        if (distance < 0.001) {
+        if (movePointsToDest.isEmpty()) {
             isMoving = false;
             return;
         }
 
-        totalMoveTimeMs = (long) ((distance / moveSpeed) * 1000.0);
+        // skip points sitting right on top of us
+        while (movePointsIndex < movePointsToDest.size()
+                && location.distance(movePointsToDest.get(movePointsIndex)) < 0.001) {
+            movePointsIndex++;
+        }
+        if (movePointsIndex >= movePointsToDest.size()) {
+            isMoving = false;
+            return;
+        }
+
+        moveStartPoint = location;
+        moveDestination = movePointsToDest.get(movePointsIndex);
+
+        double distance = location.distance(moveDestination);
+        totalMoveTimeMs = Math.max(1, (long) ((distance / moveSpeed) * 1000.0));
         isMoving = true;
 
-        ExtensionCommands.moveActor(parentExt, room, id, location, moveEndPoint, moveSpeed, true);
+        // tell the client to go to roughly collinear point
+        // instead of the immediate next waypoint
+        visualTargetIndex = findVisualTargetIndex();
+        ExtensionCommands.moveActor(
+                parentExt,
+                room,
+                id,
+                location,
+                movePointsToDest.get(visualTargetIndex),
+                moveSpeed,
+                true);
     }
 
     public void handleMovementUpdate() {
-        if (isMoving) {
-            elapsedMoveTimeMs += 100;
+        if (!isMoving) return;
 
-            if (elapsedMoveTimeMs >= totalMoveTimeMs) {
-                elapsedMoveTimeMs = 0;
+        elapsedMoveTimeMs += 100;
+
+        // consume one or more segments per tick — carry overflow forward
+        // so short segments never cause a one-tick stall
+        while (elapsedMoveTimeMs >= totalMoveTimeMs) {
+            long overflow = elapsedMoveTimeMs - totalMoveTimeMs;
+            location = moveDestination;
+
+            if (movePointsToDest == null || movePointsIndex + 1 >= movePointsToDest.size()) {
                 isMoving = false;
-                location = moveEndPoint;
-            } else {
-                double progress = (double) elapsedMoveTimeMs / totalMoveTimeMs;
-                double startX = moveStartPoint.getX();
-                double startY = moveStartPoint.getY();
-                double endX = moveEndPoint.getX();
-                double endY = moveEndPoint.getY();
+                elapsedMoveTimeMs = 0;
+                return;
+            }
 
-                double x = startX + (endX - startX) * progress;
-                double y = startY + (endY - startY) * progress;
-                location = new Point2D.Float((float) x, (float) y);
+            movePointsIndex++;
+            moveStartPoint = location;
+            moveDestination = movePointsToDest.get(movePointsIndex);
+            double dist = location.distance(moveDestination);
+
+            // skip zero length segments immediately
+            while (dist <= 0.001 && movePointsIndex + 1 < movePointsToDest.size()) {
+                movePointsIndex++;
+                location = moveDestination;
+                moveStartPoint = location;
+                moveDestination = movePointsToDest.get(movePointsIndex);
+                dist = location.distance(moveDestination);
+            }
+            if (dist <= 0.001) {
+                isMoving = false;
+                elapsedMoveTimeMs = 0;
+                return;
+            }
+
+            totalMoveTimeMs = Math.max(1, (long) ((dist / moveSpeed) * 1000.0));
+            elapsedMoveTimeMs = overflow;
+
+            // moved past the point the client was aiming at
+            // pick a new visual target and redirect the client
+            if (movePointsIndex > visualTargetIndex) {
+                visualTargetIndex = findVisualTargetIndex();
+                ExtensionCommands.moveActor(
+                        parentExt,
+                        room,
+                        id,
+                        location,
+                        movePointsToDest.get(visualTargetIndex),
+                        moveSpeed,
+                        true);
             }
         }
+
+        // interpolate within the current segment
+        double progress = Math.min(1.0, (double) elapsedMoveTimeMs / totalMoveTimeMs);
+        double x =
+                moveStartPoint.getX() + (moveDestination.getX() - moveStartPoint.getX()) * progress;
+        double y =
+                moveStartPoint.getY() + (moveDestination.getY() - moveStartPoint.getY()) * progress;
+        location = new Point2D.Float((float) x, (float) y);
+    }
+
+    /* Scans forward from the current waypoint index and returns the index of the last point before
+    the cumulative direction change exceeds ~10°. The client animates a single straight
+    line to that point while the server tracks through every intermediate waypoint accurately.*/
+
+    private int findVisualTargetIndex() {
+        if (movePointsToDest == null || movePointsIndex >= movePointsToDest.size() - 1) {
+            return movePointsToDest.size() - 1;
+        }
+
+        double totalAngle = 0;
+        int best = movePointsIndex;
+
+        for (int i = movePointsIndex; i < movePointsToDest.size() - 1; i++) {
+            Point2D a = (i == movePointsIndex) ? location : movePointsToDest.get(i - 1);
+            Point2D b = movePointsToDest.get(i);
+            Point2D c = movePointsToDest.get(i + 1);
+
+            double a1 = Math.atan2(b.getY() - a.getY(), b.getX() - a.getX());
+            double a2 = Math.atan2(c.getY() - b.getY(), c.getX() - b.getX());
+            double diff = Math.abs(a2 - a1);
+            if (diff > Math.PI) diff = 2.0 * Math.PI - diff;
+
+            totalAngle += diff;
+            if (totalAngle > Math.toRadians(10)) {
+                return i; // turn happens here — visual target stops at this point
+            }
+            best = i + 1;
+        }
+        return best; // remaining path is roughly straight
     }
 
     protected class MovementStopper implements Runnable {
