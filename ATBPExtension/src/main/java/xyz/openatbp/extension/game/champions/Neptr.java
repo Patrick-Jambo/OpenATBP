@@ -334,7 +334,7 @@ public class Neptr extends UserActor {
             for (Actor a : Champion.getActorsInRadius(handler, ultLocation, 3f)) {
                 if (a.getActorType() != ActorType.BASE) {
                     if (isNeitherStructureNorAlly(a)) {
-                        a.knockback(Neptr.this.location, 3.5f);
+                        a.handleKnockback(Neptr.this.location, 3.5f);
                         a.addState(ActorState.SILENCED, 0d, E_SILENCE_DURATION);
                     }
                     if (isNeitherTowerNorAlly(a)) {

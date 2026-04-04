@@ -12,7 +12,6 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class MagicMan extends UserActor {
 
@@ -241,10 +240,10 @@ public class MagicMan extends UserActor {
                     this.wUses++;
                     unveil();
                     if (this.wUses == 1) {
-                        Point2D dashPoint =
-                                MovementManager.getDashPoint(
-                                        this, new Line2D.Float(this.location, dest));
-                        if (Double.isNaN(dashPoint.getY())) dashPoint = this.location;
+                        /*Point2D dashPoint =
+                        MovementManager.getDashPoint(
+                                this, new Line2D.Float(this.location, dest));*/
+                        // if (Double.isNaN(dashPoint.getY())) dashPoint = this.location;
                         this.addState(ActorState.INVISIBLE, 0d, W_STEALTH_DURATION);
                         this.wLocation =
                                 new Point2D.Double(this.location.getX(), this.location.getY());
@@ -252,9 +251,9 @@ public class MagicMan extends UserActor {
                                 Champion.getAbilityLine(this.wLocation, dest, 100f).getP2();
                         if (this.location.distance(endLocation) <= 1d) endLocation = this.location;
                         this.wDest = endLocation;
-                        ExtensionCommands.snapActor(
-                                this.parentExt, this.room, this.id, this.location, dashPoint, true);
-                        this.setLocation(dashPoint);
+                        /*ExtensionCommands.snapActor(
+                        this.parentExt, this.room, this.id, this.location, dashPoint, true);*/
+                        // this.setLocation(dashPoint);
                         this.magicManClone = new MagicManClone(this.wLocation);
                         RoomHandler handler = parentExt.getRoomHandler(room.getName());
                         handler.addCompanion(this.magicManClone);
@@ -553,11 +552,11 @@ public class MagicMan extends UserActor {
             this.handleDamageQueue();
             if (this.dead) return;
             this.timeTraveled += 0.1d;
-            this.location =
-                    MovementManager.getRelativePoint(
-                            this.movementLine,
-                            (float) MagicMan.this.getPlayerStat("speed"),
-                            this.timeTraveled);
+            /*this.location =
+            MovementManager.getRelativePoint(
+                    this.movementLine,
+                    (float) MagicMan.this.getPlayerStat("speed"),
+                    this.timeTraveled);*/
             this.handlePathing();
         }
 

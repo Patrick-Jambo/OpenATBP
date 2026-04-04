@@ -44,7 +44,6 @@ public class UserActor extends Actor {
     protected static final int ROBO_CD = 10000;
     protected static final int SIMON_GLASSES_RANGE = 5;
 
-    protected static final int BASIC_ATTACK_DELAY = 500;
     public static final double DASH_SPEED = 20d;
     protected static final int HEALTH_PACK_REGEN = 15;
     protected static final float DC_AD_BUFF = 1.2f;
@@ -788,12 +787,12 @@ public class UserActor extends Actor {
     }
 
     @Override
-    public void knockback(Point2D source, float distance) {
+    public void handleKnockback(Point2D source, float distance) {
         if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
             if (this.spellShieldActive) this.triggerSpellShield();
             return;
         }
-        super.knockback(source, distance);
+        super.handleKnockback(source, distance);
     }
 
     @Override
@@ -974,10 +973,6 @@ public class UserActor extends Actor {
 
     public void queueMovement(Point2D newDest) {
         this.queuedDest = newDest;
-    }
-
-    public void scheduleTask(Runnable task, int delay) {
-        parentExt.getTaskScheduler().schedule(task, delay, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -1191,11 +1186,13 @@ public class UserActor extends Actor {
             if (this.withinRange(target) && this.canAttack()) {
                 this.autoAttack(target);
             } else if (!this.withinRange(target) && this.canMove() && !this.isAutoAttacking) {
-                if (!this.isPointAtEndOfPath(
-                        this.target
-                                .getLocation())) { // I put this here so it does not spam movement
-                    // commands if their target hasn't moved
-                    this.moveWithCollision(this.target.getLocation());
+                if (movePointsToDest != null && !movePointsToDest.isEmpty()) {
+                    Point2D tLoc = target.getLocation();
+                    Point2D lastMovePoint = movePointsToDest.get(movePointsToDest.size() - 1);
+                    double distance = tLoc.distance(lastMovePoint);
+                    if (distance > 0.5) { // to avoid extension command spam
+                        startMoveTo(target.getLocation());
+                    }
                 }
             }
         } else {

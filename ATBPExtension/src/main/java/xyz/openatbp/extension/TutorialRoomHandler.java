@@ -18,6 +18,7 @@ import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 
+import xyz.openatbp.extension.game.GameMap;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
 
@@ -83,8 +84,8 @@ public class TutorialRoomHandler extends RoomHandler {
     @Override
     public void handleMinionSpawns() {
         if (minionNum < 4) {
-            this.addMinion(0, minionNum, 1, 0);
-            this.addMinion(1, minionNum, 1, 0);
+            this.addMinion(GameMap.PRACTICE, 0, minionNum, 1, 0);
+            this.addMinion(GameMap.PRACTICE, 1, minionNum, 1, 0);
             minionNum++;
         }
     }

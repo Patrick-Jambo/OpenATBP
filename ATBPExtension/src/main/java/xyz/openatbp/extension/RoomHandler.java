@@ -22,11 +22,9 @@ import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 import com.smartfoxserver.v2.util.TaskScheduler;
 
-import xyz.openatbp.extension.game.ActorType;
-import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.PathFinder;
-import xyz.openatbp.extension.game.Projectile;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.*;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public abstract class RoomHandler implements Runnable {
     protected static final int ALTAR_LOCK_TIME_SEC = 90;
@@ -1364,8 +1362,8 @@ public abstract class RoomHandler implements Runnable {
         return null;
     }
 
-    public void addMinion(int team, int minionNum, int wave, int lane) {
-        Minion m = new Minion(parentExt, room, team, minionNum, wave, lane);
+    public void addMinion(GameMap map, int team, int minionNum, int wave, int lane) {
+        Minion m = new Minion(parentExt, room, map, team, minionNum, wave, lane);
         minions.add(m);
     }
 
@@ -1420,7 +1418,7 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public List<Minion> getMinions() {
-        return this.minions;
+        return new ArrayList<>(minions);
     }
 
     public List<Minion> getMinions(int team, int lane) {

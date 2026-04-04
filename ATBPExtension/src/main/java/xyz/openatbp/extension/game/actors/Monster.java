@@ -215,8 +215,8 @@ public class Monster extends Actor {
     public void handleKill(Actor a, JsonNode attackData) {}
 
     @Override
-    public void knockback(Point2D source, float distance) {
-        super.knockback(source, distance);
+    public void handleKnockback(Point2D source, float distance) {
+        super.handleKnockback(source, distance);
         this.attackRangeOverride = true;
     }
 
@@ -229,9 +229,9 @@ public class Monster extends Actor {
     @Override
     public void attack(Actor a) { // TODO: Almost identical to minions - maybe move to Actor class?
         // Called when it is attacking a player
-        this.stopMoving();
-        this.canMove = false;
         if (this.attackCooldown == 0) {
+            this.stopMoving();
+            this.canMove = false;
             this.attackCooldown = this.getPlayerStat("attackSpeed");
             int attackDamage = (int) this.getPlayerStat("attackDamage");
             ExtensionCommands.attackActor(
@@ -344,9 +344,11 @@ public class Monster extends Actor {
         this.handleDamageQueue();
         this.handleActiveEffects();
         if (this.dead) return;
+        handleMovementUpdate();
+
         if (this.target != null && (this.target.getState(ActorState.INVISIBLE))) {
             this.state = AggroState.PASSIVE;
-            this.moveWithCollision(this.startingLocation);
+            startMoveTo(startingLocation);
             this.target = null;
         }
         if (this.headingBack && this.location.distance(startingLocation) <= 1f) {
@@ -360,14 +362,14 @@ public class Monster extends Actor {
                 == 0) { // Every second it checks average player level and scales accordingly
             this.updateMaxHealth();
         }
-        if (this.movementLine != null)
-            this.location =
-                    this.getRelativePoint(); // Sets location variable to its actual location
+        /*if (this.movementLine != null)
+        this.location =
+                this.getRelativePoint(); // Sets location variable to its actual location*/
         // using *math*
-        else this.movementLine = new Line2D.Float(this.location, this.location);
+        /*else this.movementLine = new Line2D.Float(this.location, this.location);
         if (this.movementLine.getP1().distance(this.movementLine.getP2()) > 0.01d)
-            this.timeTraveled += 0.1f;
-        this.handlePathing();
+            this.timeTraveled += 0.1f;*/
+        // this.handlePathing();
         if (this.target != null && this.target.getHealth() <= 0)
             this.setAggroState(AggroState.PASSIVE, null);
         if (movementDebug && this.type == MonsterType.BIG)
@@ -378,14 +380,17 @@ public class Monster extends Actor {
                 int value = (int) (this.getMaxHealth() * 0.006);
                 this.changeHealth(value);
             }
+
             if (this.isStopped() && this.location.distance(this.startingLocation) > 0.1d) {
-                this.move(this.startingLocation);
+                startMoveTo(startingLocation);
+                Console.debugLog(
+                        "MONSTER this.isStopped() && this.location.distance(this.startingLocation) > 0.1d");
             }
         } else { // Monster is pissed!!
             if ((this.location.distance(this.startingLocation) >= 10 && !this.attackRangeOverride)
                     || (this.target != null && this.target.getHealth() <= 0)) {
                 this.state = AggroState.PASSIVE; // Far from camp, heading back
-                this.moveWithCollision(this.startingLocation);
+                startMoveTo(startingLocation);
                 this.target = null;
                 this.headingBack = true;
             } else if (this.target != null) { // Chasing player
@@ -453,22 +458,23 @@ public class Monster extends Actor {
         // collision radius
         if (!this.canMove()) return;
         if (this.states.get(ActorState.FEARED)) return;
-        if (this.movementLine == null) {
-            this.moveWithCollision(this.target.getLocation());
-        }
-        if (this.path == null) {
+        if (this.target == null) return;
+
+        startMoveTo(target.getLocation());
+
+        /*if (this.path == null) {
             if (this.target != null
                     && this.movementLine.getP2().distance(this.target.getLocation()) > 0.1f) {
-                this.moveWithCollision(this.target.getLocation());
+                startMoveTo(target.getLocation());
             }
         } else {
             if (this.target != null
                     && this.path.size() - this.pathIndex < 3
                     && this.path.get(this.path.size() - 1).distance(this.target.getLocation())
                             > 0.1f) {
-                this.moveWithCollision(this.target.getLocation());
+                startMoveTo(target.getLocation());
             }
-        }
+        }*/
     }
 
     public BuffType getBuffType() {

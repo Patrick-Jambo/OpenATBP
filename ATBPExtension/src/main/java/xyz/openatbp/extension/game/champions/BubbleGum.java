@@ -255,7 +255,7 @@ public class BubbleGum extends UserActor {
             for (Actor a : actors) {
                 double spellDamage = getSpellDamage(spellData, true);
                 if (a.getActorType() != ActorType.BASE && a.getActorType() != ActorType.TOWER) {
-                    a.knockback(bombLocation, 3.5f);
+                    a.handleKnockback(bombLocation, 3.5f);
                     if (a.getState(ActorState.SLOWED) && !a.equals(this)) spellDamage *= 1.25d;
 
                     if (a.equals(this)) {

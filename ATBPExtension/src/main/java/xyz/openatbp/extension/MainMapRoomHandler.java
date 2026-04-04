@@ -20,6 +20,7 @@ import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.GameMap;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
 import xyz.openatbp.extension.game.champions.GooMonster;
@@ -61,16 +62,16 @@ public class MainMapRoomHandler extends RoomHandler {
             int minionNum = secondsRan % 10;
             if (minionNum == 4) this.currentMinionWave = minionWave;
             if (minionNum <= 3) {
-                this.addMinion(1, minionNum, minionWave, 0);
-                this.addMinion(0, minionNum, minionWave, 0);
-                this.addMinion(1, minionNum, minionWave, 1);
-                this.addMinion(0, minionNum, minionWave, 1);
+                this.addMinion(GameMap.MAIN, 1, minionNum, minionWave, 0);
+                this.addMinion(GameMap.MAIN, 0, minionNum, minionWave, 0);
+                this.addMinion(GameMap.MAIN, 1, minionNum, minionWave, 1);
+                this.addMinion(GameMap.MAIN, 0, minionNum, minionWave, 1);
 
             } else if (minionNum == 4) {
                 for (int i = 0; i < 2; i++) { // i = lane
                     for (int g = 0; g < 2; g++) {
                         if (!this.hasSuperMinion(i, g) && this.canSpawnSupers(g))
-                            this.addMinion(g, minionNum, minionWave, i);
+                            this.addMinion(GameMap.MAIN, g, minionNum, minionWave, i);
                     }
                 }
             }

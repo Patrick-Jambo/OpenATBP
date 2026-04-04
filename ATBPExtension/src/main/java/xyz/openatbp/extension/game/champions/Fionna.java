@@ -13,6 +13,7 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class Fionna extends UserActor {
     private static final double HP_REG_FIERCE = 0.02d;

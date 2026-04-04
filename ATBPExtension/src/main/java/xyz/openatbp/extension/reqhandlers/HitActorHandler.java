@@ -1,7 +1,5 @@
 package xyz.openatbp.extension.reqhandlers;
 
-import java.awt.geom.Point2D;
-
 import com.smartfoxserver.v2.annotations.MultiHandler;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
@@ -58,7 +56,6 @@ public class HitActorHandler extends BaseClientRequestHandler {
                 UserActor ua = (UserActor) target;
                 if (ua.getState(ActorState.INVISIBLE) && !ua.getState(ActorState.REVEALED)) return;
             }
-            Point2D location = new Point2D.Float(params.getFloat("x"), params.getFloat("z"));
             actor.resetIdleTime();
             actor.setTarget(target);
             if (actor.withinRange(target) && actor.canAttack()) {
@@ -67,7 +64,7 @@ public class HitActorHandler extends BaseClientRequestHandler {
             } else if (!actor.withinRange(target)
                     && actor.canMove()
                     && actor.canAttack()) { // Move actor
-                actor.moveWithCollision(target.getLocation());
+                actor.startMoveTo(target.getLocation());
             } else if (actor.withinRange(target)) {
                 actor.stopMoving();
             }

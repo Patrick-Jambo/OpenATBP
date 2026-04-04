@@ -402,7 +402,7 @@ public class Jake extends UserActor {
                         RoomHandler handler = parentExt.getRoomHandler(room.getName());
                         for (Actor a : Champion.getActorsInRadius(handler, location, 3f)) {
                             if (isNeitherStructureNorAlly(a)) {
-                                a.knockback(location, 3.5f);
+                                a.handleKnockback(location, 3.5f);
                             }
 
                             if (isNeitherTowerNorAlly(a)) {

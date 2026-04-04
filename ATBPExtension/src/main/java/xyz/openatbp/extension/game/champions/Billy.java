@@ -187,7 +187,7 @@ public class Billy extends UserActor {
                             for (Actor a : nearbyEnemyActors) {
                                 if (rect.contains(a.getLocation(), a.getCollisionRadius())) {
                                     if (isNeitherStructureNorAlly(a)) {
-                                        a.knockback(location, 3.5f);
+                                        a.handleKnockback(location, 3.5f);
                                         if (passiveUses == 3)
                                             a.addState(ActorState.STUNNED, 0d, Q_STUN_DURATION);
                                     }

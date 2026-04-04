@@ -1,4 +1,4 @@
-package xyz.openatbp.extension.game;
+package xyz.openatbp.extension.pathfinding;
 
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
@@ -9,6 +9,7 @@ import com.smartfoxserver.v2.entities.Room;
 
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ExtensionCommands;
+import xyz.openatbp.extension.game.Champion;
 
 public class PathFinder {
     public static final double SMOOTH_ANGLE_DEG = 3.0;
@@ -16,7 +17,7 @@ public class PathFinder {
     private List<Point2D[]> obstacles;
 
     public static float INTERSECTION_STOP_DISTANCE = 0.5f;
-    private List<Obs> obstacleList;
+    private List<Obstacle> obstacleList;
     private final Path2D mapArea;
     private final List<Line2D> mapEdges;
 
@@ -42,10 +43,10 @@ public class PathFinder {
         this.mapArea = area;
         this.mapEdges = getEdges(List.of(mapBoundary));
 
-        List<Obs> obsList = new ArrayList<>();
+        List<Obstacle> obsList = new ArrayList<>();
 
         for (Point2D[] obstacle : obstacles) {
-            Obs obs = getObs(obstacle);
+            Obstacle obs = getObs(obstacle);
             obsList.add(obs);
         }
 
@@ -60,7 +61,7 @@ public class PathFinder {
         walkable = buildGrid(mapBoundary, obstacles);
     }
 
-    public static Obs getObs(Point2D[] obstacle) {
+    public static Obstacle getObs(Point2D[] obstacle) {
         Path2D obstacleShape = new Path2D.Float();
         obstacleShape.moveTo(obstacle[0].getX(), obstacle[0].getY());
 
@@ -70,7 +71,7 @@ public class PathFinder {
         obstacleShape.closePath();
 
         List<Line2D> edges = getEdges(List.of(obstacle));
-        return new Obs(obstacleShape, edges);
+        return new Obstacle(obstacleShape, edges);
     }
 
     public static List<Line2D> getEdges(List<Point2D> verticesList) {
@@ -89,7 +90,7 @@ public class PathFinder {
         return this.mapArea;
     }
 
-    public List<Obs> getObstacleList() {
+    public List<Obstacle> getObstacleList() {
         return this.obstacleList;
     }
 
@@ -104,7 +105,7 @@ public class PathFinder {
         Point2D intersectionPoint = null;
         boolean insideObstacle = false;
 
-        for (Obs obs : obstacleList) {
+        for (Obstacle obs : obstacleList) {
             if (obs.getPath().contains(end)) {
                 insideObstacle = true;
             }
@@ -245,6 +246,12 @@ public class PathFinder {
                         0f);
             }
         }
+    }
+
+    public Point2D getStoppingPoint(
+            Point2D start, Point2D initialDestination, double stoppingDistance) {
+        double lineLength = start.distance(initialDestination) - stoppingDistance;
+        return Champion.getAbilityLine(start, initialDestination, (float) lineLength).getP2();
     }
 
     private boolean[][] buildGrid(Point2D[] mapShape, List<Point2D[]> obstacles) {

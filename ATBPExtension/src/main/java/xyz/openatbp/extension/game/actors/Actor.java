@@ -16,7 +16,7 @@ import com.smartfoxserver.v2.entities.data.SFSObject;
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.IceKing;
-import xyz.openatbp.extension.pathfinding.MovementManager;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public abstract class Actor {
     protected static final float KNOCKBACK_SPEED = 11;
@@ -71,6 +71,8 @@ public abstract class Actor {
 
     protected boolean pickedUpHealthPack = false;
     protected Long healthPackPickUpTime;
+
+    protected static final int BASIC_ATTACK_DELAY = 500;
 
     public double getPHealth() {
         return currentHealth / maxHealth;
@@ -127,11 +129,27 @@ public abstract class Actor {
     }
 
     public void stopMoving() {
-        this.movementLine = new Line2D.Float(this.location, this.location);
-        this.timeTraveled = 0f;
-        this.clearPath();
-        ExtensionCommands.moveActor(
-                parentExt, this.room, this.id, this.location, this.location, 5f, false);
+        isMoving = false;
+        moveStartPoint = location;
+        moveDestination = location;
+        movePointsToDest = new ArrayList<>();
+        movePointsIndex = 0;
+        elapsedMoveTimeMs = 0;
+        totalMoveTimeMs = 0;
+        visualTargetIndex = 0;
+
+        ExtensionCommands.moveActor(parentExt, room, id, location, location, moveSpeed, true);
+    }
+
+    public void resetMovement() {
+        isMoving = false;
+        moveStartPoint = location;
+        moveDestination = location;
+        movePointsToDest = new ArrayList<>();
+        movePointsIndex = 0;
+        elapsedMoveTimeMs = 0;
+        totalMoveTimeMs = 0;
+        visualTargetIndex = 0;
     }
 
     protected boolean isStopped() {
@@ -177,54 +195,6 @@ public abstract class Actor {
 
     public boolean isNotAMonster(Actor a) {
         return a.getActorType() != ActorType.MONSTER;
-    }
-
-    public void moveWithCollision(Point2D dest) {
-        List<Point2D> path = new ArrayList<>();
-        try {
-            path =
-                    MovementManager.getPath(
-                            this.parentExt.getRoomHandler(this.room.getName()),
-                            this.location,
-                            dest);
-        } catch (Exception e) {
-            Console.logWarning(this.id + " could not form a path.");
-        }
-        if (path != null && path.size() > 2) {
-            this.setPath(path);
-        } else {
-            Line2D testLine = new Line2D.Float(this.location, dest);
-            Point2D newPoint =
-                    MovementManager.getPathIntersectionPoint(
-                            this.parentExt,
-                            this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap(),
-                            testLine);
-            if (newPoint != null) {
-                this.move(newPoint);
-            } else this.move(dest);
-        }
-    }
-
-    public boolean isPointAtEndOfPath(Point2D point) {
-        if (this.path != null) return point.distance(this.path.get(this.path.size() - 1)) <= 0.5d;
-        else return point.distance(this.movementLine.getP2()) <= 0.5d;
-    }
-
-    public void setPath(List<Point2D> path) {
-        if (path.size() == 0) {
-            this.path = null;
-            return;
-        }
-        Line2D pathLine = new Line2D.Float(this.location, path.get(1));
-        Point2D dest =
-                MovementManager.getPathIntersectionPoint(
-                        parentExt,
-                        this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap(),
-                        pathLine);
-        if (dest == null) dest = path.get(1);
-        this.path = path;
-        this.pathIndex = 1;
-        this.move(dest);
     }
 
     public void clearPath() {
@@ -299,31 +269,20 @@ public abstract class Actor {
         this.addFx(fxId, emit, duration);
     }
 
-    public void handleCharm(UserActor charmer, int duration) {
-        if (!this.states.get(ActorState.CHARMED)
-                && !this.states.get(ActorState.IMMUNITY)
-                && !this.getId().contains("turret")
-                && !this.getId().contains("decoy")) {
-            // this.setState(ActorState.CHARMED, true);
-            this.setTarget(charmer);
-            this.movementLine = new Line2D.Float(this.location, charmer.getLocation());
-            this.movementLine =
-                    MovementManager.getColliderLine(this.parentExt, this.room, this.movementLine);
-            this.timeTraveled = 0f;
-            if (this.canMove()) this.moveWithCollision(this.movementLine.getP2());
-            this.addState(ActorState.CHARMED, 0d, duration);
-        }
-    }
+    public void dash() {}
 
-    public void moveTowardsCharmer(UserActor charmer) {
-        int minVictimDist = 1;
-        float dist = (float) this.location.distance(charmer.getLocation());
-        if (canMove() && charmer.getHealth() > 0 && dist > minVictimDist) {
-            Line2D movementLine =
-                    Champion.getAbilityLine(
-                            this.location, charmer.getLocation(), dist - minVictimDist);
-            this.moveWithCollision(movementLine.getP2());
-        }
+    public void leap() {}
+
+    public void teleport() {}
+
+    public void handleCharm(UserActor charmer, int duration) {}
+
+    public void moveTowardsCharmer(UserActor charmer) {}
+
+    public void handleFear(Point2D source, int duration) {}
+
+    public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
+        return null;
     }
 
     public boolean hasMovementCC() {
@@ -352,21 +311,6 @@ public abstract class Actor {
             if (this.states.get(effect)) return true;
         }
         return false;
-    }
-
-    public void handleFear(Point2D source, int duration) {
-        if (!this.states.get(ActorState.IMMUNITY)
-                && !this.getId().contains("turret")
-                && !this.getId().contains("decoy")) {
-            this.target = null;
-            if (!this.hasMovementCC()) {
-                this.canMove = true;
-                Line2D sourceToPlayer = new Line2D.Float(source, this.location);
-                Line2D extendedLine = Champion.extendLine(sourceToPlayer, FEAR_MOVING_DISTANCE);
-                this.moveWithCollision(extendedLine.getP2());
-            }
-            this.addState(ActorState.FEARED, 0d, duration);
-        }
     }
 
     public boolean hasTempStat(String stat) {
@@ -835,38 +779,7 @@ public abstract class Actor {
         return this.attackCooldown == 0;
     }
 
-    public void knockback(Point2D source, float distance) {
-        this.stopMoving();
-        boolean isPracticeMap = this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap();
-        Line2D originalLine = new Line2D.Double(source, this.location);
-        if (MovementManager.insideAnyObstacle(this.parentExt, isPracticeMap, source)) {
-            for (Point2D p : MovementManager.findAllPoints(originalLine)) {
-                if (!MovementManager.insideAnyObstacle(this.parentExt, isPracticeMap, p)) {
-                    originalLine = new Line2D.Double(p, this.location);
-                    break;
-                }
-            }
-        }
-        Line2D knockBackLine = Champion.extendLine(originalLine, distance);
-        Line2D actualKnockbackLine = new Line2D.Double(this.location, knockBackLine.getP2());
-        Point2D finalPoint =
-                MovementManager.getPathIntersectionPoint(
-                        this.parentExt, isPracticeMap, actualKnockbackLine);
-        if (finalPoint == null) finalPoint = knockBackLine.getP2();
-        Line2D finalLine = new Line2D.Double(this.location, finalPoint);
-        double time = this.location.distance(finalLine.getP2()) / KNOCKBACK_SPEED;
-        int durationMs = (int) (time * 1000);
-        this.addState(ActorState.AIRBORNE, 0d, durationMs);
-        ExtensionCommands.knockBackActor(
-                this.parentExt,
-                this.room,
-                this.id,
-                this.location,
-                finalLine.getP2(),
-                KNOCKBACK_SPEED,
-                false);
-        this.setLocation(finalLine.getP2());
-    }
+    public void handleKnockback(Point2D source, float distance) {}
 
     public void handlePathing() {
         if (this.path != null && this.location.distance(this.movementLine.getP2()) <= 0.9d) {
@@ -888,26 +801,7 @@ public abstract class Actor {
         else return this.movementLine.getP2().distance(p) <= 0.2d;
     }
 
-    public void handlePull(Point2D source, double pullDistance) {
-        this.stopMoving();
-        double distance = this.location.distance(source);
-        if (distance < pullDistance) pullDistance = distance;
-        Line2D pullingLine = Champion.getAbilityLine(this.location, source, (float) pullDistance);
-        Point2D pullDestination = MovementManager.getDashPoint(this, pullingLine);
-        double finalDistance = this.location.distance(pullDestination);
-        double speed = finalDistance / 0.25;
-        double pullTime = (finalDistance / speed) * 1000;
-        this.addState(ActorState.AIRBORNE, 0d, (int) pullTime);
-        ExtensionCommands.knockBackActor(
-                this.parentExt,
-                this.room,
-                this.id,
-                this.location,
-                pullDestination,
-                (float) speed,
-                true);
-        this.setLocation(pullDestination);
-    }
+    public void handlePull(Point2D source, double pullDistance) {}
 
     public String getPortrait() {
         return this.getAvatar();
@@ -1015,44 +909,6 @@ public abstract class Actor {
         attackCooldown = 500;
     }
 
-    public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
-        this.isDashing = true;
-        Point2D dashPoint =
-                MovementManager.getDashPoint(this, new Line2D.Float(this.location, dest));
-        if (dashPoint == null) dashPoint = this.location;
-        /*if (movementDebug)
-        ExtensionCommands.createWorldFX(
-                this.parentExt,
-                this.room,
-                this.id,
-                "gnome_a",
-                this.id + "_test" + Math.random(),
-                5000,
-                (float) dashPoint.getX(),
-                (float) dashPoint.getY(),
-                false,
-                0,
-                0f);*/
-        // if(noClip) dashPoint =
-        // Champion.getTeleportPoint(this.parentExt,this.player,this.location,dest);
-        double time = dashPoint.distance(this.location) / dashSpeed;
-        int timeMs = (int) (time * 1000d);
-        this.stopMoving(timeMs);
-        Runnable setIsDashing = () -> this.isDashing = false;
-        parentExt.getTaskScheduler().schedule(setIsDashing, timeMs, TimeUnit.MILLISECONDS);
-        ExtensionCommands.moveActor(
-                this.parentExt,
-                this.room,
-                this.id,
-                this.location,
-                dashPoint,
-                (float) dashSpeed,
-                true);
-        this.setLocation(dashPoint);
-        this.target = null;
-        return dashPoint;
-    }
-
     public void handleCyclopsHealing() {
         if (this.getHealth() != this.maxHealth && !this.pickedUpHealthPack) {
             this.heal((int) (this.getMaxHealth() * 0.15d));
@@ -1079,7 +935,7 @@ public abstract class Actor {
 
         movePointsToDest = pF.getMovePointsToDest(location, endPoint);
 
-        if (movePointsToDest.size() > 1) {
+        /*if (movePointsToDest.size() > 1) {
             for (Point2D p : movePointsToDest) {
                 ExtensionCommands.createWorldFX(
                         parentExt,
@@ -1109,7 +965,7 @@ public abstract class Actor {
                     false,
                     team,
                     0f);
-        }
+        }*/
 
         movePointsIndex = 0;
         elapsedMoveTimeMs = 0;
@@ -1204,12 +1060,17 @@ public abstract class Actor {
         }
 
         // interpolate within the current segment
+
         double progress = Math.min(1.0, (double) elapsedMoveTimeMs / totalMoveTimeMs);
         double x =
                 moveStartPoint.getX() + (moveDestination.getX() - moveStartPoint.getX()) * progress;
         double y =
                 moveStartPoint.getY() + (moveDestination.getY() - moveStartPoint.getY()) * progress;
         location = new Point2D.Float((float) x, (float) y);
+    }
+
+    public void scheduleTask(Runnable task, int timeMs) {
+        parentExt.getTaskScheduler().schedule(task, timeMs, TimeUnit.MILLISECONDS);
     }
 
     /* Scans forward from the current waypoint index and returns the index of the last point before

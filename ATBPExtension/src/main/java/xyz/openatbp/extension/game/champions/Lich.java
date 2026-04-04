@@ -12,7 +12,6 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
-import xyz.openatbp.extension.pathfinding.MovementManager;
 
 public class Lich extends UserActor {
     private static final int PASSIVE_DURATION = 20000;
@@ -281,12 +280,12 @@ public class Lich extends UserActor {
                     if (eLocation != null) {
                         ExtensionCommands.actorAnimate(
                                 this.parentExt, this.room, this.id, "idle", 100, false);
-                        Point2D teleportLocation =
-                                MovementManager.getDashPoint(
-                                        this, new Line2D.Float(location, eLocation));
-                        ExtensionCommands.snapActor(
-                                parentExt, room, this.id, location, teleportLocation, false);
-                        this.setLocation(teleportLocation);
+                        /*Point2D teleportLocation =
+                        MovementManager.getDashPoint(
+                                this, new Line2D.Float(location, eLocation));*/
+                        /*ExtensionCommands.snapActor(
+                        parentExt, room, this.id, location, teleportLocation, false);*/
+                        /*this.setLocation(teleportLocation);
                         if (this.skully != null) {
                             this.skully.setLocation(teleportLocation);
                             ExtensionCommands.snapActor(
@@ -296,7 +295,7 @@ public class Lich extends UserActor {
                                     this.skully.getLocation(),
                                     teleportLocation,
                                     false);
-                        }
+                        }*/
                         ExtensionCommands.removeStatusIcon(parentExt, player, "ultDuration");
                         ExtensionCommands.createActorFX(
                                 parentExt,
@@ -501,9 +500,9 @@ public class Lich extends UserActor {
             }
             if (this.attackCooldown > 0) this.attackCooldown -= 100;
             if (!this.isStopped() && this.canMove()) this.timeTraveled += 0.1f;
-            this.location =
-                    MovementManager.getRelativePoint(
-                            this.movementLine, this.getPlayerStat("speed"), this.timeTraveled);
+            /*this.location =
+            MovementManager.getRelativePoint(
+                    this.movementLine, this.getPlayerStat("speed"), this.timeTraveled);*/
             this.handlePathing();
             if (movementDebug)
                 ExtensionCommands.moveActor(
@@ -515,22 +514,23 @@ public class Lich extends UserActor {
                         2f,
                         false);
             if (this.target == null) { // Should follow Lich around
-                if (this.location.distance(Lich.this.location) > 2.5d && !this.isLichNearEndPoint())
-                    this.moveWithCollision(Lich.this.location);
-                else if (!this.isStopped() && this.location.distance(Lich.this.location) <= 2.5)
+                if (this.location.distance(Lich.this.location) > 2.5d
+                        && !this.isLichNearEndPoint()) {
+                    // this.moveWithCollision(Lich.this.location);
+                } else if (!this.isStopped() && this.location.distance(Lich.this.location) <= 2.5)
                     this.stopMoving();
             } else {
                 if (this.target.getHealth() <= 0) this.resetTarget();
                 else {
                     if (this.location.distance(Lich.this.location) > 9) {
                         this.target = null;
-                        this.moveWithCollision(Lich.this.location);
+                        // this.moveWithCollision(Lich.this.location);
                         return;
                     }
                     if (!this.withinRange(this.target)
                             && !this.isPointNearDestination(this.target.getLocation())
                             && !this.isAutoAttacking) {
-                        this.moveWithCollision(this.target.getLocation());
+                        // this.moveWithCollision(this.target.getLocation());
                     } else if (this.withinRange(this.target)) {
                         if (!this.isStopped()) this.stopMoving();
                         if (this.canAttack()) this.attack(this.target);
@@ -548,7 +548,7 @@ public class Lich extends UserActor {
         public void setTarget(Actor a) {
             if (this.target == a) return;
             this.target = a;
-            this.moveWithCollision(a.getLocation());
+            // this.moveWithCollision(a.getLocation());
             this.timeTraveled = 0f;
         }
 
@@ -586,8 +586,9 @@ public class Lich extends UserActor {
             }
             if (highestPriorityActor != null) this.setTarget(highestPriorityActor);
             else {
-                if (this.location.distance(Lich.this.location) > 2.5d)
-                    this.moveWithCollision(Lich.this.location);
+                if (this.location.distance(Lich.this.location) > 2.5d) {
+                    // this.moveWithCollision(Lich.this.location);
+                }
             }
         }
 

@@ -167,6 +167,10 @@ public abstract class Bot extends Actor {
         }
     }
 
+    protected void increaseXp(int xpValue) {
+        xp += xpValue;
+    }
+
     protected boolean isNonStructureEnemy(Actor a) {
         return (a.getTeam() != team
                 && a.getActorType() != ActorType.BASE
@@ -732,6 +736,8 @@ public abstract class Bot extends Actor {
     }
 
     protected void executeBotState(BotState stateToExecute) {
+        // ALL startMoveTo called in update() need to check for !isMoving to not cause desync
+        // between visual model and server location
         switch (stateToExecute) {
             case FIGHTING:
             case JUNGLING:
@@ -764,14 +770,20 @@ public abstract class Bot extends Actor {
             case FLEEING:
                 handleRetreatAbilities();
                 Point2D fleePoint = getNextFleeWaypoint();
-                startMoveTo(fleePoint);
+                if (!isMoving) {
+                    startMoveTo(fleePoint);
+                }
                 break;
             case ALTAR:
-                if (altarToCapture != null) startMoveTo(altarToCapture);
+                if (altarToCapture != null && !isMoving) {
+                    startMoveTo(altarToCapture);
+                }
                 break;
             case PUSHING:
                 Point2D nextPushPoint = getNextPushWaypoint();
-                if (nextPushPoint != null) startMoveTo(nextPushPoint);
+                if (nextPushPoint != null && !isMoving) {
+                    startMoveTo(nextPushPoint);
+                }
                 break;
         }
     }
@@ -1084,10 +1096,6 @@ public abstract class Bot extends Actor {
         parentExt
                 .getTaskScheduler()
                 .schedule(resetIsAttacking, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
-    }
-
-    protected void scheduleTask(Runnable task, int timeMs) {
-        parentExt.getTaskScheduler().schedule(task, timeMs, TimeUnit.MILLISECONDS);
     }
 
     protected boolean handleAttack(Actor a) {
