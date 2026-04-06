@@ -9,8 +9,8 @@ import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.ActorType;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class Base extends Actor {
     private boolean unlocked = false;

@@ -18,11 +18,11 @@ import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.ModifierIntent;
-import xyz.openatbp.extension.game.ModifierType;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Monster;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 public class Keeoth extends Monster {
 

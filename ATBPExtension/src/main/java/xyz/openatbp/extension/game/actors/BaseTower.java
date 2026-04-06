@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.Room;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.ActorState;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class BaseTower extends Tower {
     private boolean isUnlocked = false;

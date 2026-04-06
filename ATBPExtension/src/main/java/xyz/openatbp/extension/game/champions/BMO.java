@@ -15,6 +15,7 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class BMO extends UserActor {
     private static final int PASSIVE_SLOW_DURATION = 2500;

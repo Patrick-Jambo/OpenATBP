@@ -1,6 +1,7 @@
 package xyz.openatbp.extension.game.actors;
 
 import static xyz.openatbp.extension.game.actors.UserActor.*;
+import static xyz.openatbp.extension.game.effects.EffectManager.FEAR_MOVING_DISTANCE;
 
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
@@ -16,9 +17,15 @@ import com.smartfoxserver.v2.entities.data.SFSObject;
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.IceKing;
+import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.game.effects.EffectManager;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public abstract class Actor {
+
+    public static final float CHARM_MIN_DISTANCE = 2f;
 
     public enum AttackType {
         PHYSICAL,
@@ -48,9 +55,9 @@ public abstract class Actor {
     protected int xpWorth;
     protected String bundle;
     protected boolean towerAggroCompanion = false;
-    protected UserActor charmer;
     protected boolean isDashing = false;
-
+    protected Actor charmer;
+    protected Actor fearer;
     protected Point2D moveStartPoint;
     protected Point2D moveDestination;
     protected List<Point2D> movePointsToDest;
@@ -71,6 +78,29 @@ public abstract class Actor {
     protected EffectManager effectManager = new EffectManager(this);
 
     protected boolean customPolySwap = false;
+
+    protected long lastGrobDeviceProc = 0L;
+    protected boolean grobShieldActive = false;
+
+    public void setCharmer(Actor charmer) {
+        this.charmer = charmer;
+    }
+
+    public Actor getCharmer() {
+        return this.charmer;
+    }
+
+    public void setFearer(Actor fearer) {
+        this.fearer = fearer;
+    }
+
+    public Actor getFearer() {
+        return this.fearer;
+    }
+
+    public boolean getGrobShieldActive() {
+        return this.grobShieldActive;
+    }
 
     public EffectManager getEffectManager() {
         return effectManager;
@@ -268,9 +298,24 @@ public abstract class Actor {
 
     public void handleCharm(UserActor charmer, int duration) {}
 
-    public void moveTowardsCharmer(UserActor charmer) {}
+    public void handleCharmMovement() {
+        if (effectManager.hasState(ActorState.CHARMED)
+                && location.distance(charmer.getLocation()) > CHARM_MIN_DISTANCE) {
+            startMoveTo(charmer.getLocation());
+        }
+    }
 
-    public void handleFear(Point2D source, int duration) {}
+    public void handleFear(Actor fearer) {
+        Point2D fearerLoc = fearer.getLocation();
+        Point2D stopPoint =
+                Champion.getAbilityLine(location, fearerLoc, FEAR_MOVING_DISTANCE).getP2();
+
+        double dx = stopPoint.getX() - location.getX();
+        double dy = stopPoint.getY() - location.getY();
+        Point2D perpEnd = new Point2D.Double(location.getX() + dy, location.getY() - dx);
+
+        startMoveTo(perpEnd);
+    }
 
     public void stopMoving(int delay) {
         this.stopMoving();

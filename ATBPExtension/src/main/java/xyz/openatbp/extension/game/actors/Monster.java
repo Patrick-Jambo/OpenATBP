@@ -10,9 +10,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.Room;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class Monster extends Actor {
 
@@ -162,15 +162,6 @@ public class Monster extends Actor {
         } catch (Exception e) {
             e.printStackTrace();
             return false;
-        }
-    }
-
-    @Override
-    public void handleCharm(UserActor charmer, int duration) {
-        effectManager.addState(ActorState.CHARMED, 0d, duration);
-        if (charmer != null) {
-            this.target = charmer;
-            this.charmer = charmer;
         }
     }
 
@@ -347,6 +338,7 @@ public class Monster extends Actor {
 
         effectManager.handleEffectsUpdate();
         handleMovementUpdate();
+        handleCharmMovement();
 
         if (this.target != null
                 && (this.target.getEffectManager().hasState(ActorState.INVISIBLE))) {
@@ -356,9 +348,6 @@ public class Monster extends Actor {
         }
         if (this.headingBack && this.location.distance(startingLocation) <= 1f) {
             this.headingBack = false;
-        }
-        if (effectManager.hasState(ActorState.CHARMED) && this.charmer != null) {
-            moveTowardsCharmer(charmer);
         }
 
         if (msRan % 1000 * 60

@@ -24,6 +24,8 @@ import com.smartfoxserver.v2.util.TaskScheduler;
 
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.*;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public abstract class RoomHandler implements Runnable {

@@ -20,6 +20,7 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.champions.*;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class Champion {
     public static void updateServerHealth(ATBPExtension parentExt, Actor a) {

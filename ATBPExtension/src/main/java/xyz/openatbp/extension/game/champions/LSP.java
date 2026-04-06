@@ -15,6 +15,7 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class LSP extends UserActor {
     public static final int Q_CAST_DELAY = 750;
@@ -243,7 +244,8 @@ public class LSP extends UserActor {
                     for (Actor a : nearbyEnemies) {
                         if (isNeitherStructureNorAlly(a)
                                 && qRect.contains(a.getLocation(), a.getCollisionRadius())) {
-                            a.handleFear(LSP.this.location, Q_FEAR_DURATION);
+                            a.setFearer(LSP.this);
+                            a.getEffectManager().addState(ActorState.FEARED, 0, Q_FEAR_DURATION);
                         }
 
                         if (isNeitherTowerNorAlly(a)

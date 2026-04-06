@@ -9,6 +9,7 @@ import com.smartfoxserver.v2.entities.Room;
 
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class Minion extends Actor {
 
@@ -474,11 +475,10 @@ public class Minion extends Actor {
     @Override
     public void update(int msRan) {
         this.handleDamageQueue();
-        // this.handleActiveEffects();
-
         effectManager.handleEffectsUpdate();
 
         handleMovementUpdate();
+        handleCharmMovement();
 
         MinionState state = evaluateMinionState();
         if (state != null) executeMinionState(state);
@@ -500,11 +500,6 @@ public class Minion extends Actor {
         if (movementDebug)
             ExtensionCommands.moveActor(
                     parentExt, room, id + "_test", this.location, this.location, 5f, false);
-    }
-
-    @Override
-    public void handleFear(Point2D source, int duration) {
-        super.handleFear(source, duration);
     }
 
     @Override

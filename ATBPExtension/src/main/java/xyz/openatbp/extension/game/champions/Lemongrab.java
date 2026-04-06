@@ -15,6 +15,7 @@ import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class Lemongrab extends UserActor {
     public static final int PASSIVE_COOLDOWN = 2000;

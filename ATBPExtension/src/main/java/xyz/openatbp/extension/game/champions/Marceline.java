@@ -13,6 +13,9 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 public class Marceline extends UserActor {
     private static final double PASSIVE_HP_REG_VALUE = 1.5d;
@@ -621,9 +624,13 @@ public class Marceline extends UserActor {
 
                             if (a.getActorType() != ActorType.BASE) {
                                 if (form == Form.VAMPIRE) {
-                                    a.handleCharm(Marceline.this, E_CHARM_DURATION);
+                                    a.setCharmer(Marceline.this);
+                                    a.getEffectManager()
+                                            .addState(ActorState.CHARMED, 0d, E_CHARM_DURATION);
                                 } else {
-                                    a.handleFear(Marceline.this.location, E_FEAR_DURATION);
+                                    a.setFearer(Marceline.this);
+                                    a.getEffectManager()
+                                            .addState(ActorState.FEARED, 0d, E_FEAR_DURATION);
                                 }
                             }
                         }

@@ -14,6 +14,9 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 public class Lich extends UserActor {
     private static final int PASSIVE_DURATION = 20000;
@@ -672,7 +675,8 @@ public class Lich extends UserActor {
             double dmg = getSpellDamage(spellData, true);
 
             victim.addToDamageQueue(Lich.this, dmg, spellData, false);
-            victim.handleCharm(Lich.this, W_CHARM_DURATION);
+            victim.setCharmer(Lich.this);
+            victim.getEffectManager().addState(ActorState.CHARMED, 0, W_CHARM_DURATION);
             destroy();
         }
     }

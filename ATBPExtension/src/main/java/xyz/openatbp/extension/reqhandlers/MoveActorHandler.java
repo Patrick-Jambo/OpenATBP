@@ -7,8 +7,8 @@ import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class MoveActorHandler extends BaseClientRequestHandler {
     @Override

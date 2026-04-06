@@ -15,6 +15,7 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public abstract class Bot extends Actor {
     private static final boolean MOVEMENT_DEBUG = false;
@@ -801,9 +802,9 @@ public abstract class Bot extends Actor {
         if (attackCooldown > 0) attackCooldown -= 100;
 
         handleDamageQueue();
-        // handleActiveEffects();
         effectManager.handleEffectsUpdate();
         handleMovementUpdate();
+        handleCharmMovement();
 
         if (MOVEMENT_DEBUG)
             ExtensionCommands.moveActor(

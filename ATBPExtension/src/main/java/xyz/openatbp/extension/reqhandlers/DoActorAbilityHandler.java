@@ -15,9 +15,9 @@ import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.ModifierIntent;
-import xyz.openatbp.extension.game.ModifierType;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 @MultiHandler
 public class DoActorAbilityHandler extends BaseClientRequestHandler {

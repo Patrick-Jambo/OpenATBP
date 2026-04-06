@@ -22,6 +22,9 @@ import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.Fionna;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
+import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 public class UserActor extends Actor {
     public static final int DEMON_SWORD_AD_BUFF = 15;
@@ -55,6 +58,7 @@ public class UserActor extends Actor {
     public static final int MAGIC_CUBE_CD = 6000;
     public static final int MAGIC_CUBE_DEBUFF_DURATION = 5000;
     public static final int E_GUN_STACK_CD = 3000;
+    public static final int GROB_DEVICE_SHIELD_CD = 90000;
 
     protected User player;
     protected boolean autoAttackEnabled = false;
@@ -93,9 +97,6 @@ public class UserActor extends Actor {
     protected long stealthEmbargo = -1;
     private boolean moonVfxActivated = false;
     protected double glassesBuff = 0;
-    protected long spellShieldCooldown = -1;
-    protected boolean spellShieldActive = false;
-    protected long iFrame = -1;
     protected String numbChuckVictim;
     protected boolean numbSlow = false;
     protected int roboStacks = 0;
@@ -339,6 +340,15 @@ public class UserActor extends Actor {
                 checkTowerAggroCompanion(a);
             }
 
+            if ((getAttackType(attackData) == AttackType.SPELL)
+                    && (a instanceof UserActor || a instanceof Bot)) {
+                if (grobShieldActive) {
+                    grobShieldActive = false;
+                    lastGrobDeviceProc = System.currentTimeMillis();
+                    return false;
+                }
+            }
+
             if (this.pickedUpHealthPack) {
                 removeHealthPackEffect();
             }
@@ -396,12 +406,6 @@ public class UserActor extends Actor {
                     double junkStat = ChampionData.getCustomJunkStat(ua, item);
                     newDamage += (int) (newDamage * junkStat);
                 }
-
-                if (type == AttackType.SPELL
-                        && (this.spellShieldActive || System.currentTimeMillis() < iFrame)) {
-                    if (this.spellShieldActive) triggerSpellShield();
-                    return false;
-                }
             }
             newDamage = this.getMitigatedDamage(newDamage, type, a);
             this.handleDamageTakenStat(type, newDamage);
@@ -436,13 +440,32 @@ public class UserActor extends Actor {
         }
     }
 
-    private void triggerSpellShield() {
-        this.spellShieldActive = false;
-        this.spellShieldCooldown = System.currentTimeMillis() + 90000;
-        ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_spellShield");
-        ExtensionCommands.removeStatusIcon(
-                this.parentExt, this.getUser(), "junk_4_grob_gob_glob_grod_name");
-        this.iFrame = System.currentTimeMillis() + 500;
+    public void handleGrobDevice() {
+        int points = ChampionData.getJunkLevel(this, "junk_5_grob_device");
+        if (points != -1
+                && System.currentTimeMillis() - lastGrobDeviceProc >= GROB_DEVICE_SHIELD_CD
+                && !grobShieldActive) {
+            grobShieldActive = true;
+            ExtensionCommands.createActorFX(
+                    parentExt,
+                    room,
+                    id,
+                    "spell_shield",
+                    1000 * 60 * 15,
+                    id + "_spellShield",
+                    true,
+                    "Bip001 Pelvis",
+                    true,
+                    false,
+                    this.team);
+            ExtensionCommands.addStatusIcon(
+                    parentExt,
+                    this.getUser(),
+                    "junk_4_grob_gob_glob_grod_name",
+                    "junk_4_grob_gob_glob_grod_mod3",
+                    "junk_4_grob_gob_glob_grod",
+                    0f);
+        }
     }
 
     public double getAttackCooldown() {
@@ -663,33 +686,6 @@ public class UserActor extends Actor {
     }
 
     @Override
-    public void handleFear(Point2D source, int duration) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            if (this.spellShieldActive) this.triggerSpellShield();
-            return;
-        }
-        super.handleFear(source, duration);
-    }
-
-    @Override
-    public void handlePull(Point2D source, double pullDistance) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            if (this.spellShieldActive) this.triggerSpellShield();
-            return;
-        }
-        super.handlePull(source, pullDistance);
-    }
-
-    @Override
-    public void handleKnockback(Point2D source, float distance) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            if (this.spellShieldActive) this.triggerSpellShield();
-            return;
-        }
-        super.handleKnockback(source, distance);
-    }
-
-    @Override
     public void die(Actor a) {
         Console.debugLog(this.id + " has died! " + this.dead);
         try {
@@ -871,6 +867,8 @@ public class UserActor extends Actor {
         effectManager.handleEffectsUpdate();
 
         handleMovementUpdate();
+        handleCharmMovement();
+        handleGrobDevice();
 
         if (this.dead) {
             if (this.currentHealth > 0
@@ -952,31 +950,6 @@ public class UserActor extends Actor {
             this.moonVfxActivated = false;
             ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_battlemoon");
         }
-        if (!this.spellShieldActive
-                && ChampionData.getJunkLevel(this, "junk_4_grob_gob_glob_grod") > 0
-                && System.currentTimeMillis() > this.spellShieldCooldown) {
-            this.spellShieldActive = true;
-            ExtensionCommands.createActorFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
-                    "spell_shield",
-                    1000 * 60 * 15,
-                    this.id + "_spellShield",
-                    true,
-                    "Bip001 Pelvis",
-                    true,
-                    false,
-                    this.team);
-            ExtensionCommands.addStatusIcon(
-                    this.parentExt,
-                    this.getUser(),
-                    "junk_4_grob_gob_glob_grod_name",
-                    "junk_4_grob_gob_glob_grod_mod3",
-                    "junk_4_grob_gob_glob_grod",
-                    0f);
-        }
-
         if (this.hits > 0) {
             this.hits -= 0.1d;
         } else if (this.hits < 0) this.hits = 0;
@@ -1185,9 +1158,6 @@ public class UserActor extends Actor {
                 && System.currentTimeMillis() - this.gooBuffStartTime >= GOO_BUFF_DURATION) {
             disableGooBuff();
         }
-        if (effectManager.hasState(ActorState.CHARMED) && this.charmer != null) {
-            moveTowardsCharmer(charmer);
-        }
     }
 
     private void regenHealth() {
@@ -1359,19 +1329,6 @@ public class UserActor extends Actor {
         double dy = dest.getY() - this.location.getY();
         double angleRad = Math.atan2(dy, dx);
         return (float) Math.toDegrees(angleRad) * -1 + 90f;
-    }
-
-    @Override
-    public void handleCharm(UserActor charmer, int duration) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            if (this.spellShieldActive) this.triggerSpellShield();
-            return;
-        }
-        if (!effectManager.hasState(ActorState.CHARMED)
-                && !effectManager.hasState(ActorState.IMMUNITY)) {
-            this.charmer = charmer;
-            effectManager.addState(ActorState.CHARMED, 0d, duration);
-        }
     }
 
     public void respawn() {

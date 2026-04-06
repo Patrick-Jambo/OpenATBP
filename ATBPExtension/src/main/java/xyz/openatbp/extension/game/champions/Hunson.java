@@ -14,6 +14,9 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 public class Hunson extends UserActor {
     private static final int PASSIVE_DURATION = 3500;
@@ -61,7 +64,8 @@ public class Hunson extends UserActor {
             RoomHandler rh = parentExt.getRoomHandler(room.getName());
             for (Actor a : rh.getActorsInRadius(wLocation, 2.5f)) {
                 if (isNeitherStructureNorAlly(a) && !dotActors.containsKey(a)) {
-                    a.handleFear(wLocation, W_FEAR_DURATION);
+                    a.setFearer(this);
+                    a.getEffectManager().addState(ActorState.FEARED, 0, W_FEAR_DURATION);
                 }
 
                 if (!dotActors.containsKey(a) && isNeitherTowerNorAlly(a)) {

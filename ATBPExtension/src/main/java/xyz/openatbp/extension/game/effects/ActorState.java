@@ -1,4 +1,4 @@
-package xyz.openatbp.extension.game;
+package xyz.openatbp.extension.game.effects;
 
 public enum ActorState {
     INVINCIBLE,

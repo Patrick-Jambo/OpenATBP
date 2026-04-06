@@ -1,4 +1,4 @@
-package xyz.openatbp.extension.game;
+package xyz.openatbp.extension.game.effects;
 
 import static xyz.openatbp.extension.game.champions.FlamePrincess.W_POLY_DURATION;
 
@@ -56,11 +56,11 @@ public class EffectManager {
                 break;
 
             case CHARMED:
-                handleCharm(); // stub
+                handleCharm();
                 break;
 
             case FEARED:
-                handleFear(); // stub
+                handleFear(actor.getFearer());
                 break;
 
             case POLYMORPH:
@@ -74,9 +74,28 @@ public class EffectManager {
         }
     }
 
-    public void handleCharm() {}
+    private boolean canMoveDuringCharmOrFear(ActorState stateToApply) {
+        boolean canMove =
+                !(hasState(ActorState.ROOTED)
+                        || hasState(ActorState.STUNNED)
+                        || hasState(ActorState.AIRBORNE));
+        if (stateToApply == ActorState.CHARMED) {
+            return canMove && !hasState(ActorState.FEARED);
+        }
+        return canMove && !hasState(ActorState.CHARMED);
+    }
 
-    public void handleFear() {}
+    public void handleCharm() {
+        if (canMoveDuringCharmOrFear(ActorState.CHARMED)) {
+            actor.handleCharmMovement();
+        }
+    }
+
+    public void handleFear(Actor fearer) { // xd
+        if (canMoveDuringCharmOrFear(ActorState.FEARED)) {
+            actor.handleFear(fearer);
+        }
+    }
 
     public boolean hasState(ActorState state) {
         return states.getOrDefault(state, false);
@@ -84,6 +103,7 @@ public class EffectManager {
 
     private boolean canApplyStateOrEffect(ModifierIntent intent) {
         if (hasState(ActorState.IMMUNITY) && intent == ModifierIntent.DEBUFF) return false;
+        if (actor.getGrobShieldActive() && intent == ModifierIntent.DEBUFF) return false;
         return true;
     }
 
