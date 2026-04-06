@@ -54,7 +54,8 @@ public class HitActorHandler extends BaseClientRequestHandler {
             }
             if (target.getActorType() == ActorType.PLAYER) {
                 UserActor ua = (UserActor) target;
-                if (ua.getState(ActorState.INVISIBLE) && !ua.getState(ActorState.REVEALED)) return;
+                if (ua.getEffectManager().hasState(ActorState.INVISIBLE)
+                        && !ua.getEffectManager().hasState(ActorState.REVEALED)) return;
             }
             actor.resetIdleTime();
             actor.setTarget(target);

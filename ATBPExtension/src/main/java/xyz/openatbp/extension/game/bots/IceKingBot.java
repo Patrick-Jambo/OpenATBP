@@ -65,6 +65,8 @@ public class IceKingBot extends Bot {
         qCastDelayMS = 250;
         wCastDelayMS = 250;
         eCastDelayMS = 250;
+
+        this.customPolySwap = true;
     }
 
     @Override
@@ -97,7 +99,7 @@ public class IceKingBot extends Bot {
     }
 
     @Override
-    protected void handleSwapFromPoly() {
+    public void customSwapFromPoly() {
         String bundle =
                 this.bundle == AssetBundle.FLIGHT && this.ultActive
                         ? getFlightAssetbundle()
@@ -111,11 +113,16 @@ public class IceKingBot extends Bot {
                 && attackData.get("attackName").asText().contains("basic_attack")
                 && this.iceShield) {
             damage /= 2;
-            a.addState(ActorState.SLOWED, PASSIVE_SLOW_VALUE, PASSIVE_SLOW_DURAITON);
-            a.addEffect(
+            a.getEffectManager()
+                    .addState(ActorState.SLOWED, PASSIVE_SLOW_PERCENT, PASSIVE_SLOW_DURAITON);
+
+            effectManager.addEffect(
                     "attackSpeed",
-                    a.getStat("attackSpeed") * PASSIVE_AS_DEBUFF_VALUE,
+                    PASSIVE_AS_DEBUFF_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.DEBUFF,
                     PASSIVE_AS_DEBUFF_TIME);
+
             this.iceShield = false;
             this.lastAbilityUsed = System.currentTimeMillis() + 5000;
             Runnable handlePassiveCooldown =
@@ -378,7 +385,10 @@ public class IceKingBot extends Bot {
             qVictim = victim;
             qHitTime = System.currentTimeMillis() + 1750;
             victim.addToDamageQueue(caster, getSpellDamage(spellData), spellData, false);
-            victim.addState(ActorState.ROOTED, 0d, Q_ROOT_DURATION, "iceKing_snare", "");
+
+            String id = victim.getId() + "_iceKing_freeze";
+            victim.getEffectManager()
+                    .addState(ActorState.ROOTED, 0, "iceKing_snare", Q_ROOT_DURATION, id, "");
             ExtensionCommands.playSound(
                     this.parentExt,
                     victim.getRoom(),
@@ -532,7 +542,7 @@ public class IceKingBot extends Bot {
             boolean containsIceKing = actorsInUlt.contains(this);
             if (containsIceKing && this.bundle == AssetBundle.NORMAL) {
                 this.bundle = AssetBundle.FLIGHT;
-                if (!this.getState(ActorState.POLYMORPH)) {
+                if (!effectManager.hasState(ActorState.POLYMORPH)) {
                     ExtensionCommands.swapActorAsset(
                             this.parentExt, this.room, this.id, getFlightAssetbundle());
                 }
@@ -553,7 +563,7 @@ public class IceKingBot extends Bot {
                 }
             } else if (!containsIceKing && this.bundle == AssetBundle.FLIGHT) {
                 this.bundle = AssetBundle.NORMAL;
-                if (!this.getState(ActorState.POLYMORPH)) {
+                if (!effectManager.hasState(ActorState.POLYMORPH)) {
                     ExtensionCommands.swapActorAsset(
                             this.parentExt, this.room, this.id, getSkinAssetBundle());
                 }
@@ -562,7 +572,12 @@ public class IceKingBot extends Bot {
             if (!actorsInUlt.isEmpty()) {
                 for (Actor a : actorsInUlt) {
                     if (a.equals(this)) {
-                        this.addEffect("speed", this.getStat("speed") * 0.9, 150);
+                        effectManager.addEffect(
+                                "speed",
+                                E_SPEED_PERCENT,
+                                ModifierType.MULTIPLICATIVE,
+                                ModifierIntent.BUFF,
+                                150);
 
                     } else if (isNonStructureEnemy(a)) {
                         JsonNode spellData = this.parentExt.getAttackData("iceking", "spell3");

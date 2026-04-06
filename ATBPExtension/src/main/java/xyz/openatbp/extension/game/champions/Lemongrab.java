@@ -20,7 +20,7 @@ public class Lemongrab extends UserActor {
     public static final int PASSIVE_COOLDOWN = 2000;
     public static final int PASSIVE_STACK_DURATION = 6000;
     public static final int Q_SLOW_DURATION = 2500;
-    public static final double Q_SLOW_VALUE = 0.4d;
+    public static final double Q_SLOW_PERCENT = 0.4d;
     public static final float Q_OFFSET_DISTANCE_BOTTOM = 1.5f;
     public static final float Q_OFFSET_DISTANCE_TOP = 4f;
     public static final float Q_SPELL_RANGE = 6f;
@@ -161,7 +161,9 @@ public class Lemongrab extends UserActor {
                             if (isNeitherStructureNorAlly(a)
                                     && qTrapezoid.contains(
                                             a.getLocation(), a.getCollisionRadius())) {
-                                a.addState(ActorState.SLOWED, Q_SLOW_VALUE, Q_SLOW_DURATION);
+                                a.getEffectManager()
+                                        .addState(
+                                                ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
                             }
 
                             if (isNeitherTowerNorAlly(a)
@@ -359,11 +361,11 @@ public class Lemongrab extends UserActor {
                     double damage = getSpellDamage(spellData, false);
 
                     if (distance <= 1 && isNeitherStructureNorAlly(a)) {
-                        a.addState(ActorState.SILENCED, 0d, W_SILENCE_DURATION);
+                        a.getEffectManager().addState(ActorState.SILENCED, 0d, W_SILENCE_DURATION);
                     }
 
                     if (isNeitherStructureNorAlly(a)) {
-                        a.addState(ActorState.BLINDED, 0d, W_BLIND_DURATION);
+                        a.getEffectManager().addState(ActorState.BLINDED, 0d, W_BLIND_DURATION);
                     }
 
                     if (distance <= 1 && isNeitherTowerNorAlly(a)) {
@@ -421,9 +423,9 @@ public class Lemongrab extends UserActor {
                     }
 
                     if ((a instanceof UserActor || a instanceof Bot) && a.getTeam() != team) {
-                        a.addState(ActorState.STUNNED, 0d, (int) duration);
+                        a.getEffectManager().addState(ActorState.STUNNED, 0d, (int) duration);
 
-                        if (!a.getState(ActorState.IMMUNITY)) {
+                        if (!effectManager.hasState(ActorState.IMMUNITY)) {
                             ExtensionCommands.createActorFX(
                                     parentExt,
                                     room,

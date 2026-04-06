@@ -67,7 +67,7 @@ public class ChampionData {
                     stats = new double[] {0.1, 0.15, 0.2, 0.3};
                     break;
                 case "junk_4_antimagic_cube":
-                    stats = new double[] {-25, -50, -75, -100};
+                    stats = new double[] {25, 50, 75, 100};
                     break;
                 case "junk_2_peppermint_tank":
                 case "junk_3_globs_helmet":

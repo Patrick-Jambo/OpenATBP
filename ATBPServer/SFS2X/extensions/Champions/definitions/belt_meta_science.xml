@@ -1,0 +1,25 @@
+<belt>
+	<name>belt_meta_science_name</name>
+	<description>belt_meta_science_description</description>
+	<description_short>belt_meta_science_description_short</description_short>
+	<iconPack>backpack_misc</iconPack>	
+	<iconJunk>belt_meta_science</iconJunk>
+	<steam_achievement_name>Meta Science Sack achievement name</steam_achievement_name>
+	<junk>
+		<slot1>
+			<junk_id>junk_1_demon_blood_sword</junk_id>
+		</slot1>
+		<slot2>
+			<junk_id>junk_2_simon_petrikovs_glasses</junk_id>
+		</slot2>
+		<slot3>
+			<junk_id>junk_3_jakes_helm</junk_id>
+		</slot3>
+		<slot4>
+			<junk_id>junk_4_grob_gob_glob_grod</junk_id>
+		</slot4>
+		<slot5>
+			<junk_id>junk_5_bubblegums_googoomama</junk_id>
+		</slot5>
+	</junk>
+</belt>

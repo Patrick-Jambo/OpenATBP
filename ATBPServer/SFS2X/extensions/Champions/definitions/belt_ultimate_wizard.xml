@@ -1,0 +1,25 @@
+<belt>
+	<name>belt_ultimate_wizard_name</name>
+	<description>belt_ultimate_wizard_description</description>
+	<description_short>belt_ultimate_wizard_description_short</description_short>
+	<iconBackpack>backpack_bubblegum</iconBackpack>	
+	<icon>belt_ultimate_wizard</icon>
+	<steam_achievement_name>Nearly Ultimate Wizard Wear achievement name</steam_achievement_name>
+	<junk>
+		<slot1>
+			<junk_id>junk_1_eyeball_whip</junk_id>
+		</slot1>
+		<slot2>
+			<junk_id>junk_2_anti_anti_magic_potion</junk_id>
+		</slot2>
+		<slot3>
+			<junk_id>junk_3_crystal_gem_apple</junk_id>
+		</slot3>
+		<slot4>
+			<junk_id>junk_4_wizard_robe</junk_id>
+		</slot4>
+		<slot5>
+			<junk_id>junk_5_ghost_pouch</junk_id>
+		</slot5>
+	</junk>
+</belt>

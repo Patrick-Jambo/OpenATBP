@@ -1,5 +1,7 @@
 package xyz.openatbp.extension.game.champions;
 
+import static xyz.openatbp.extension.game.champions.Lich.Skully.SKULLY_DAMAGE_PERCENT;
+
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.*;
@@ -16,16 +18,16 @@ import xyz.openatbp.extension.game.actors.UserActor;
 public class Lich extends UserActor {
     private static final int PASSIVE_DURATION = 20000;
     private static final int PASSIVE_COOLDOWN = 40000;
-    private static final double SKULLY_DAMAGE_PERCENTAGE = 0.4;
     private static final int Q_SPEED_DURATION = 6000;
-    private static final double Q_SPEED_VALUE = 0.25d;
+    private static final double Q_SPEED_PERCENT = 0.25d;
     private static final int Q_DURATION = 6000;
     private static final int Q_SLOW_DURATION = 1500;
-    private static final double Q_SLOW_VALUE = 0.3d;
+    private static final double Q_SLOW_PERCENT = 0.3d;
     private static final int W_CHARM_DURATION = 2000;
     private static final int E_DURATION = 5000;
     private static final int E_TICK_COOLDOWN = 500;
     public static final int E_G_COOLDOWN = 250;
+
     private Skully skully;
     private long lastSkullySpawn;
     private boolean qActivated = false;
@@ -36,6 +38,8 @@ public class Lich extends UserActor {
     private boolean eActive = false;
     private long eStartTime = 0;
     private long lastETickTime = 0;
+
+    private Map<Actor, Long> actorsWithQSlow = new HashMap<>();
 
     public Lich(User u, ATBPExtension parentExt) {
         super(u, parentExt);
@@ -182,8 +186,13 @@ public class Lich extends UserActor {
                 this.canCast[0] = false;
                 int delay = 0;
                 try {
-                    double statIncrease = this.getStat("speed") * Q_SPEED_VALUE;
-                    this.addEffect("speed", statIncrease, Q_SPEED_DURATION);
+                    effectManager.addEffect(
+                            "speed",
+                            Q_SPEED_PERCENT,
+                            ModifierType.MULTIPLICATIVE,
+                            ModifierIntent.BUFF,
+                            Q_SPEED_DURATION);
+
                     qActivated = true;
                     qPoints = new HashMap<>();
                     ExtensionCommands.createActorFX(
@@ -360,7 +369,12 @@ public class Lich extends UserActor {
     }
 
     private void applySlow(Actor a) {
-        a.addState(ActorState.SLOWED, Q_SLOW_VALUE, Q_SLOW_DURATION);
+        long lastProc = actorsWithQSlow.getOrDefault(a, -1L);
+
+        if (lastProc == -1 || System.currentTimeMillis() - lastProc > Q_SLOW_DURATION) {
+            a.getEffectManager().addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
+            actorsWithQSlow.put(a, System.currentTimeMillis());
+        }
     }
 
     private LichAbilityRunnable abilityRunnable(
@@ -417,8 +431,12 @@ public class Lich extends UserActor {
         protected void spellPassive() {}
     }
 
-    private class Skully extends Actor {
-        private static final int SKULLY_LIFE_SPAN = 20000;
+    protected class Skully extends Actor {
+        protected static final int SKULLY_LIFE_SPAN = 20000;
+        protected static final int MAX_SKULLY_SEPARATION = 9;
+        protected static final double MIN_SKULLY_SEPARATION = 2;
+        protected static final double SKULLY_DAMAGE_PERCENT = 0.4;
+
         private long spawnTimeStamp;
         private boolean dead = false;
         private boolean isAutoAttacking = false;
@@ -432,7 +450,6 @@ public class Lich extends UserActor {
             this.avatar = "skully";
             this.id = "skully_" + Lich.this.id;
             this.team = Lich.this.team;
-            this.movementLine = new Line2D.Float(this.location, this.location);
             this.spawnTimeStamp = System.currentTimeMillis();
             this.actorType = ActorType.COMPANION;
             this.stats = this.initializeStats();
@@ -483,7 +500,7 @@ public class Lich extends UserActor {
         public void die(Actor a) {
             this.dead = true;
             this.currentHealth = 0;
-            if (!this.getState(ActorState.AIRBORNE)) this.stopMoving();
+            if (!effectManager.hasState(ActorState.AIRBORNE)) this.stopMoving();
             ExtensionCommands.destroyActor(parentExt, room, this.id);
             this.parentExt.getRoomHandler(this.room.getName()).removeCompanion(this);
             Lich.this.handleSkullyDeath();
@@ -492,18 +509,15 @@ public class Lich extends UserActor {
         @Override
         public void update(int msRan) {
             this.handleDamageQueue();
-            this.handleActiveEffects();
             if (this.dead) return;
+            effectManager.handleEffectsUpdate();
+            handleMovementUpdate();
+
             if (System.currentTimeMillis() - spawnTimeStamp >= SKULLY_LIFE_SPAN) {
                 this.die(this);
                 return;
             }
             if (this.attackCooldown > 0) this.attackCooldown -= 100;
-            if (!this.isStopped() && this.canMove()) this.timeTraveled += 0.1f;
-            /*this.location =
-            MovementManager.getRelativePoint(
-                    this.movementLine, this.getPlayerStat("speed"), this.timeTraveled);*/
-            this.handlePathing();
             if (movementDebug)
                 ExtensionCommands.moveActor(
                         this.parentExt,
@@ -514,23 +528,23 @@ public class Lich extends UserActor {
                         2f,
                         false);
             if (this.target == null) { // Should follow Lich around
-                if (this.location.distance(Lich.this.location) > 2.5d
-                        && !this.isLichNearEndPoint()) {
-                    // this.moveWithCollision(Lich.this.location);
-                } else if (!this.isStopped() && this.location.distance(Lich.this.location) <= 2.5)
-                    this.stopMoving();
+                if (location.distance(Lich.this.location) > MIN_SKULLY_SEPARATION) {
+                    startMoveTo(Lich.this.location);
+                } else if (isMoving) {
+                    stopMoving();
+                }
             } else {
                 if (this.target.getHealth() <= 0) this.resetTarget();
                 else {
-                    if (this.location.distance(Lich.this.location) > 9) {
+                    if (this.location.distance(Lich.this.location) > MAX_SKULLY_SEPARATION) {
                         this.target = null;
-                        // this.moveWithCollision(Lich.this.location);
+                        startMoveTo(Lich.this.location);
                         return;
                     }
                     if (!this.withinRange(this.target)
-                            && !this.isPointNearDestination(this.target.getLocation())
+                            && location.distance(Lich.this.location) > MIN_SKULLY_SEPARATION
                             && !this.isAutoAttacking) {
-                        // this.moveWithCollision(this.target.getLocation());
+                        startMoveTo(Lich.this.location);
                     } else if (this.withinRange(this.target)) {
                         if (!this.isStopped()) this.stopMoving();
                         if (this.canAttack()) this.attack(this.target);
@@ -539,16 +553,10 @@ public class Lich extends UserActor {
             }
         }
 
-        private boolean isLichNearEndPoint() {
-            if (this.path != null)
-                return Lich.this.location.distance(this.path.get(this.path.size() - 1)) <= 0.5d;
-            else return Lich.this.location.distance(this.movementLine.getP2()) <= 0.5d;
-        }
-
         public void setTarget(Actor a) {
             if (this.target == a) return;
             this.target = a;
-            // this.moveWithCollision(a.getLocation());
+            startMoveTo(a.getLocation());
             this.timeTraveled = 0f;
         }
 
@@ -587,7 +595,7 @@ public class Lich extends UserActor {
             if (highestPriorityActor != null) this.setTarget(highestPriorityActor);
             else {
                 if (this.location.distance(Lich.this.location) > 2.5d) {
-                    // this.moveWithCollision(Lich.this.location);
+                    startMoveTo(Lich.this.location);
                 }
             }
         }
@@ -622,7 +630,7 @@ public class Lich extends UserActor {
                 Lich.this.setSkullyTarget(this.target);
             } else if (attacker.getClass() == Skully.class) {
                 double damage =
-                        10d + (Lich.this.getPlayerStat("spellDamage") * SKULLY_DAMAGE_PERCENTAGE);
+                        10d + (Lich.this.getPlayerStat("spellDamage") * SKULLY_DAMAGE_PERCENT);
                 new Champion.DelayedAttack(
                                 parentExt, attacker, target, (int) damage, "skullyAttack")
                         .run();

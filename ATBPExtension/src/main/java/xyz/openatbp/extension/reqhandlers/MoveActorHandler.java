@@ -30,9 +30,8 @@ public class MoveActorHandler extends BaseClientRequestHandler {
                 && user.canMove()
                 && !user.getIsDashing()
                 && !user.getIsAutoAttacking()
-                && !user.getState(ActorState.CHARMED)) {
+                && !user.getEffectManager().hasState(ActorState.CHARMED)) {
             user.resetIdleTime();
-            user.clearPath();
             long timeSinceBasicAttack =
                     sender.getVariable("stats").getSFSObjectValue().getLong("timeSinceBasicAttack");
             if ((System.currentTimeMillis() - timeSinceBasicAttack) < 500)

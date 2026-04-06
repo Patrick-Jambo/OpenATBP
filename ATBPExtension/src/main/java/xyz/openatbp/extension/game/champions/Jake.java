@@ -26,7 +26,7 @@ public class Jake extends UserActor {
     public static final int Q_STUN_DURATION = 2000;
     public static final int Q_UNLOCK_SKILLS_DELAY = 500;
     public static final float MAX_Q_RANGE = 9f;
-    public static final double E_SPEED_VALUE = 0.8;
+    public static final double E_SPEED_PERCENT = 0.8;
     public static final int E_DURATION = 5000;
     public static final int E_STOMP_CD = 500;
     public static final int Q_DASH_SPEED = 13;
@@ -88,7 +88,7 @@ public class Jake extends UserActor {
                 victim.addToDamageQueue(this, damage, spellData, false);
 
                 if (isNeitherStructureNorAlly(victim)) {
-                    victim.addState(ActorState.STUNNED, 0d, Q_STUN_DURATION);
+                    victim.getEffectManager().addState(ActorState.STUNNED, 0d, Q_STUN_DURATION);
                 }
 
                 if (distance > 5) {
@@ -296,7 +296,7 @@ public class Jake extends UserActor {
     @Override
     public double getPlayerStat(String stat) {
         if (stat.equalsIgnoreCase("speed") && ultActivated) {
-            return super.getPlayerStat("speed") * E_SPEED_VALUE;
+            return super.getPlayerStat("speed") * E_SPEED_PERCENT;
         }
         return super.getPlayerStat(stat);
     }
@@ -438,9 +438,9 @@ public class Jake extends UserActor {
                     this.stopMoving();
                     String bigFX = SkinData.getJakeEFX(avatar);
                     ExtensionCommands.swapActorAsset(this.parentExt, this.room, this.id, bigFX);
-                    this.cleanseEffects();
                     this.ultActivated = true;
                     this.ultStartTime = System.currentTimeMillis();
+                    effectManager.cleanseDebuffs();
                     updateStatMenu("speed");
                     ExtensionCommands.createActorFX(
                             parentExt,
@@ -466,8 +466,8 @@ public class Jake extends UserActor {
                             true,
                             true,
                             this.team);
-                    this.addState(ActorState.CLEANSED, 0d, E_DURATION);
-                    this.addState(ActorState.IMMUNITY, 0d, E_DURATION);
+                    effectManager.addState(ActorState.CLEANSED, 0d, E_DURATION);
+                    effectManager.addState(ActorState.IMMUNITY, 0d, E_DURATION);
 
                     String growVO = SkinData.getJakeEVO(avatar);
                     String growSFX = SkinData.getJakeESFX(avatar);
@@ -513,7 +513,10 @@ public class Jake extends UserActor {
                             getPlayerStat("attackDamage") * PASSIVE_ATTACKDAMAGE_VALUE,
                             attackData,
                             false);
-                    target.addState(ActorState.ROOTED, 0, PASSIVE_ROOT_DURATION);
+
+                    target.getEffectManager()
+                            .addState(ActorState.ROOTED, 0d, PASSIVE_ROOT_DURATION);
+
                     if (!this.avatar.contains("cake"))
                         ExtensionCommands.playSound(
                                 this.parentExt,

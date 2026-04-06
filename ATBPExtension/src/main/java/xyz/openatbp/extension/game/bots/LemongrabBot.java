@@ -174,7 +174,7 @@ public class LemongrabBot extends Bot {
     public boolean canUseE() {
         return (timeOk(3))
                 && (target.hasMovementCC()
-                        || (target != null && target.getState(ActorState.SLOWED))
+                        || (target != null && target.getEffectManager().hasState(ActorState.SLOWED))
                                 && target.getLocation().distance(location) <= E_MAX_CAST_RANGE);
     }
 
@@ -204,7 +204,8 @@ public class LemongrabBot extends Bot {
             for (Actor a : nearbyEnemies) {
                 if (isNonStructureEnemy(a)
                         && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())) {
-                    a.addState(ActorState.SLOWED, Q_SLOW_VALUE, Q_SLOW_DURATION);
+                    a.getEffectManager()
+                            .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
                 }
 
                 if (a.getActorType() != ActorType.TOWER
@@ -362,11 +363,11 @@ public class LemongrabBot extends Bot {
                     double damage = getSpellDamage(spellData);
 
                     if (distance <= 1 && isNonStructureEnemy(a)) {
-                        a.addState(ActorState.SILENCED, 0d, W_SILENCE_DURATION);
+                        a.getEffectManager().addState(ActorState.SILENCED, 0d, W_SILENCE_DURATION);
                     }
 
                     if (isNonStructureEnemy(a)) {
-                        a.addState(ActorState.BLINDED, 0d, W_BLIND_DURATION);
+                        a.getEffectManager().addState(ActorState.BLINDED, 0d, W_BLIND_DURATION);
                     }
 
                     if (distance <= 1
@@ -411,9 +412,9 @@ public class LemongrabBot extends Bot {
                     }
 
                     if ((a instanceof UserActor) && a.getTeam() != team) {
-                        a.addState(ActorState.STUNNED, 0d, (int) duration);
+                        a.getEffectManager().addState(ActorState.STUNNED, 0d, (int) duration);
 
-                        if (!a.getState(ActorState.IMMUNITY)) {
+                        if (!effectManager.hasState(ActorState.IMMUNITY)) {
                             ExtensionCommands.createActorFX(
                                     parentExt,
                                     room,

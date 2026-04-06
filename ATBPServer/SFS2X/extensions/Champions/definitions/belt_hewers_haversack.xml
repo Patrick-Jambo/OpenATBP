@@ -1,0 +1,25 @@
+<belt>
+	<name>belt_hewers_haversack_name</name>
+	<description>belt_hewers_haversack_description</description>
+	<description_short>belt_hewers_haversack_description_short</description_short>
+	<iconBackpack>backpack_finn</iconBackpack>	
+	<steam_achievement_name>Hewers Haversack achievement name</steam_achievement_name>
+	<icon></icon>
+	<junk>
+		<slot1>
+			<junk_id>junk_1_grass_sword</junk_id>
+		</slot1>
+		<slot2>
+			<junk_id>junk_2_lightning_sword</junk_id>
+		</slot2>
+		<slot3>
+			<junk_id>junk_3_battle_moon</junk_id>
+		</slot3>
+		<slot4>
+			<junk_id>junk_4_bubblegums_tshirt</junk_id>
+		</slot4>
+		<slot5>
+			<junk_id>junk_5_art_of_fridjitsu</junk_id>
+		</slot5>
+	</junk>
+</belt>

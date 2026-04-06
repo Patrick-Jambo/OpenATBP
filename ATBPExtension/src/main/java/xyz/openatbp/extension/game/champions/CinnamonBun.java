@@ -2,7 +2,9 @@ package xyz.openatbp.extension.game.champions;
 
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -12,25 +14,22 @@ import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ChampionData;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
-import xyz.openatbp.extension.game.AbilityRunnable;
-import xyz.openatbp.extension.game.AbilityShape;
-import xyz.openatbp.extension.game.ActorState;
-import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class CinnamonBun extends UserActor {
-    private static final float PASSIVE_HEAL = 0.05f;
+    private static final float PASSIVE_HEAL_PERCENT = 0.05f;
     private static final float Q_OFFSET_DISTANCE = 1f;
     private static final float Q_SPELL_RANGE = 3f;
     private static final float W_OFFSET_DISTANCE = 0.75f;
     private static final float W_SPELL_RANGE = 7f;
     private static final int W_DURATION = 5000;
-    private static final float W_SLOW_VALUE = 0.2f;
+    private static final float W_SLOW_PERCENT = 0.2f;
     private static final int W_SLOW_DURATION = 1000;
     private static final int E_DURATION = 4500;
     private static final int E_TICK_DELAY = 500;
-    private static final float E_SPEED_BUFF_VALUE = 0.1f;
+    private static final float E_SPEED_BUFF_PERCENT = 0.1f;
 
     private Point2D ultPoint = null;
     private Point2D ultPoint2 = null;
@@ -39,6 +38,8 @@ public class CinnamonBun extends UserActor {
     private AbilityShape wPolygon = null;
     private long wStartTime = 0;
     private long lastUltTick = 0;
+
+    private Map<Actor, Long> actorsWithWSlow = new HashMap<>();
 
     public CinnamonBun(User u, ATBPExtension parentExt) {
         super(u, parentExt);
@@ -66,7 +67,14 @@ public class CinnamonBun extends UserActor {
                     }
 
                     if (isNeitherStructureNorAlly(a)) {
-                        a.addState(ActorState.SLOWED, W_SLOW_VALUE, W_SLOW_DURATION);
+                        long lastProc = actorsWithWSlow.getOrDefault(a, -1L);
+
+                        if (lastProc == -1
+                                || System.currentTimeMillis() - lastProc > W_SLOW_DURATION) {
+                            actorsWithWSlow.put(a, System.currentTimeMillis());
+                            a.getEffectManager()
+                                    .addState(ActorState.SLOWED, W_SLOW_PERCENT, W_SLOW_DURATION);
+                        }
                     }
                 }
             }
@@ -102,8 +110,12 @@ public class CinnamonBun extends UserActor {
             }
             if (location.distance(ultPoint) <= radius
                     || (ultPoint2 != null && location.distance(ultPoint2) <= radius)) {
-                double delta = getPlayerStat("speed") * E_SPEED_BUFF_VALUE;
-                this.addEffect("speed", delta, 150);
+                effectManager.addEffect(
+                        "speed",
+                        E_SPEED_BUFF_PERCENT,
+                        ModifierType.MULTIPLICATIVE,
+                        ModifierIntent.BUFF,
+                        150);
             }
         } else if (this.ultPoint != null
                 && System.currentTimeMillis() - this.ultStart >= E_DURATION) {
@@ -537,7 +549,7 @@ public class CinnamonBun extends UserActor {
     }
 
     private void handlePassive() {
-        this.changeHealth((int) ((double) (this.getMaxHealth()) * PASSIVE_HEAL));
+        this.changeHealth((int) ((double) (this.getMaxHealth()) * PASSIVE_HEAL_PERCENT));
     }
 
     private CinnamonAbilityRunnable abilityRunnable(

@@ -1,0 +1,254 @@
+<!-- This xml will build a single instance of a canned chat system -->
+
+<!-- The data that needs to be provided is follows:
+        - mainCatagory for each chat options
+        - subCatagory if the above chat options has multiple responses
+        - Note: 'Name' referes to the text that will appear on the chat menu label,
+				'DisplayText' referes to the text that will appear in the chat log
+        - Note: leave catagoryDisplayText BLANK if your catagory has multiple responses 
+ -->
+
+<chatMessages>
+        <mainCatagory>
+            
+            <catagoryName>chat_queue_cat_1_main_name</catagoryName>
+            <catagoryDisplayText></catagoryDisplayText>
+           
+           <subCatagory>
+               <subCatagoryName>chat_queue_cat_1_sub_1_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_1_sub_1_display</subCatagoryDisplayText>
+            </subCatagory>
+            
+            <subCatagory>
+               <subCatagoryName>chat_queue_cat_1_sub_2_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_1_sub_2_display</subCatagoryDisplayText>
+            </subCatagory>
+            
+            <subCatagory>
+               <subCatagoryName>chat_queue_cat_1_sub_3_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_1_sub_3_display</subCatagoryDisplayText>
+            </subCatagory>
+            
+            <subCatagory>
+               <subCatagoryName>chat_queue_cat_1_sub_4_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_1_sub_4_display</subCatagoryDisplayText>
+            </subCatagory>
+            
+            <subCatagory>
+               <subCatagoryName>chat_queue_cat_1_sub_5_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_1_sub_5_display</subCatagoryDisplayText>
+            </subCatagory>
+
+			<subCatagory>
+               <subCatagoryName>chat_queue_cat_1_sub_6_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_1_sub_6_display</subCatagoryDisplayText>
+            </subCatagory>
+
+			<subCatagory>
+               <subCatagoryName>chat_queue_cat_1_sub_7_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_1_sub_7_display</subCatagoryDisplayText>
+            </subCatagory>
+
+			<subCatagory>
+               <subCatagoryName>chat_queue_cat_1_sub_8_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_1_sub_8_display</subCatagoryDisplayText>
+            </subCatagory>
+            
+        </mainCatagory>
+       
+        <mainCatagory>
+            
+            <catagoryName>chat_queue_cat_2_main_name</catagoryName>
+            <catagoryDisplayText></catagoryDisplayText>
+           
+           <subCatagory>
+               <subCatagoryName>chat_queue_cat_2_sub_1_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_2_sub_1_display</subCatagoryDisplayText>
+            </subCatagory>
+            
+            <subCatagory>
+               <subCatagoryName>chat_queue_cat_2_sub_2_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_2_sub_2_display</subCatagoryDisplayText>
+            </subCatagory>
+            
+            <subCatagory>
+               <subCatagoryName>chat_queue_cat_2_sub_3_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_2_sub_3_display</subCatagoryDisplayText>
+            </subCatagory>
+            
+            <subCatagory>
+               <subCatagoryName>chat_queue_cat_2_sub_4_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_2_sub_4_display</subCatagoryDisplayText>
+            </subCatagory>
+
+			<subCatagory>
+               <subCatagoryName>chat_queue_cat_2_sub_5_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_2_sub_5_display</subCatagoryDisplayText>
+            </subCatagory>
+
+			<subCatagory>
+               <subCatagoryName>chat_queue_cat_2_sub_6_name</subCatagoryName>
+               <subCatagoryDisplayText>chat_queue_cat_2_sub_6_display</subCatagoryDisplayText>
+            </subCatagory>
+			
+        </mainCatagory>
+       
+         <mainCatagory>
+
+	            <catagoryName>chat_queue_cat_3_main_name</catagoryName>
+	            <catagoryDisplayText></catagoryDisplayText>
+
+	           <subCatagory>
+	               <subCatagoryName>chat_queue_cat_3_sub_1_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_3_sub_1_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+	            <subCatagory>
+	               <subCatagoryName>chat_queue_cat_3_sub_2_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_3_sub_2_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+	            <subCatagory>
+	               <subCatagoryName>chat_queue_cat_3_sub_3_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_3_sub_3_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+	            <subCatagory>
+	               <subCatagoryName>chat_queue_cat_3_sub_4_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_3_sub_4_display</subCatagoryDisplayText>
+	            </subCatagory>
+	
+				<subCatagory>
+	               <subCatagoryName>chat_queue_cat_3_sub_5_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_3_sub_5_display</subCatagoryDisplayText>
+	            </subCatagory>
+	
+				<subCatagory>
+	               <subCatagoryName>chat_queue_cat_3_sub_6_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_3_sub_6_display</subCatagoryDisplayText>
+	            </subCatagory>
+	
+				<subCatagory>
+	               <subCatagoryName>chat_queue_cat_3_sub_7_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_3_sub_7_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+
+	        </mainCatagory>
+        
+        	<mainCatagory>
+
+		            <catagoryName>chat_queue_cat_4_main_name</catagoryName>
+		            <catagoryDisplayText></catagoryDisplayText>
+
+		           <subCatagory>
+		               <subCatagoryName>chat_queue_cat_4_sub_1_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_4_sub_1_display</subCatagoryDisplayText>
+		            </subCatagory>
+
+		            <subCatagory>
+		               <subCatagoryName>chat_queue_cat_4_sub_2_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_4_sub_2_display</subCatagoryDisplayText>
+		            </subCatagory>
+
+		            <subCatagory>
+		               <subCatagoryName>chat_queue_cat_4_sub_3_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_4_sub_3_display</subCatagoryDisplayText>
+		            </subCatagory>
+
+		            <subCatagory>
+		               <subCatagoryName>chat_queue_cat_4_sub_4_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_4_sub_4_display</subCatagoryDisplayText>
+		            </subCatagory>
+
+					<subCatagory>
+		               <subCatagoryName>chat_queue_cat_4_sub_5_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_4_sub_5_display</subCatagoryDisplayText>
+		            </subCatagory>
+
+					<subCatagory>
+		               <subCatagoryName>chat_queue_cat_4_sub_6_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_4_sub_6_display</subCatagoryDisplayText>
+		            </subCatagory>
+
+					<subCatagory>
+		               <subCatagoryName>chat_queue_cat_4_sub_7_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_4_sub_7_display</subCatagoryDisplayText>
+		            </subCatagory>
+		
+					<subCatagory>
+		               <subCatagoryName>chat_queue_cat_4_sub_8_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_4_sub_8_display</subCatagoryDisplayText>
+		            </subCatagory>
+
+		        </mainCatagory>
+		
+        <mainCatagory>
+            
+            <catagoryName>chat_queue_cat_5_main_name</catagoryName>
+            <catagoryDisplayText></catagoryDisplayText>
+
+			<subCatagory>
+	               <subCatagoryName>chat_queue_cat_5_sub_1_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_5_sub_1_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+	            <subCatagory>
+	               <subCatagoryName>chat_queue_cat_5_sub_2_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_5_sub_2_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+	            <subCatagory>
+	               <subCatagoryName>chat_queue_cat_5_sub_3_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_5_sub_3_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+	            <subCatagory>
+	               <subCatagoryName>chat_queue_cat_5_sub_4_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_5_sub_4_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+				<subCatagory>
+	               <subCatagoryName>chat_queue_cat_5_sub_5_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_5_sub_5_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+				<subCatagory>
+	               <subCatagoryName>chat_queue_cat_5_sub_6_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_5_sub_6_display</subCatagoryDisplayText>
+	            </subCatagory>
+
+				<subCatagory>
+	               <subCatagoryName>chat_queue_cat_5_sub_7_name</subCatagoryName>
+	               <subCatagoryDisplayText>chat_queue_cat_5_sub_7_display</subCatagoryDisplayText>
+	            </subCatagory>
+	
+					<subCatagory>
+		               <subCatagoryName>chat_queue_cat_5_sub_8_name</subCatagoryName>
+		               <subCatagoryDisplayText>chat_queue_cat_5_sub_8_display</subCatagoryDisplayText>
+		            </subCatagory>
+           
+        </mainCatagory>
+
+		<mainCatagory>
+            
+            <catagoryName>chat_queue_cat_6_main_name</catagoryName>
+            <catagoryDisplayText>chat_queue_cat_6_main_display</catagoryDisplayText>
+           
+        </mainCatagory>
+
+		<mainCatagory>
+            
+            <catagoryName>chat_queue_cat_7_main_name</catagoryName>
+            <catagoryDisplayText>chat_queue_cat_7_main_display</catagoryDisplayText>
+           
+        </mainCatagory>
+
+		<mainCatagory>
+            
+            <catagoryName>chat_queue_cat_8_main_name</catagoryName>
+            <catagoryDisplayText>chat_queue_cat_8_main_display</catagoryDisplayText>
+           
+        </mainCatagory>
+
+</chatMessages>

@@ -1,5 +1,8 @@
 package xyz.openatbp.extension.game.actors;
 
+import static xyz.openatbp.extension.game.champions.GooMonster.GOO_BUFF_DURATION;
+import static xyz.openatbp.extension.game.champions.Keeoth.KEEOTH_BUFF_DURATION;
+
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
@@ -10,47 +13,48 @@ import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import com.smartfoxserver.v2.SmartFoxServer;
-import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.ActorState;
-import xyz.openatbp.extension.game.ActorType;
-import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.Projectile;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.Fionna;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
 
 public class UserActor extends Actor {
-    protected static final int DEMON_SWORD_AD_BUFF = 15;
-    protected static final int DEMON_SWORD_SD_BUFF = 40;
-    protected static final int NAIL_STACKS_PER_CHAMP = 7;
-    protected static final int NAIL_STACKS_PER_NON_CHAMPS = 4;
-    protected static final int LIGHTNING_SWORD_STACKS_PER_CHAMP = 7;
-    protected static final int LIGHTNING_SWORD_STACKS_PER_NON_CHAMP = 4;
-    protected static final double ROBE_CD_CHAMP_OR_JG_BOSS_KO = 1;
-    protected static final double ROBE_CD_MINION_KO = 0.2;
-    protected static final int DAMAGE_PER_NAIL_POINT = 30;
-    protected static final int DAMAGE_PER_LIGHTNING_POINT = 55;
-    protected static final int CDR_PER_ROBE_POINT = 10;
-    protected static final int SAI_PROC_COOLDOWN = 3000;
-    protected static final double GRASS_CRIT_INCREASE = 1.25d;
-    protected static final double SPEED_BOOST_PER_ROBO_STACK = 0.05;
-    protected static final double ROBO_SLOW_VALUE = 0.2;
-    protected static final int ROBO_SLOW_DURATION = 2000;
-    protected static final int ROBO_CD = 10000;
-    protected static final int SIMON_GLASSES_RANGE = 5;
+    public static final int DEMON_SWORD_AD_BUFF = 15;
+    public static final int DEMON_SWORD_SD_BUFF = 40;
+    public static final int NAIL_STACKS_PER_CHAMP = 7;
+    public static final int NAIL_STACKS_PER_NON_CHAMPS = 4;
+    public static final int LIGHTNING_SWORD_STACKS_PER_CHAMP = 7;
+    public static final int LIGHTNING_SWORD_STACKS_PER_NON_CHAMP = 4;
+    public static final double ROBE_CD_CHAMP_OR_JG_BOSS_KO = 1;
+    public static final double ROBE_CD_MINION_KO = 0.2;
+    public static final int DAMAGE_PER_NAIL_POINT = 30;
+    public static final int DAMAGE_PER_LIGHTNING_POINT = 55;
+    public static final int CDR_PER_ROBE_POINT = 10;
+    public static final int SAI_PROC_COOLDOWN = 3000;
+    public static final double GRASS_CRIT_INCREASE = 1.25d;
+    public static final double SPEED_BOOST_PER_ROBO_STACK = 0.05;
+    public static final double ROBO_SLOW_VALUE = 0.2;
+    public static final int ROBO_SLOW_DURATION = 2000;
+    public static final int ROBO_CD = 10000;
+    public static final int SIMON_GLASSES_RANGE = 5;
 
     public static final double DASH_SPEED = 20d;
-    protected static final int HEALTH_PACK_REGEN = 15;
-    protected static final float DC_AD_BUFF = 1.2f;
-    protected static final float DC_ARMOR_BUFF = 1.2f;
-    protected static final float DC_SPELL_RESIST_BUFF = 1.2f;
-    protected static final float DC_SPEED_BUFF = 1.15f;
-    protected static final float DC_PD_BUFF = 1.2f;
+    public static final int HEALTH_PACK_REGEN = 15;
+    public static final float DC_AD_BUFF = 1.2f;
+    public static final float DC_ARMOR_BUFF = 1.2f;
+    public static final float DC_SPELL_RESIST_BUFF = 1.2f;
+    public static final float DC_SPEED_BUFF = 1.15f;
+    public static final float DC_PD_BUFF = 1.2f;
+    public static final double RESPAWN_SPEED_BOOST = 2d;
+    public static final int RESPAWN_SPEED_BOOST_MS = 5000;
+    public static final int MAGIC_CUBE_CD = 6000;
+    public static final int MAGIC_CUBE_DEBUFF_DURATION = 5000;
+    public static final int E_GUN_STACK_CD = 3000;
 
     protected User player;
     protected boolean autoAttackEnabled = false;
@@ -72,7 +76,6 @@ public class UserActor extends Actor {
     protected Map<String, ScheduledFuture<?>> iconHandlers = new HashMap<>();
     protected int idleTime = 0;
     protected boolean changeTowerAggro = false;
-    private long lastHit = 0;
     protected boolean isAutoAttacking = false;
     // Set debugging options via config.properties next to the extension jar
     protected static boolean movementDebug;
@@ -81,7 +84,6 @@ public class UserActor extends Actor {
     private static boolean speedDebug;
     private static boolean damageDebug;
     protected double hits = 0;
-    private Point2D queuedDest = null;
     protected boolean hasKeeothBuff = false;
     protected boolean hasGooBuff = false;
     protected long keeothBuffStartTime = 0;
@@ -113,7 +115,7 @@ public class UserActor extends Actor {
     protected HashMap<UserActor, Integer> simonGlassesBuffProviders = new HashMap<>(2);
     protected int eGunStacks = 0;
     protected Long lastEGunStack = 0L;
-    public static final int E_GUN_STACK_CD = 3000;
+    protected Map<Actor, Long> lastMagicCubeProc = new HashMap<>();
 
     // TODO: Add all stats into UserActor object instead of User Variables
     public UserActor(User u, ATBPExtension parentExt) {
@@ -170,6 +172,10 @@ public class UserActor extends Actor {
                     2);
         if (speedDebug) this.setStat("speed", 20);
         if (damageDebug) this.setStat("attackDamage", 1000);
+    }
+
+    public Map<Actor, Long> getMagicCubeProcs() {
+        return lastMagicCubeProc;
     }
 
     @Override
@@ -245,62 +251,8 @@ public class UserActor extends Actor {
         return this.lastZeldronBuff;
     }
 
-    protected Point2D getRelativePoint(
-            boolean external) { // Gets player's current location based on time
-        double currentTime;
-        if (external) currentTime = this.timeTraveled + 0.1;
-        else currentTime = this.timeTraveled;
-        Point2D rPoint = new Point2D.Float();
-        if (this.movementLine == null)
-            this.movementLine = new Line2D.Float(this.location, this.location);
-        float x2 = (float) this.movementLine.getX2();
-        float y2 = (float) this.movementLine.getY2();
-        float x1 = (float) this.movementLine.getX1();
-        float y1 = (float) this.movementLine.getY1();
-        double dist = this.movementLine.getP1().distance(this.movementLine.getP2());
-        if (dist == 0) return this.movementLine.getP1();
-        double speed = this.getPlayerStat("speed");
-        double time = dist / speed;
-        if (currentTime > time) currentTime = time;
-        double currentDist = speed * currentTime;
-        float x = (float) (x1 + (currentDist / dist) * (x2 - x1));
-        float y = (float) (y1 + (currentDist / dist) * (y2 - y1));
-        if (!this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap()) {
-            if (x >= 52) x = 52;
-            else if (x <= -52) x = -52;
-        } else {
-            if (x >= 62) x = 62;
-            else if (x <= -62) x = -62;
-        }
-
-        if (y >= 30) y = 30;
-        else if (y <= -30) y = -30;
-        rPoint.setLocation(x, y);
-        this.location = rPoint;
-        if (!this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap()) {
-            if (x >= 52 || x <= -52 || y >= 30 || y <= -30) this.stopMoving();
-        } else {
-            if (x >= 62 || x <= -62 || y >= 30 || y <= -30) this.stopMoving();
-        }
-
-        return rPoint;
-    }
-
-    @Override
-    public Room getRoom() {
-        return this.room;
-    }
-
     public int getXp() {
         return this.xp;
-    }
-
-    public Map<String, Double> getStats() {
-        return this.stats;
-    }
-
-    public double getStat(String stat) {
-        return this.stats.get(stat);
     }
 
     public boolean[] getCanCast() {
@@ -325,20 +277,6 @@ public class UserActor extends Actor {
 
     public List<UserActor> getKilledPlayers() {
         return killedPlayers;
-    }
-
-    public void setPath(Point2D start, Point2D end) {
-        this.movementLine = new Line2D.Float(start, end);
-        this.timeTraveled = 0f;
-    }
-
-    public void setPath(Line2D path) {
-        this.movementLine = path;
-        this.timeTraveled = 0f;
-    }
-
-    public void updateMovementTime() {
-        this.timeTraveled += 0.1f;
     }
 
     public User getUser() {
@@ -380,8 +318,8 @@ public class UserActor extends Actor {
 
     public void preventStealth() {
         Console.debugLog("Prevent stealth");
-        this.addState(ActorState.REVEALED, 0d, 3000);
-        this.setState(ActorState.INVISIBLE, false);
+        effectManager.addState(ActorState.REVEALED, 0d, 3000);
+        effectManager.setState(ActorState.INVISIBLE, false);
         this.stealthEmbargo = System.currentTimeMillis() + 3000;
         if (this.roboStacks > 0) this.roboStacks = 0;
     }
@@ -404,7 +342,6 @@ public class UserActor extends Actor {
             if (this.pickedUpHealthPack) {
                 removeHealthPackEffect();
             }
-            this.lastHit = System.currentTimeMillis();
             if (a.getActorType() == ActorType.TOWER) {
                 ExtensionCommands.playSound(
                         this.parentExt,
@@ -418,7 +355,7 @@ public class UserActor extends Actor {
                 resetRoboStacks();
                 if (isNeitherStructureNorAlly(a)) {
                     lastRoboEffect = System.currentTimeMillis();
-                    this.addState(ActorState.SLOWED, ROBO_SLOW_VALUE, ROBO_SLOW_DURATION);
+                    effectManager.addState(ActorState.SLOWED, ROBO_SLOW_VALUE, ROBO_SLOW_DURATION);
                 }
             }
 
@@ -431,11 +368,7 @@ public class UserActor extends Actor {
                 if (Math.random() < moonChance) {
                     Console.debugLog("Moon blocked damage! Chance: " + moonChance);
                     ExtensionCommands.playSound(
-                            this.parentExt,
-                            this.room,
-                            this.id,
-                            "sfx_junk_battle_moon",
-                            this.getRelativePoint(false));
+                            this.parentExt, this.room, this.id, "sfx_junk_battle_moon", location);
                     return false;
                 }
             }
@@ -447,15 +380,6 @@ public class UserActor extends Actor {
                         && ChampionData.getJunkLevel(ua, "junk_1_fight_king_sword") > 0) {
                     newDamage += 15 * fightKingStacks;
                     ua.resetFightKingStacks();
-                }
-                double cubeEffect = ChampionData.getCustomJunkStat(ua, "junk_4_antimagic_cube");
-                if (!this.effectHandlers.containsKey("spellDamage")
-                        && type == AttackType.SPELL
-                        && cubeEffect != -1) {
-                    this.addEffect("spellDamage", cubeEffect, 5000);
-                    // TODO: Add icon for this effect
-                    // TODO: Bug, seems to not apply consistently. Especially with dot / constant
-                    // abilities.
                 }
                 if (ChampionData.getJunkLevel(ua, "junk_2_peppermint_tank") > 0
                         && type == AttackType.SPELL) {
@@ -483,9 +407,7 @@ public class UserActor extends Actor {
             this.handleDamageTakenStat(type, newDamage);
             ExtensionCommands.damageActor(parentExt, this.room, this.id, newDamage);
             this.processHitData(a, attackData, newDamage);
-            if (this.hasTempStat("healthRegen")) {
-                this.effectHandlers.get("healthRegen").endAllEffects();
-            }
+
             this.changeHealth(newDamage * -1);
             if (this.currentHealth > 0) return false;
             else {
@@ -668,34 +590,6 @@ public class UserActor extends Actor {
         return false;
     }
 
-    public void dash(Point2D dest, double dashSpeed) {
-        this.isDashing = true;
-        if (movementDebug)
-            ExtensionCommands.createWorldFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
-                    "gnome_a",
-                    this.id + "_test" + Math.random(),
-                    5000,
-                    (float) dest.getX(),
-                    (float) dest.getY(),
-                    false,
-                    0,
-                    0f);
-        // if(noClip) dashPoint =
-        // Champion.getTeleportPoint(this.parentExt,this.player,this.location,dest);
-        double time = dest.distance(this.location) / dashSpeed;
-        int timeMs = (int) (time * 1000d);
-        this.stopMoving(timeMs);
-        Runnable setIsDashing = () -> this.isDashing = false;
-        parentExt.getTaskScheduler().schedule(setIsDashing, timeMs, TimeUnit.MILLISECONDS);
-        ExtensionCommands.moveActor(
-                this.parentExt, this.room, this.id, this.location, dest, (float) dashSpeed, true);
-        this.setLocation(dest);
-        this.target = null;
-    }
-
     protected boolean handleAttack(Actor a) {
         if (this.attackCooldown == 0) {
             double critChance = this.getPlayerStat("criticalChance") / 100d;
@@ -804,7 +698,7 @@ public class UserActor extends Actor {
             // this.updateXPWorth("death");
             this.timeKilled = System.currentTimeMillis();
             this.canMove = false;
-            if (!this.getState(ActorState.AIRBORNE)) this.stopMoving();
+            if (!effectManager.hasState(ActorState.AIRBORNE)) this.stopMoving();
             if (this.hasKeeothBuff) disableKeeothBuff();
             if (this.hasGooBuff) disableGooBuff();
 
@@ -813,10 +707,10 @@ public class UserActor extends Actor {
                         parentExt, this.getUser(), "global", "announcer/you_are_defeated");
             }
 
-            if (this.getState(ActorState.POLYMORPH)) {
+            if (effectManager.hasState(ActorState.POLYMORPH)) {
                 boolean swapAsset = true;
                 if (this.getChampionName(this.getAvatar()).equalsIgnoreCase("marceline")
-                        && this.getState(ActorState.TRANSFORMED)) swapAsset = false;
+                        && effectManager.hasState(ActorState.TRANSFORMED)) swapAsset = false;
                 if (swapAsset) {
                     ExtensionCommands.swapActorAsset(
                             this.parentExt, this.room, this.getId(), getSkinAssetBundle());
@@ -825,7 +719,7 @@ public class UserActor extends Actor {
                         this.parentExt, this.room, this.id + "_statusEffect_polymorph");
                 ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flambit_aoe");
                 ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flambit_ring_");
-                this.setState(ActorState.POLYMORPH, false);
+                effectManager.setState(ActorState.POLYMORPH, false);
             }
             this.setHealth(0, (int) this.maxHealth);
             this.target = null;
@@ -971,20 +865,10 @@ public class UserActor extends Actor {
                 && ChampionData.getJunkLevel(this, "junk_1_ax_bass") < 1);
     }
 
-    public void queueMovement(Point2D newDest) {
-        this.queuedDest = newDest;
-    }
-
-    @Override
-    public void clearPath() {
-        super.clearPath();
-        this.queuedDest = null;
-    }
-
     @Override
     public void update(int msRan) {
         this.handleDamageQueue();
-        this.handleActiveEffects();
+        effectManager.handleEffectsUpdate();
 
         handleMovementUpdate();
 
@@ -1093,22 +977,9 @@ public class UserActor extends Actor {
                     0f);
         }
 
-        /*if (this.canMove()
-                && !this.isAutoAttacking
-                && !this.isDashing
-                && this.queuedDest != null
-                && this.target == null) { // TODO: This could probably just be merged into canMove
-            this.moveWithCollision(this.queuedDest);
-            this.queuedDest = null;
-        }*/
-        /*if (!this.isStopped()) {
-            this.updateMovementTime();
-        }*/
         if (this.hits > 0) {
             this.hits -= 0.1d;
         } else if (this.hits < 0) this.hits = 0;
-        /*this.location = this.getRelativePoint(false);
-        this.handlePathing();*/
 
         if (!this.flameCloakEffectActivated
                 && ChampionData.getJunkLevel(this, "junk_4_flame_cloak") > 0) {
@@ -1154,30 +1025,34 @@ public class UserActor extends Actor {
             }
         }
         if (insideBrush) {
-            if (!this.states.get(ActorState.BRUSH)) {
+            if (!effectManager.hasState(ActorState.BRUSH)) {
                 Console.debugLog("BRUSH STATE ENABLED");
 
                 ExtensionCommands.changeBrush(
                         parentExt, room, this.id, parentExt.getBrushNum(location, brushPaths));
-                this.setState(ActorState.BRUSH, true);
-                if (this.stealthEmbargo <= System.currentTimeMillis())
-                    this.setState(ActorState.REVEALED, false);
+                effectManager.setState(ActorState.BRUSH, true);
+                if (this.stealthEmbargo <= System.currentTimeMillis()) {
+                    effectManager.setState(ActorState.REVEALED, true);
+                }
+
             } else if (this.stealthEmbargo != -1
                     && this.stealthEmbargo <= System.currentTimeMillis()) {
-                this.setState(ActorState.REVEALED, false);
+                effectManager.setState(ActorState.REVEALED, false);
                 this.stealthEmbargo = -1;
             }
         } else {
-            if (this.states.get(ActorState.BRUSH)) {
+            if (effectManager.hasState(ActorState.BRUSH)) {
                 Console.debugLog("BRUSH STATE DISABLED");
-
-                this.setState(ActorState.BRUSH, false);
-                if (!this.getState(ActorState.INVISIBLE)) this.setState(ActorState.REVEALED, true);
+                effectManager.setState(ActorState.BRUSH, false);
+                ;
+                if (!effectManager.hasState(ActorState.INVISIBLE)) {
+                    effectManager.setState(ActorState.REVEALED, true);
+                }
                 ExtensionCommands.changeBrush(parentExt, room, this.id, -1);
-            } else if (!this.states.get(ActorState.REVEALED)
-                    && !this.states.get(ActorState.INVISIBLE)
-                    && !this.states.get(ActorState.STEALTH)) {
-                this.setState(ActorState.REVEALED, true);
+            } else if (!effectManager.hasState(ActorState.REVEALED)
+                    && !effectManager.hasState(ActorState.INVISIBLE)
+                    && !effectManager.hasState(ActorState.STEALTH)) {
+                effectManager.setState(ActorState.REVEALED, true);
             }
         }
         if (this.attackCooldown > 0) this.reduceAttackCooldown();
@@ -1296,21 +1171,21 @@ public class UserActor extends Actor {
                     this.multiKill = 0;
                 }
             }
-            if (this.hasTempStat("healthRegen")) {
-                if (this.currentHealth == this.maxHealth) {
-                    this.effectHandlers.get("healthRegen").endAllEffects();
-                }
+            if (effectManager.hasTempStat("healthRegen") && currentHealth >= maxHealth) {
+                effectManager.removeAllStatEffects("healthRegen");
             }
         }
         if (this.changeTowerAggro && !isInTowerRadius(this, false)) this.changeTowerAggro = false;
 
-        if (this.hasKeeothBuff && System.currentTimeMillis() - this.keeothBuffStartTime >= 90000) {
+        if (this.hasKeeothBuff
+                && System.currentTimeMillis() - this.keeothBuffStartTime >= KEEOTH_BUFF_DURATION) {
             disableKeeothBuff();
         }
-        if (this.hasGooBuff && System.currentTimeMillis() - this.gooBuffStartTime >= 90000) {
+        if (this.hasGooBuff
+                && System.currentTimeMillis() - this.gooBuffStartTime >= GOO_BUFF_DURATION) {
             disableGooBuff();
         }
-        if (this.getState(ActorState.CHARMED) && this.charmer != null) {
+        if (effectManager.hasState(ActorState.CHARMED) && this.charmer != null) {
             moveTowardsCharmer(charmer);
         }
     }
@@ -1334,7 +1209,7 @@ public class UserActor extends Actor {
     public boolean invisOrInBrush(Actor a) {
         ActorState[] states = {ActorState.INVISIBLE, ActorState.BRUSH};
         for (ActorState state : states) {
-            if (a.getState(state)) return true;
+            if (effectManager.hasState(state)) return true;
         }
         return false;
     }
@@ -1383,19 +1258,21 @@ public class UserActor extends Actor {
     }
 
     public boolean canDash() {
-        return !this.getState(ActorState.ROOTED);
+        return !effectManager.hasState(ActorState.ROOTED);
     }
 
     @Override
     public boolean canMove() {
         for (ActorState s :
-                this.states.keySet()) { // removed CHARMED state from here to make charmer following
+                effectManager
+                        .getStates()
+                        .keySet()) { // removed CHARMED state from here to make charmer following
             // possible (I hope it doesn't break anything :))
             if (s == ActorState.ROOTED
                     || s == ActorState.STUNNED
                     || s == ActorState.FEARED
                     || s == ActorState.AIRBORNE) {
-                if (this.states.get(s)) return false;
+                if (effectManager.hasState(s)) return false;
             }
         }
         return this.canMove;
@@ -1411,7 +1288,7 @@ public class UserActor extends Actor {
             ActorState.SILENCED
         };
         for (ActorState state : states) {
-            if (this.getState(state)) return true;
+            if (effectManager.hasState(state)) return true;
         }
         return false;
     }
@@ -1425,15 +1302,9 @@ public class UserActor extends Actor {
             ActorState.SILENCED,
         };
         for (ActorState state : states) {
-            if (this.getState(state)) return true;
+            if (effectManager.hasState(state)) return true;
         }
         return false;
-    }
-
-    public void setCanMove(boolean canMove) {
-        this.canMove = canMove;
-        if (this.canMove && this.states.get(ActorState.CHARMED))
-            this.move(this.movementLine.getP2());
     }
 
     public void resetTarget() {
@@ -1441,24 +1312,9 @@ public class UserActor extends Actor {
         ExtensionCommands.setTarget(this.parentExt, this.player, this.id, "");
     }
 
-    public void setState(ActorState[] states, boolean stateBool) {
-        for (ActorState s : states) {
-            this.states.put(s, stateBool);
-            ExtensionCommands.updateActorState(parentExt, this.room, id, s, stateBool);
-        }
-    }
-
     public void setTarget(Actor a) {
         this.target = a;
         ExtensionCommands.setTarget(this.parentExt, this.player, this.id, a.getId());
-        if (this.states.get(ActorState.CHARMED)) {
-            this.setPath(getRelativePoint(false), a.getLocation());
-            if (this.canMove) this.move(this.movementLine.getP2());
-        }
-    }
-
-    public boolean isState(ActorState state) {
-        return this.states.get(state);
     }
 
     public boolean canUseAbility(int ability) {
@@ -1471,7 +1327,7 @@ public class UserActor extends Actor {
             ActorState.STUNNED
         };
         for (ActorState s : hinderingStates) {
-            if (this.states.get(s)) return false;
+            if (effectManager.hasState(s)) return false;
         }
         return this.canCast[ability - 1];
     }
@@ -1498,123 +1354,11 @@ public class UserActor extends Actor {
         return false;
     }
 
-    public Line2D getMovementLine() {
-        return this.movementLine;
-    }
-
     public float getRotation(Point2D dest) { // lmao
         double dx = dest.getX() - this.location.getX();
         double dy = dest.getY() - this.location.getY();
         double angleRad = Math.atan2(dy, dx);
         return (float) Math.toDegrees(angleRad) * -1 + 90f;
-    }
-
-    public void handlePolymorph(boolean enable, int duration) {
-        if (enable) {
-            handleSwapToPoly(duration);
-        } else {
-            handleSwapFromPoly();
-        }
-    }
-
-    public void handleSwapToPoly(int duration) {
-        this.addState(ActorState.SLOWED, 0.3d, duration);
-        ExtensionCommands.swapActorAsset(parentExt, this.room, this.id, "flambit");
-        ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.id,
-                "statusEffect_polymorph",
-                1000,
-                this.id + "_statusEffect_polymorph",
-                true,
-                "",
-                true,
-                false,
-                this.team);
-        ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.id,
-                "flambit_aoe",
-                3000,
-                this.id + "_flambit_aoe",
-                true,
-                "",
-                true,
-                false,
-                this.team);
-        ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.id,
-                "fx_target_ring_2",
-                3000,
-                this.id + "_flambit_ring_",
-                true,
-                "",
-                true,
-                true,
-                getOppositeTeam());
-    }
-
-    @Override
-    public void addState(ActorState state, double delta, int duration) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            ActorState[] ccStates = {
-                ActorState.BRUSH,
-                ActorState.CLEANSED,
-                ActorState.IMMUNITY,
-                ActorState.INVINCIBLE,
-                ActorState.INVISIBLE,
-                ActorState.REVEALED,
-                ActorState.STEALTH,
-                ActorState.TRANSFORMED
-            };
-            for (ActorState s : ccStates) {
-                if (state == s) {
-                    super.addState(state, delta, duration);
-                    return;
-                }
-            }
-            if (this.spellShieldActive) {
-                triggerSpellShield();
-            }
-            return;
-        }
-        super.addState(state, delta, duration);
-    }
-
-    @Override
-    public void addState(ActorState state, double delta, int duration, String fxId, String emit) {
-        if (this.spellShieldActive || System.currentTimeMillis() < iFrame) {
-            ActorState[] ccStates = {
-                ActorState.BRUSH,
-                ActorState.CLEANSED,
-                ActorState.IMMUNITY,
-                ActorState.INVINCIBLE,
-                ActorState.INVISIBLE,
-                ActorState.REVEALED,
-                ActorState.STEALTH,
-                ActorState.TRANSFORMED
-            };
-            for (ActorState s : ccStates) {
-                if (state == s) {
-                    super.addState(state, delta, duration, fxId, emit);
-                    return;
-                }
-            }
-            if (this.spellShieldActive) {
-                triggerSpellShield();
-            }
-            return;
-        }
-        super.addState(state, delta, duration, fxId, emit);
-    }
-
-    public void handleSwapFromPoly() {
-        String bundle = this.getSkinAssetBundle();
-        ExtensionCommands.swapActorAsset(this.parentExt, this.room, this.id, bundle);
     }
 
     @Override
@@ -1623,9 +1367,10 @@ public class UserActor extends Actor {
             if (this.spellShieldActive) this.triggerSpellShield();
             return;
         }
-        if (!this.states.get(ActorState.CHARMED) && !this.states.get(ActorState.IMMUNITY)) {
+        if (!effectManager.hasState(ActorState.CHARMED)
+                && !effectManager.hasState(ActorState.IMMUNITY)) {
             this.charmer = charmer;
-            this.addState(ActorState.CHARMED, 0d, duration);
+            effectManager.addState(ActorState.CHARMED, 0d, duration);
         }
     }
 
@@ -1646,13 +1391,24 @@ public class UserActor extends Actor {
         this.canMove = true;
         this.setHealth((int) this.maxHealth, (int) this.maxHealth);
         this.dead = false;
-        this.removeEffects();
+        effectManager.removeEffects();
+        clearIconHandlers();
         ExtensionCommands.snapActor(
                 this.parentExt, this.room, this.id, this.location, this.location, false);
         ExtensionCommands.playSound(
                 this.parentExt, this.room, this.id, "sfx/sfx_champion_respawn", this.location);
         ExtensionCommands.respawnActor(this.parentExt, this.room, this.id);
-        this.addEffect("speed", 2d, 5000, "statusEffect_speed", "targetNode");
+
+        effectManager.addEffect(
+                "speed",
+                RESPAWN_SPEED_BOOST,
+                ModifierType.ADDITIVE,
+                ModifierIntent.BUFF,
+                RESPAWN_SPEED_BOOST_MS,
+                id + "_statusEffect_speed",
+                "statusEffect_speed",
+                "targetNode");
+
         ExtensionCommands.createActorFX(
                 this.parentExt,
                 this.room,
@@ -1982,12 +1738,12 @@ public class UserActor extends Actor {
                 this.changeHealth((int) Math.round(this.maxHealth * 0.15d));
             }
             if (ChampionData.getJunkLevel(this, "junk_1_night_sword") > 0) {
-                this.setState(ActorState.REVEALED, false);
-                this.addState(ActorState.INVISIBLE, 0d, 2000);
+                effectManager.setState(ActorState.REVEALED, false);
+                effectManager.addState(ActorState.INVISIBLE, 0d, 2000);
                 Runnable reveal =
                         () -> {
-                            if (!this.getState(ActorState.BRUSH))
-                                this.setState(ActorState.REVEALED, true);
+                            if (!effectManager.hasState(ActorState.BRUSH))
+                                effectManager.setState(ActorState.REVEALED, true);
                         };
                 SmartFoxServer.getInstance()
                         .getTaskScheduler()
@@ -2254,23 +2010,6 @@ public class UserActor extends Actor {
         }
     }
 
-    public void cleanseEffects() {
-        ActorState[] cleansedStats = {
-            ActorState.SLOWED,
-            ActorState.STUNNED,
-            ActorState.STUNNED,
-            ActorState.CHARMED,
-            ActorState.FEARED,
-            ActorState.BLINDED,
-            ActorState.ROOTED,
-            ActorState.CLEANSED
-        };
-        for (ActorState s : cleansedStats) {
-            if (this.effectHandlers.containsKey(s.toString()))
-                this.effectHandlers.get(s.toString()).endAllEffects();
-        }
-    }
-
     public void destroy() {
         this.dead = true;
         ExtensionCommands.destroyActor(this.parentExt, this.room, this.id);
@@ -2336,12 +2075,6 @@ public class UserActor extends Actor {
         this.iconHandlers = new HashMap<>();
     }
 
-    @Override
-    public void removeEffects() {
-        super.removeEffects();
-        this.clearIconHandlers();
-    }
-
     public void addIconHandler(String iconName, ScheduledFuture<?> handler) {
         this.iconHandlers.put(iconName, handler);
     }
@@ -2358,10 +2091,11 @@ public class UserActor extends Actor {
         }
         if (a.getId().equalsIgnoreCase(this.numbChuckVictim)) {
             if (this.numbSlow) {
-                a.addState(
-                        ActorState.SLOWED,
-                        ChampionData.getCustomJunkStat(this, "junk_1_numb_chucks"),
-                        1500);
+                a.getEffectManager()
+                        .addState(
+                                ActorState.SLOWED,
+                                ChampionData.getCustomJunkStat(this, "junk_1_numb_chucks"),
+                                1500);
                 Console.debugLog("Numb Chuck slow applied!");
             }
             this.numbSlow = !this.numbSlow;

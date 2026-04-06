@@ -1,0 +1,25 @@
+<belt>
+	<name>belt_fridjitsu_name</name>
+	<description>belt_fridjitsu_description</description>
+	<description_short>belt_fridjitsu_description_short</description_short>
+	<iconBackpack>backpack_finn</iconBackpack>
+	<icon>belt_fridjitsu</icon>
+	<steam_achievement_name>Fridjitsu achievement name</steam_achievement_name>
+	<junk>
+		<slot1>
+			<junk_id>junk_1_memows_dagger</junk_id>
+		</slot1>
+		<slot2>
+			<junk_id>junk_2_demonic_wishing_eye</junk_id>
+		</slot2>
+		<slot3>
+			<junk_id>junk_3_ice_armor</junk_id>
+		</slot3>
+		<slot4>
+			<junk_id>junk_4_wizards_cloak</junk_id>
+		</slot4>
+		<slot5>
+			<junk_id>junk_5_art_of_fridjitsu</junk_id>
+		</slot5>
+	</junk>
+</belt>

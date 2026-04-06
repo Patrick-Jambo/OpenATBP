@@ -11,20 +11,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.*;
-import xyz.openatbp.extension.game.AbilityRunnable;
-import xyz.openatbp.extension.game.ActorState;
-import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.Projectile;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class Hunson extends UserActor {
     private static final int PASSIVE_DURATION = 3500;
-    private static final int PASSIVE_ATTACKSPEED_DURATION = 3500;
+    private static final int PASSIVE_ATTACK_SPEED_DURATION = 3500;
     private static final int PASSIVE_SPEED_DURATION = 3500;
     private static final double PASSIVE_SPEED_VALUE = 1d;
-    private static final double PASSIVE_ATTACKSPEED_VALUE = 0.5d;
-    private static final double Q_SLOW_VALUE = 0.1d;
+    private static final double PASSIVE_ATTACK_SPEED_PERCENT = 0.5d;
+    private static final double Q_SLOW_PERCENT = 0.1d;
     private static final double Q_PULL_DISTANCE = 1.2;
     private static final int Q_SLOW_DURATION = 2000;
     private static final double Q_THIRD_HIT_DMG_MULTIPLIER = 1.25d;
@@ -34,7 +31,7 @@ public class Hunson extends UserActor {
     private static final int W_DAMAGE_DURATION = 1500;
     private static final int E_DURATION = 3500;
     private static final int E_CAST_DELAY = 750;
-    private static final double E_ARMOR_VALUE = 0.5d;
+    private static final double E_ARMOR_PERCENT = 0.5d;
     private static final int E_SPELLVAMP_VALUE = 45;
 
     private Map<Actor, Integer> qVictims;
@@ -115,7 +112,6 @@ public class Hunson extends UserActor {
         if (this.ultActivated && System.currentTimeMillis() - this.ultStart >= E_DURATION) {
             this.ultActivated = false;
             ExtensionCommands.actorAnimate(this.parentExt, this.room, this.id, "idle", 500, false);
-            if (!this.isStopped()) this.move(this.movementLine.getP2());
         }
         if (this.ultActivated && (this.dead || this.hasInterrupingCC())) {
             if (hasInterrupingCC()) {
@@ -198,9 +194,19 @@ public class Hunson extends UserActor {
                     "icon_hunson_passive",
                     "hunson_spell_4_short_description",
                     PASSIVE_DURATION);
-            double delta = this.getStat("attackSpeed") * -PASSIVE_ATTACKSPEED_VALUE;
-            this.addEffect("attackSpeed", delta, PASSIVE_ATTACKSPEED_DURATION);
-            this.addEffect("speed", PASSIVE_SPEED_VALUE, PASSIVE_SPEED_DURATION);
+            effectManager.addEffect(
+                    "attackSpeed",
+                    PASSIVE_ATTACK_SPEED_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    PASSIVE_ATTACK_SPEED_DURATION);
+            effectManager.addEffect(
+                    "speed",
+                    PASSIVE_SPEED_VALUE,
+                    ModifierType.ADDITIVE,
+                    ModifierIntent.BUFF,
+                    PASSIVE_SPEED_DURATION);
+
             int cooldown = ChampionData.getBaseAbilityCooldown(this, 4);
             scheduleTask(abilityRunnable(4, null, cooldown, 0, null), PASSIVE_DURATION);
         }
@@ -365,7 +371,7 @@ public class Hunson extends UserActor {
         ActorState[] states = ActorState.values();
         for (ActorState s : states) {
             Console.debugLog("STATE: " + s.name());
-            if (a.getState(s)
+            if (a.getEffectManager().hasState(s)
                     && s != ActorState.BRUSH
                     && s != ActorState.TRANSFORMED
                     && s != ActorState.REVEALED) return true;
@@ -379,7 +385,6 @@ public class Hunson extends UserActor {
         ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_ultRing");
         ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_ultSuck");
         ExtensionCommands.actorAnimate(this.parentExt, this.room, this.id, "idle", 500, false);
-        if (!this.isStopped()) this.move(this.movementLine.getP2());
     }
 
     private HunsonAbilityRunnable abilityRunnable(
@@ -431,8 +436,20 @@ public class Hunson extends UserActor {
                     true,
                     false,
                     team);
-            addEffect("armor", getStat("armor") * E_ARMOR_VALUE, E_DURATION);
-            addEffect("spellVamp", E_SPELLVAMP_VALUE, E_DURATION);
+
+            effectManager.addEffect(
+                    "armor",
+                    E_ARMOR_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    E_DURATION);
+            effectManager.addEffect(
+                    "spellVamp",
+                    E_SPELLVAMP_VALUE,
+                    ModifierType.ADDITIVE,
+                    ModifierIntent.BUFF,
+                    E_DURATION);
+
             ultActivated = true;
             ultStart = System.currentTimeMillis();
         }
@@ -474,7 +491,8 @@ public class Hunson extends UserActor {
 
             if (isNeitherStructureNorAlly(victim)) {
                 victim.handlePull(Hunson.this.location, Q_PULL_DISTANCE);
-                victim.addState(ActorState.SLOWED, Q_SLOW_VALUE, Q_SLOW_DURATION);
+                victim.getEffectManager()
+                        .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
             }
 
             victim.addToDamageQueue(Hunson.this, damage, spellData, false);

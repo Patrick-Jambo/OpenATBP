@@ -16,21 +16,21 @@ import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ChampionData;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
-import xyz.openatbp.extension.game.ActorState;
-import xyz.openatbp.extension.game.ActorType;
-import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Monster;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class GooMonster extends Monster {
 
+    public static final double GOO_SLOW_PERCENT = 0.25;
+    public static final int GOO_SLOW_DURATION = 1000;
     private int abilityCooldown;
     private boolean usingAbility;
     private Point2D puddleLocation;
     private boolean puddleActivated;
     private long puddleStarted;
-    private static final int GOO_BUFF_DURATION = 60000;
+    public static final int GOO_BUFF_DURATION = 60000;
 
     public GooMonster(
             ATBPExtension parentExt, Room room, float[] startingLocation, String monsterName) {
@@ -93,7 +93,9 @@ public class GooMonster extends Monster {
                     JsonNode newAttackData = mapper.readTree(data.toJson());
                     for (Actor a : damagedActors) {
                         if (!a.getId().equalsIgnoreCase(this.id)) {
-                            a.addState(ActorState.SLOWED, 0.25d, 1000);
+                            a.getEffectManager()
+                                    .addState(
+                                            ActorState.SLOWED, GOO_SLOW_PERCENT, GOO_SLOW_DURATION);
                             a.addToDamageQueue(this, 4, newAttackData, true);
                         }
                     }
@@ -116,12 +118,22 @@ public class GooMonster extends Monster {
                 ExtensionCommands.playSound(parentExt, ua.getUser(), "global", finalSound);
 
                 if (ua.getTeam() == killerTeam && ua.getHealth() > 0 && !ua.isDead()) {
-                    double delta = ua.getPlayerStat("speed") * 0.1d;
+                    double delta = 0.1;
                     if (ChampionData.getCustomJunkStat(ua, "junk_1_demon_blood_sword") > 0)
                         delta += 0.15;
                     ua.setHasGooBuff(true);
                     ua.setGooBuffStartTime(System.currentTimeMillis());
-                    ua.addEffect("speed", delta, GOO_BUFF_DURATION, "jungle_buff_goo", "");
+                    ua.getEffectManager()
+                            .addEffect(
+                                    "speed",
+                                    delta,
+                                    ModifierType.MULTIPLICATIVE,
+                                    ModifierIntent.BUFF,
+                                    GOO_BUFF_DURATION,
+                                    "jungle_buff_goo",
+                                    ua.getId() + "_jungle_buff_goo",
+                                    "");
+
                     ExtensionCommands.addStatusIcon(
                             this.parentExt,
                             ua.getUser(),
@@ -247,10 +259,5 @@ public class GooMonster extends Monster {
     public boolean canAttack() {
         if (this.usingAbility) return false;
         return super.canAttack();
-    }
-
-    @Override
-    public String getPortrait() {
-        return "goomonster";
     }
 }

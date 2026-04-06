@@ -16,14 +16,16 @@ import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class Fionna extends UserActor {
-    private static final double HP_REG_FIERCE = 0.02d;
-    private static final double HP_REG_FEARLESS = 0.01d;
-    private static final double SPEED_FIERCE = 0.2d;
-    private static final double ATTACKSPEED_FIERCE = 0.2d;
-    private static final double SPELLRESIST_FEARLESS = 0.3d;
+    private static final double HP_REG_FIERCE_PERCENT = 0.02d;
+    private static final double HP_REG_FEARLESS_PERCENT = 0.01d;
+    private static final double SPEED_FIERCE_PERCENT = 0.2d;
+    private static final double ATTACK_SPEED_FIERCE_PERCENT = 0.2d;
+    private static final double SPELL_RESIST_FEARLESS_PERCENT = 0.3d;
     private static final int W_DURATION = 3000;
     private static final int E_DURATION = 5000;
-    public static final double PASSIVE_MAX_DMG_MULTIPLIER = 0.6d;
+    public static final double PASSIVE_MAX_DMG_PERCENT = 0.6d;
+    public static final double Q_SLOW_PERCENT = 0.5;
+    public static final int Q_SLOW_DURATION = 1000;
 
     private enum SwordType {
         FIERCE,
@@ -116,16 +118,17 @@ public class Fionna extends UserActor {
         switch (stat) {
             case "healthRegen":
                 if (this.swordType == SwordType.FIERCE)
-                    return super.getPlayerStat(stat) - 2 - (maxHealth * HP_REG_FIERCE);
-                else return super.getPlayerStat(stat) + (maxHealth * HP_REG_FEARLESS);
+                    return super.getPlayerStat(stat) - 2 - (maxHealth * HP_REG_FIERCE_PERCENT);
+                else return super.getPlayerStat(stat) + (maxHealth * HP_REG_FEARLESS_PERCENT);
             case "speed":
                 if (this.swordType == SwordType.FIERCE)
-                    return super.getPlayerStat(stat) + (this.getStat("speed") * SPEED_FIERCE);
+                    return super.getPlayerStat(stat)
+                            + (this.getStat("speed") * SPEED_FIERCE_PERCENT);
                 break;
             case "attackSpeed":
                 if (this.swordType == SwordType.FIERCE) {
                     double currentAttackSpeed = super.getPlayerStat(stat);
-                    double modifier = (this.getStat("attackSpeed") * ATTACKSPEED_FIERCE);
+                    double modifier = (this.getStat("attackSpeed") * ATTACK_SPEED_FIERCE_PERCENT);
                     return currentAttackSpeed - modifier < BASIC_ATTACK_DELAY
                             ? BASIC_ATTACK_DELAY
                             : currentAttackSpeed - modifier;
@@ -136,7 +139,7 @@ public class Fionna extends UserActor {
                 if (this.swordType == SwordType.FEARLESS)
                     return Math.round(
                             super.getPlayerStat(stat)
-                                    + (this.getStat(stat) * SPELLRESIST_FEARLESS));
+                                    + (this.getStat(stat) * SPELL_RESIST_FEARLESS_PERCENT));
                 break;
             case "attackDamage":
             case "spellDamage":
@@ -286,7 +289,7 @@ public class Fionna extends UserActor {
 
     private double getPassiveAttackDamage(String stat) {
         double missingPHealth = 1d - this.getPHealth();
-        double modifier = (PASSIVE_MAX_DMG_MULTIPLIER * missingPHealth);
+        double modifier = (PASSIVE_MAX_DMG_PERCENT * missingPHealth);
         return this.getStat(stat) * modifier;
     }
 
@@ -359,7 +362,6 @@ public class Fionna extends UserActor {
         }
         String[] statsToUpdate = {"healthRegen", "armor", "spellResist", "attackSpeed", "speed"};
         this.updateStatMenu(statsToUpdate);
-        this.move(this.movementLine.getP2());
     }
 
     public boolean ultActivated() {
@@ -427,7 +429,8 @@ public class Fionna extends UserActor {
                     }
 
                     if (isNeitherStructureNorAlly(a) && dashInt == 1) {
-                        a.addState(ActorState.SLOWED, 0.5d, 1000);
+                        a.getEffectManager()
+                                .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
                     }
                 }
             }

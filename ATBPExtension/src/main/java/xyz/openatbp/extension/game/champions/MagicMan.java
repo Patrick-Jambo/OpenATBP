@@ -17,16 +17,16 @@ public class MagicMan extends UserActor {
 
     private static final int PASSIVE_DURATION = 3000;
     private static final int PASSIVE_SPEED_DURATION = 3000;
-    private static final double PASSIVE_SPEED_VALUE = 0.2d;
+    private static final double PASSIVE_SPEED_PERCENT = 0.2d;
     private static final int Q_CAST_DELAY = 500;
     private static final int Q_SILENCE_DURATION = 2000;
     private static final int Q_ANGLE = 20;
     private static final int W_STEALTH_DURATION = 3000;
 
     private static final double E_DASH_SPEED = 10d;
-    private static final double E_ARMOR_VALUE = 0.2d;
-    private static final double E_SHIELDS_VALUE = 0.2;
-    private static final double E_SLOW_VALUE = 0.2d;
+    private static final double E_ARMOR_PERCENT = 0.2d;
+    private static final double E_SHIELDS_PERCENT = 0.2;
+    private static final double E_SLOW_PERCENT = 0.2d;
     private static final int E_SLOW_DURATION = 2500;
     private static final int E_DEBUFF_DURATION = 3000;
 
@@ -54,12 +54,14 @@ public class MagicMan extends UserActor {
             ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "passive");
         }
         if (this.magicManClone != null) this.magicManClone.update(msRan);
-        if (!this.getState(ActorState.INVISIBLE) && wLocation != null) {
+        if (!effectManager.hasState(ActorState.INVISIBLE) && wLocation != null) {
             if (this.magicManClone != null) this.magicManClone.die(this);
             this.wLocation = null;
             this.wDest = null;
             this.canCast[1] = true;
-            this.setState(ActorState.REVEALED, true);
+
+            effectManager.setState(ActorState.REVEALED, true);
+
             int wCooldown = ChampionData.getBaseAbilityCooldown(this, 2);
             ExtensionCommands.actorAbilityResponse(
                     this.parentExt, this.player, "w", true, getReducedCooldown(wCooldown), 250);
@@ -98,10 +100,12 @@ public class MagicMan extends UserActor {
     }
 
     @Override
-    public void setState(ActorState state, boolean enabled) {
+    public void onStateChange(ActorState state, boolean enabled) {
         if (state == ActorState.REVEALED && enabled) {
-            if (this.wDest == null) super.setState(state, true);
-        } else super.setState(state, enabled);
+            if (this.wDest == null) effectManager.setState(ActorState.REVEALED, true);
+        } else {
+            effectManager.setState(state, enabled);
+        }
     }
 
     @Override
@@ -244,7 +248,7 @@ public class MagicMan extends UserActor {
                         MovementManager.getDashPoint(
                                 this, new Line2D.Float(this.location, dest));*/
                         // if (Double.isNaN(dashPoint.getY())) dashPoint = this.location;
-                        this.addState(ActorState.INVISIBLE, 0d, W_STEALTH_DURATION);
+                        effectManager.addState(ActorState.INVISIBLE, 0d, W_STEALTH_DURATION);
                         this.wLocation =
                                 new Point2D.Double(this.location.getX(), this.location.getY());
                         Point2D endLocation =
@@ -260,7 +264,7 @@ public class MagicMan extends UserActor {
                         ExtensionCommands.actorAbilityResponse(
                                 this.parentExt, this.player, "w", true, 1000, 0);
                     } else {
-                        this.setState(ActorState.INVISIBLE, false);
+                        effectManager.setState(ActorState.INVISIBLE, false);
                         ExtensionCommands.actorAbilityResponse(
                                 this.parentExt,
                                 this.player,
@@ -316,8 +320,8 @@ public class MagicMan extends UserActor {
     }
 
     private void unveil() {
-        if (this.getState(ActorState.INVISIBLE)) {
-            this.setState(ActorState.INVISIBLE, false);
+        if (effectManager.hasState(ActorState.INVISIBLE)) {
+            effectManager.setState(ActorState.INVISIBLE, false);
         }
     }
 
@@ -386,12 +390,23 @@ public class MagicMan extends UserActor {
                         String stat1 = "armor";
                         String stat2 = "spellResist";
 
-                        double delta1 = a.getStat(stat1) * -E_ARMOR_VALUE;
-                        double delta2 = a.getStat(stat2) * -E_SHIELDS_VALUE;
+                        a.getEffectManager()
+                                .addEffect(
+                                        stat1,
+                                        E_ARMOR_PERCENT,
+                                        ModifierType.MULTIPLICATIVE,
+                                        ModifierIntent.DEBUFF,
+                                        E_DEBUFF_DURATION);
+                        a.getEffectManager()
+                                .addEffect(
+                                        stat2,
+                                        E_SHIELDS_PERCENT,
+                                        ModifierType.MULTIPLICATIVE,
+                                        ModifierIntent.DEBUFF,
+                                        E_DEBUFF_DURATION);
 
-                        a.addEffect(stat1, delta1, E_DEBUFF_DURATION);
-                        a.addEffect(stat2, delta2, E_DEBUFF_DURATION);
-                        a.addState(ActorState.SLOWED, E_SLOW_VALUE, E_SLOW_DURATION);
+                        a.getEffectManager()
+                                .addState(ActorState.SLOWED, E_SLOW_PERCENT, E_SLOW_DURATION);
                     }
 
                     if (isNeitherTowerNorAlly(a)) {
@@ -423,7 +438,7 @@ public class MagicMan extends UserActor {
         @Override
         protected void hit(Actor victim) {
             if (isNeitherStructureNorAlly(victim)) {
-                victim.addState(ActorState.SILENCED, 0d, Q_SILENCE_DURATION);
+                victim.getEffectManager().addState(ActorState.SILENCED, 0d, Q_SILENCE_DURATION);
             }
 
             ExtensionCommands.createWorldFX(
@@ -468,9 +483,6 @@ public class MagicMan extends UserActor {
 
     private class MagicManClone extends Actor {
 
-        private boolean dead;
-        private double timeTraveled = 0;
-
         MagicManClone(Point2D location) {
             this.room = MagicMan.this.room;
             this.parentExt = MagicMan.this.parentExt;
@@ -481,18 +493,11 @@ public class MagicMan extends UserActor {
             this.id = MagicMan.this + "_decoy";
             this.team = MagicMan.this.team;
             this.actorType = ActorType.COMPANION;
+
             this.stats = initializeStats();
-            this.movementLine = new Line2D.Float(this.location, MagicMan.this.wDest);
-            ExtensionCommands.createActor(
-                    this.parentExt, this.room, this.id, this.avatar, this.location, 0f, team);
-            ExtensionCommands.moveActor(
-                    this.parentExt,
-                    this.room,
-                    this.id,
-                    this.movementLine.getP1(),
-                    this.movementLine.getP2(),
-                    (float) MagicMan.this.getPlayerStat("speed"),
-                    true);
+            ExtensionCommands.createActor(parentExt, room, id, avatar, location, 0f, team);
+
+            startMoveTo(MagicMan.this.wDest);
         }
 
         @Override
@@ -542,7 +547,6 @@ public class MagicMan extends UserActor {
                     actor.addToDamageQueue(MagicMan.this, dmg, spellData, false);
                 }
             }
-            this.timeTraveled = 0;
             ExtensionCommands.destroyActor(this.parentExt, this.room, this.id);
             MagicMan.this.handleCloneDeath();
         }
@@ -551,13 +555,7 @@ public class MagicMan extends UserActor {
         public void update(int msRan) {
             this.handleDamageQueue();
             if (this.dead) return;
-            this.timeTraveled += 0.1d;
-            /*this.location =
-            MovementManager.getRelativePoint(
-                    this.movementLine,
-                    (float) MagicMan.this.getPlayerStat("speed"),
-                    this.timeTraveled);*/
-            this.handlePathing();
+            handleMovementUpdate();
         }
 
         @Override
@@ -585,8 +583,13 @@ public class MagicMan extends UserActor {
                             parentExt, MagicMan.this, target, (int) damage, "basicAttack")
                     .run();
             if (this.target.getActorType() == ActorType.PLAYER) {
-                addEffect("speed", getStat("speed") * PASSIVE_SPEED_VALUE, PASSIVE_SPEED_DURATION);
-                if (!passiveActivated)
+                effectManager.addEffect(
+                        "speed",
+                        PASSIVE_SPEED_PERCENT,
+                        ModifierType.MULTIPLICATIVE,
+                        ModifierIntent.BUFF,
+                        PASSIVE_SPEED_DURATION);
+                if (!passiveActivated) {
                     ExtensionCommands.addStatusIcon(
                             parentExt,
                             player,
@@ -594,6 +597,7 @@ public class MagicMan extends UserActor {
                             "magicman_spell_4_short_description",
                             "icon_magicman_passive",
                             0f);
+                }
                 passiveActivated = true;
                 passiveIconStarted = System.currentTimeMillis();
             }

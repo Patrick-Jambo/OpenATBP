@@ -203,7 +203,7 @@ public class Minion extends Actor {
     public void die(Actor a) {
         this.currentHealth = 0;
         if (this.dead) return;
-        if (!this.getState(ActorState.AIRBORNE)) this.stopMoving();
+        if (!effectManager.hasState(ActorState.AIRBORNE)) this.stopMoving();
         this.dead = true;
         if (a.getActorType() == ActorType.PLAYER || a.getActorType() == ActorType.COMPANION) {
             UserActor ua = null;
@@ -308,11 +308,6 @@ public class Minion extends Actor {
             stats.put(k, actorStats.get(k).asDouble());
         }
         return stats;
-    }
-
-    @Override
-    public String getPortrait() {
-        return this.getAvatar();
     }
 
     private MinionState evaluateMinionState() {
@@ -479,7 +474,9 @@ public class Minion extends Actor {
     @Override
     public void update(int msRan) {
         this.handleDamageQueue();
-        this.handleActiveEffects();
+        // this.handleActiveEffects();
+
+        effectManager.handleEffectsUpdate();
 
         handleMovementUpdate();
 
@@ -579,7 +576,7 @@ public class Minion extends Actor {
     public boolean isInvisible(Actor a) {
         ActorState[] states = {ActorState.INVISIBLE, ActorState.BRUSH};
         for (ActorState state : states) {
-            if (a.getState(state)) return true;
+            if (effectManager.hasState(state)) return true;
         }
         return false;
     }
@@ -628,7 +625,7 @@ public class Minion extends Actor {
     public boolean isInvisOrInBrush(Actor a) {
         ActorState[] states = {ActorState.INVISIBLE, ActorState.BRUSH};
         for (ActorState state : states) {
-            if (a.getState(state)) return true;
+            if (effectManager.hasState(state)) return true;
         }
         return false;
     }

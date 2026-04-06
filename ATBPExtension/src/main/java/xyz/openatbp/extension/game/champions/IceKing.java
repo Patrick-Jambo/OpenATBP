@@ -20,9 +20,9 @@ import xyz.openatbp.extension.game.actors.UserActor;
 public class IceKing extends UserActor {
     public static final int PASSIVE_TIME = 10000;
     public static final int PASSIVE_SLOW_DURAITON = 2000;
-    public static final double PASSIVE_SLOW_VALUE = 0.25d;
+    public static final double PASSIVE_SLOW_PERCENT = 0.25d;
     public static final int PASSIVE_AS_DEBUFF_TIME = 2000;
-    public static final double PASSIVE_AS_DEBUFF_VALUE = 0.33d;
+    public static final double PASSIVE_AS_DEBUFF_PERCENT = 0.33d;
     public static final int PASSIVE_COOLDOWN = 5000;
     public static final int Q_CAST_DELAY = 250;
     public static final int Q_ROOT_DURATION = 1750;
@@ -32,6 +32,7 @@ public class IceKing extends UserActor {
     public static final int E_DURATION = 6000;
     public static final float E_RADIUS = 5.5f;
     public static final float Q_RANGE = 7.5f;
+    public static final double E_SPEED_PERCENT = 0.9;
 
     private boolean iceShield = false;
     private long lastAbilityUsed;
@@ -55,6 +56,7 @@ public class IceKing extends UserActor {
     public IceKing(User u, ATBPExtension parentExt) {
         super(u, parentExt);
         this.lastAbilityUsed = System.currentTimeMillis();
+        this.customPolySwap = true;
     }
 
     @Override
@@ -67,7 +69,7 @@ public class IceKing extends UserActor {
             boolean containsIceKing = actorsInUlt.contains(this);
             if (containsIceKing && this.bundle == AssetBundle.NORMAL) {
                 this.bundle = AssetBundle.FLIGHT;
-                if (!this.getState(ActorState.POLYMORPH)) {
+                if (!effectManager.hasState(ActorState.POLYMORPH)) {
                     ExtensionCommands.swapActorAsset(
                             this.parentExt, this.room, this.id, getFlightAssetbundle());
                 }
@@ -88,7 +90,7 @@ public class IceKing extends UserActor {
                 }
             } else if (!containsIceKing && this.bundle == AssetBundle.FLIGHT) {
                 this.bundle = AssetBundle.NORMAL;
-                if (!this.getState(ActorState.POLYMORPH)) {
+                if (!effectManager.hasState(ActorState.POLYMORPH)) {
                     ExtensionCommands.swapActorAsset(
                             this.parentExt, this.room, this.id, getSkinAssetBundle());
                 }
@@ -97,7 +99,12 @@ public class IceKing extends UserActor {
             if (!actorsInUlt.isEmpty()) {
                 for (Actor a : actorsInUlt) {
                     if (a.equals(this)) {
-                        this.addEffect("speed", this.getStat("speed") * 0.9, 150);
+                        effectManager.addEffect(
+                                "speed",
+                                E_SPEED_PERCENT,
+                                ModifierType.MULTIPLICATIVE,
+                                ModifierIntent.BUFF,
+                                150);
                         this.updateStatMenu("speed");
                     } else if (isNeitherTowerNorAlly(a)) {
                         JsonNode spellData = this.parentExt.getAttackData("iceking", "spell3");
@@ -209,7 +216,7 @@ public class IceKing extends UserActor {
     }
 
     @Override
-    public void handleSwapFromPoly() {
+    public void customSwapFromPoly() {
         String bundle =
                 this.bundle == AssetBundle.FLIGHT && this.ultActive
                         ? getFlightAssetbundle()
@@ -223,11 +230,16 @@ public class IceKing extends UserActor {
                 && attackData.get("attackName").asText().contains("basic_attack")
                 && this.iceShield) {
             damage /= 2;
-            a.addState(ActorState.SLOWED, PASSIVE_SLOW_VALUE, PASSIVE_SLOW_DURAITON);
-            a.addEffect(
-                    "attackSpeed",
-                    a.getStat("attackSpeed") * PASSIVE_AS_DEBUFF_VALUE,
-                    PASSIVE_AS_DEBUFF_TIME);
+            a.getEffectManager()
+                    .addState(ActorState.SLOWED, PASSIVE_SLOW_PERCENT, PASSIVE_SLOW_DURAITON);
+            a.getEffectManager()
+                    .addEffect(
+                            "attackSpeed",
+                            PASSIVE_AS_DEBUFF_PERCENT,
+                            ModifierType.MULTIPLICATIVE,
+                            ModifierIntent.DEBUFF,
+                            PASSIVE_AS_DEBUFF_TIME);
+
             this.iceShield = false;
             this.lastAbilityUsed = System.currentTimeMillis() + 5000;
             Runnable handlePassiveCooldown =
@@ -426,7 +438,11 @@ public class IceKing extends UserActor {
             qHitTime = System.currentTimeMillis() + 1750;
             victim.addToDamageQueue(
                     IceKing.this, getSpellDamage(spellData, true), spellData, false);
-            victim.addState(ActorState.ROOTED, 0d, Q_ROOT_DURATION, "iceKing_snare", "");
+
+            String id = victim.getId() + "_iceKing_freeze";
+            victim.getEffectManager()
+                    .addState(ActorState.ROOTED, 0, "iceKing_snare", Q_ROOT_DURATION, id, "");
+
             ExtensionCommands.playSound(
                     this.parentExt,
                     victim.getRoom(),

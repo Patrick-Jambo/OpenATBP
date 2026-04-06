@@ -175,10 +175,24 @@ public class FinnBot extends Bot {
                 true,
                 false,
                 this.team);
-        double asDelta = this.getStat("attackSpeed") * -Q_ATTACKSPEED_VALUE;
-        this.addEffect("speed", Q_SPEED_VALUE, Q_SPEED_DURATION);
-        this.addEffect("armor", this.getStat("armor") * Q_ARMOR_VALUE, Q_ARMOR_DURATION);
-        this.addEffect("attackSpeed", asDelta, Q_ATTACKSPEED_DURATION);
+        effectManager.addEffect(
+                "speed",
+                Q_SPEED_PERCENT,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                Q_SPEED_DURATION);
+        effectManager.addEffect(
+                "armor",
+                Q_ARMOR_PERCENT,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                Q_ARMOR_DURATION);
+        effectManager.addEffect(
+                "attackSpeed",
+                Q_ATTACK_SPEED_PERCENT,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                Q_ATTACKSPEED_DURATION);
     }
 
     @Override
@@ -593,7 +607,8 @@ public class FinnBot extends Bot {
                     for (Actor a : aInRadius) {
                         if (this.wallLines[i].ptSegDist(a.getLocation()) <= 0.5f) {
                             if (isNonStructureEnemy(a)) {
-                                a.addState(ActorState.ROOTED, 0d, E_ROOT_DURATION);
+                                a.getEffectManager()
+                                        .addState(ActorState.ROOTED, 0d, E_ROOT_DURATION);
                             }
 
                             if (isNonStructureEnemy(a)) {

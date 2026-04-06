@@ -20,12 +20,12 @@ import xyz.openatbp.extension.game.actors.UserActor;
 
 public class Neptr extends UserActor {
     private static final int PASSIVE_SPEED_DURATION = 3500;
-    private static final double PASSIVE_SPEED_VALUE = 0.35d;
-    private static final int PASSIVE_ATTACKSPEED_DURATION = 3500;
-    private static final double PASSIVE_ATTACKSPEED_VALUE = 0.25d;
+    private static final double PASSIVE_SPEED_PERCENT = 0.35d;
+    private static final int PASSIVE_ATTACK_SPEED_DURATION = 3500;
+    private static final double PASSIVE_ATTACK_SPEED_PERCENT = 0.25d;
     private static final int PASSIVE_DURATION = 3500;
     private static final int W_SLOW_DURATION = 3000;
-    private static final double W_SLOW_VALUE = 0.4d;
+    private static final double W_SLOW_PERCENT = 0.4d;
     private static final int MINE_LIFE_SPAN = 30000;
     private static final int E_DAMAGE_DURATION = 3000;
     private static final int E_CAST_DELAY = 500;
@@ -53,7 +53,10 @@ public class Neptr extends UserActor {
                 && System.currentTimeMillis() - this.passiveStart >= PASSIVE_DURATION) {
             this.passiveActive = false;
             ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "passive");
-            if (this.invisOrInBrush(this)) this.setState(ActorState.BRUSH, true);
+            if (this.invisOrInBrush(this)) {
+                effectManager.setState(ActorState.BRUSH, true);
+                // this.setState(ActorState.BRUSH, true);
+            }
         }
         if (this.isStopped() && !this.soundPlayed) {
             String moveEndSFX = SkinData.getNeptrMoveEndSFX(avatar);
@@ -84,8 +87,7 @@ public class Neptr extends UserActor {
     }
 
     @Override
-    public void setState(ActorState state, boolean enabled) {
-        super.setState(state, enabled);
+    public void onStateChange(ActorState state, boolean enabled) {
         if (state == ActorState.BRUSH && enabled) {
             this.passiveStart = System.currentTimeMillis();
             ExtensionCommands.createActorFX(
@@ -108,12 +110,19 @@ public class Neptr extends UserActor {
                 ExtensionCommands.playSound(
                         this.parentExt, this.room, this.id, "vo/vo_neptr_passive", this.location);
             }
-            this.addEffect(
-                    "speed", this.getStat("speed") * PASSIVE_SPEED_VALUE, PASSIVE_SPEED_DURATION);
-            this.addEffect(
+            effectManager.addEffect(
+                    "speed",
+                    PASSIVE_SPEED_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    PASSIVE_SPEED_DURATION);
+            effectManager.addEffect(
                     "attackSpeed",
-                    this.getStat("attackSpeed") * -PASSIVE_ATTACKSPEED_VALUE,
-                    PASSIVE_ATTACKSPEED_DURATION);
+                    PASSIVE_ATTACK_SPEED_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    PASSIVE_ATTACK_SPEED_DURATION);
+
             if (this.passiveActive) {
                 ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "passive");
             }
@@ -335,7 +344,7 @@ public class Neptr extends UserActor {
                 if (a.getActorType() != ActorType.BASE) {
                     if (isNeitherStructureNorAlly(a)) {
                         a.handleKnockback(Neptr.this.location, 3.5f);
-                        a.addState(ActorState.SILENCED, 0d, E_SILENCE_DURATION);
+                        a.getEffectManager().addState(ActorState.SILENCED, 0d, E_SILENCE_DURATION);
                     }
                     if (isNeitherTowerNorAlly(a)) {
                         ExtensionCommands.createActorFX(
@@ -598,7 +607,11 @@ public class Neptr extends UserActor {
                         if (!targets.isEmpty()) {
                             for (Actor t : targets) {
                                 if (isNeitherStructureNorAlly(t)) {
-                                    t.addState(ActorState.SLOWED, W_SLOW_VALUE, W_SLOW_DURATION);
+                                    t.getEffectManager()
+                                            .addState(
+                                                    ActorState.SLOWED,
+                                                    W_SLOW_PERCENT,
+                                                    W_SLOW_DURATION);
                                 }
 
                                 if (isNeitherTowerNorAlly(t)) {

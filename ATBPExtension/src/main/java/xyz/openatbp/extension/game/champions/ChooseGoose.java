@@ -21,24 +21,24 @@ public class ChooseGoose extends UserActor {
     private static final int PASSIVE_COOLDOWN = 20000;
     private static final int CHEST_DURATION = 10000;
     private static final int PASSIVE_BUFF_DURATION = 6000;
-    private static final double PASSIVE_SPEED_VALUE = 0.2;
-    private static final double PASSIVE_ARMOR_VALUE = 0.2;
+    private static final double PASSIVE_SPEED_PERCENT = 0.2;
+    private static final double PASSIVE_ARMOR_PERCENT = 0.2;
     private static final int PASSIVE_HP_INCREASE_PER_CHEST = 10;
-    private static final double PASSIVE_MAX_HP_HEAL_VALUE = 0.25;
+    private static final double PASSIVE_MAX_HP_HEAL_PERCENT = 0.25;
 
-    private static final double Q_AS_BUFF_VALUE = -0.2;
+    private static final double Q_AS_BUFF_PERCENT = 0.2;
     private static final int Q_DURATION = 5000;
     private static final int Q_TICK_FREQUENCY = 1000;
     private static final int Q_TICK_DMG_DELAY = 250;
     private static final int Q_DOT_DURATION = 3000;
-    private static final double Q_AD_BUFF_VALUE = 0.1d;
-    private static final float Q_ARMOR_DEBUFF_VALUE = 0.2f;
+    private static final double Q_AD_BUFF_PERCENT = 0.1d;
+    private static final float Q_ARMOR_DEBUFF_PERCENT = 0.2f;
     private static final int Q_ARMOR_DEBUFF_DURATION = 3000;
 
     private static final double W_JUMP_SPEED = 16d;
     private static final float W_IMPACT_RADIUS = 2f;
     private static final int W_SILENCE_DURATION = 1000;
-    private static final double W_ARMOR_BUFF_VALUE = 0.3;
+    private static final double W_ARMOR_BUFF_PERCENT = 0.3;
     private static final int W_BUFF_DURATION = 2500;
 
     private static final int E_ROOT_DURATION = 2000;
@@ -110,8 +110,8 @@ public class ChooseGoose extends UserActor {
             interruptE = true;
             isEActive = false;
 
-            if (!this.getState(ActorState.STUNNED)
-                    && !getState(ActorState.AIRBORNE)
+            if (!effectManager.hasState(ActorState.STUNNED)
+                    && !effectManager.hasState(ActorState.AIRBORNE)
                     && getHealth() > 0) {
                 canMove = true;
             }
@@ -154,11 +154,18 @@ public class ChooseGoose extends UserActor {
                     ExtensionCommands.actorAnimate(parentExt, room, id, "spell1a", 400, false);
                 }
 
-                double asDelta = this.getStat("attackSpeed") * Q_AS_BUFF_VALUE;
-                double adDelta = this.getStat("attackDamage") * Q_AD_BUFF_VALUE;
-
-                this.addEffect("attackSpeed", asDelta, Q_DURATION);
-                this.addEffect("attackDamage", adDelta, Q_DURATION);
+                effectManager.addEffect(
+                        "attackSpeed",
+                        Q_AS_BUFF_PERCENT,
+                        ModifierType.MULTIPLICATIVE,
+                        ModifierIntent.BUFF,
+                        Q_DURATION);
+                effectManager.addEffect(
+                        "attackDamage",
+                        Q_AD_BUFF_PERCENT,
+                        ModifierType.MULTIPLICATIVE,
+                        ModifierIntent.BUFF,
+                        Q_DURATION);
 
                 String q_sfx = "sfx_choosegoose_q_activation";
                 ExtensionCommands.playSound(parentExt, room, id, q_sfx, location);
@@ -455,7 +462,7 @@ public class ChooseGoose extends UserActor {
                     }
 
                     if (isNeitherStructureNorAlly(a) && a.getLocation().distance(location) <= 1) {
-                        a.addState(ActorState.SILENCED, 0, W_SILENCE_DURATION);
+                        a.getEffectManager().addState(ActorState.SILENCED, 0, W_SILENCE_DURATION);
                     }
                 }
 
@@ -472,10 +479,13 @@ public class ChooseGoose extends UserActor {
                         false,
                         team);
 
-                double wArmorDelta = getPlayerStat("armor") * W_ARMOR_BUFF_VALUE;
-
-                addState(ActorState.IMMUNITY, 0, W_BUFF_DURATION);
-                addEffect("armor", wArmorDelta, W_BUFF_DURATION);
+                effectManager.addEffect(
+                        "armor",
+                        W_ARMOR_BUFF_PERCENT,
+                        ModifierType.MULTIPLICATIVE,
+                        ModifierIntent.BUFF,
+                        W_BUFF_DURATION);
+                effectManager.addState(ActorState.IMMUNITY, 0, W_BUFF_DURATION);
 
                 ExtensionCommands.createActorFX(
                         parentExt,
@@ -612,11 +622,24 @@ public class ChooseGoose extends UserActor {
                         "sfx_choosegoose_chest_open",
                         location);
 
-                double speedDelta = a.getPlayerStat("speed") * PASSIVE_SPEED_VALUE;
-                double armorDelta = a.getPlayerStat("armor") * PASSIVE_ARMOR_VALUE;
+                a.getEffectManager()
+                        .addEffect(
+                                "speed",
+                                PASSIVE_SPEED_PERCENT,
+                                ModifierType.MULTIPLICATIVE,
+                                ModifierIntent.BUFF,
+                                PASSIVE_BUFF_DURATION);
+                a.getEffectManager()
+                        .addEffect(
+                                "armor",
+                                PASSIVE_ARMOR_PERCENT,
+                                ModifierType.MULTIPLICATIVE,
+                                ModifierIntent.BUFF,
+                                PASSIVE_BUFF_DURATION,
+                                "disconnect_buff_solo",
+                                a.getId() + "disconnect_buff_solo",
+                                "");
 
-                a.addEffect("speed", speedDelta, PASSIVE_BUFF_DURATION);
-                a.addEffect("armor", armorDelta, PASSIVE_BUFF_DURATION, "disconnect_buff_solo", "");
                 UserActor ua = (UserActor) a;
 
                 String desc = "You gain 20% increased armor and movement speed for 6 seconds.";
@@ -624,7 +647,7 @@ public class ChooseGoose extends UserActor {
                 Champion.handleStatusIcon(
                         parentExt, ua, "icon_choosegoose_passive", desc, PASSIVE_BUFF_DURATION);
 
-                int delta = (int) (a.getStat("health") * PASSIVE_MAX_HP_HEAL_VALUE);
+                int delta = (int) (a.getStat("health") * PASSIVE_MAX_HP_HEAL_PERCENT);
 
                 int maxHealth = ChooseGoose.this.getMaxHealth();
                 int currentHealth = ChooseGoose.this.getHealth();
@@ -734,7 +757,7 @@ public class ChooseGoose extends UserActor {
                     "sfx_choosegoose_e_explosion",
                     victim.getLocation());
 
-            victim.addState(ActorState.ROOTED, 0, E_ROOT_DURATION);
+            victim.getEffectManager().addState(ActorState.ROOTED, 0, E_ROOT_DURATION);
             destroy();
         }
     }
@@ -789,8 +812,13 @@ public class ChooseGoose extends UserActor {
                     qStacks.put(target, nextStacks);
 
                     if (currentStacks == 2) {
-                        double delta = target.getPlayerStat("armor") * -Q_ARMOR_DEBUFF_VALUE;
-                        target.addEffect("armor", delta, Q_ARMOR_DEBUFF_DURATION);
+                        target.getEffectManager()
+                                .addEffect(
+                                        "armor",
+                                        Q_ARMOR_DEBUFF_PERCENT,
+                                        ModifierType.MULTIPLICATIVE,
+                                        ModifierIntent.DEBUFF,
+                                        Q_ARMOR_DEBUFF_DURATION);
                     }
                 }
             }

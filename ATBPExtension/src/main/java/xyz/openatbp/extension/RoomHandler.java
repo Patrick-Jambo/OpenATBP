@@ -33,7 +33,7 @@ public abstract class RoomHandler implements Runnable {
     protected static final int GOO_SPAWN_RATE = 90;
     protected static final int MONSTER_DEBUG_SPAWN_RATE = 10;
     public static final double ALTAR_BUFF = 0.25;
-    public static final double GOO_ALTAR_BUFF = 1.5;
+    public static final double GOO_ALTAR_BUFF = 37.5;
     public static final int ALTAR_BUFF_DURATION = 60000;
     public static final int GOO_ALTAR_CAPTURE_EXP = 25;
     protected final String[] SPAWNS;
@@ -876,10 +876,6 @@ public abstract class RoomHandler implements Runnable {
                     boolean hasGooBuff = a instanceof UserActor && gooUsers.contains(a);
 
                     if (killerId == null) killerId = a.getId();
-
-                    double delta1;
-                    double delta2;
-
                     String stat1;
                     String stat2;
 
@@ -903,17 +899,27 @@ public abstract class RoomHandler implements Runnable {
                         icon = "icon_altar_armor";
                         desc = "altar1_description";
                     }
-                    delta1 = a.getStat(stat1) * ALTAR_BUFF;
-                    delta2 = a.getStat(stat2) * ALTAR_BUFF;
 
-                    if (hasGooBuff) {
-                        delta1 *= GOO_ALTAR_BUFF;
-                        delta2 *= GOO_ALTAR_BUFF;
-                    }
+                    double percent = ALTAR_BUFF;
+                    if (hasGooBuff) percent = GOO_ALTAR_BUFF;
 
-                    a.addEffect(stat1, delta1, ALTAR_BUFF_DURATION, fxId, "");
-                    a.addEffect(stat2, delta2, ALTAR_BUFF_DURATION);
-
+                    a.getEffectManager()
+                            .addEffect(
+                                    stat1,
+                                    percent,
+                                    ModifierType.MULTIPLICATIVE,
+                                    ModifierIntent.BUFF,
+                                    ALTAR_BUFF_DURATION,
+                                    fxId,
+                                    a.getId() + fxId,
+                                    "");
+                    a.getEffectManager()
+                            .addEffect(
+                                    stat2,
+                                    percent,
+                                    ModifierType.MULTIPLICATIVE,
+                                    ModifierIntent.BUFF,
+                                    ALTAR_BUFF_DURATION);
                     if (a instanceof UserActor) {
                         UserActor ua = (UserActor) a;
 

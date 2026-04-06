@@ -18,15 +18,19 @@ import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.ModifierIntent;
+import xyz.openatbp.extension.game.ModifierType;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Monster;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class Keeoth extends Monster {
 
+    public static final double KEEOTH_AD_VAMP = 35d;
+    public static final double KEEOTH_AP_VAMP = 40d;
     private int abilityCooldown;
     private boolean usingAbility;
-    private static final int KEEOTH_BUFF_DURATION = 90000;
+    public static final int KEEOTH_BUFF_DURATION = 60000;
 
     public Keeoth(
             ATBPExtension parentExt, Room room, float[] startingLocation, String monsterName) {
@@ -73,12 +77,37 @@ public class Keeoth extends Monster {
                 if (ua.getTeam() == killerTeam && ua.getHealth() > 0 && !ua.isDead()) {
                     ua.setHasKeeothBuff(true);
                     ua.setKeeothBuffStartTime(System.currentTimeMillis());
-                    ua.addEffect("lifeSteal", 35d, KEEOTH_BUFF_DURATION, "jungle_buff_keeoth", "");
-                    ua.addEffect("spellVamp", 40d, KEEOTH_BUFF_DURATION);
+
+                    ua.getEffectManager()
+                            .addEffect(
+                                    "lifeSteal",
+                                    KEEOTH_AD_VAMP,
+                                    ModifierType.ADDITIVE,
+                                    ModifierIntent.BUFF,
+                                    KEEOTH_BUFF_DURATION,
+                                    "jungle_buff_keeoth",
+                                    ua.getId() + "jungle_buff_keeoth",
+                                    "");
+                    ua.getEffectManager()
+                            .addEffect(
+                                    "spellVamp",
+                                    KEEOTH_AP_VAMP,
+                                    ModifierType.ADDITIVE,
+                                    ModifierIntent.BUFF,
+                                    KEEOTH_BUFF_DURATION);
+
                     double critChange = 35d;
-                    if (ChampionData.getCustomJunkStat(ua, "junk_1_demon_blood_sword") > 0)
+                    if (ChampionData.getCustomJunkStat(ua, "junk_1_demon_blood_sword") > 0) {
                         critChange += 5d;
-                    ua.addEffect("criticalChance", critChange, KEEOTH_BUFF_DURATION);
+                    }
+
+                    effectManager.addEffect(
+                            "criticalChance",
+                            critChange,
+                            ModifierType.ADDITIVE,
+                            ModifierIntent.BUFF,
+                            KEEOTH_BUFF_DURATION);
+
                     double healthChange = (double) ua.getHealth() * 0.3d;
                     ua.heal((int) healthChange); // TODO: Maybe change?
                     ExtensionCommands.addStatusIcon(

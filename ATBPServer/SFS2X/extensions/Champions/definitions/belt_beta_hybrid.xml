@@ -1,0 +1,25 @@
+<belt>
+	<name>belt_beta_hybrid_name</name>
+	<description>belt_beta_hybrid_description</description>
+	<description_short>belt_beta_hybrid_description_short</description_short>
+	<iconBackpack>backpack_finn</iconBackpack>
+	<icon>belt_billys_bag</icon>
+	<steam_achievement_name>UNDEFINED</steam_achievement_name>
+	<junk>
+		<slot1>
+			<junk_id>junk_1_fight_king_sword</junk_id>
+		</slot1>
+		<slot2>
+			<junk_id>junk_2_cosmic_gauntlet</junk_id>
+		</slot2>
+		<slot3>
+			<junk_id>junk_3_armor_of_zeldron</junk_id>
+		</slot3>
+		<slot4>
+			<junk_id>junk_4_bubblegums_tshirt</junk_id>
+		</slot4>
+		<slot5>
+			<junk_id>junk_5_glasses_of_nerdicon</junk_id>
+		</slot5>
+	</junk>
+</belt>

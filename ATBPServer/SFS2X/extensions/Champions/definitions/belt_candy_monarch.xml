@@ -1,0 +1,25 @@
+<belt>
+	<name>belt_candy_monarch_name</name>
+	<description>belt_candy_monarch_description</description>
+	<description_short>belt_candy_monarch_description_short</description_short>
+	<iconBackpack>backpack_bubblegum</iconBackpack>	
+	<icon>belt_candy_monarch</icon>
+	<steam_achievement_name>Candy Monarch Regalia achievement name</steam_achievement_name>
+	<junk>
+		<slot1>
+			<junk_id>junk_1_candy_cane_shotgun</junk_id>
+		</slot1>
+		<slot2>
+			<junk_id>junk_2_electrode_gun</junk_id>
+		</slot2>
+		<slot3>
+			<junk_id>junk_3_jakes_helm</junk_id>
+		</slot3>
+		<slot4>
+			<junk_id>junk_4_bubblegums_tshirt</junk_id>
+		</slot4>
+		<slot5>
+			<junk_id>junk_5_bubblegums_googoomama</junk_id>
+		</slot5>
+	</junk>
+</belt>

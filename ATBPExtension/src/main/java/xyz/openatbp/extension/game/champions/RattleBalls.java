@@ -14,7 +14,7 @@ import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class RattleBalls extends UserActor {
-    private static final double PASSIVE_LIFE_STEAL_VALUE = 0.65d;
+    private static final double PASSIVE_LIFE_STEAL_PERCENT = 0.65d;
     private static final int PASSIVE_STACK_DURATION = 5000;
     private static final int Q_PARRY_DURATION = 1500;
     private static final int Q_END_GLOBAL_CD = 500;
@@ -24,7 +24,7 @@ public class RattleBalls extends UserActor {
     private static final int Q_SPIN_ATTACK_BONUS_BASE_DMG = 55;
     private static final int W_CAST_DELAY = 500;
     private static final int E_DURATION = 3500;
-    private static final double E_SPEED_VALUE = 0.14d;
+    private static final double E_SPEED_PERCENT = 0.14d;
     private static final int E_SECOND_USE_DELAY = 700;
     private static final double W_PULL_DISTANCE = 1.2;
 
@@ -47,11 +47,17 @@ public class RattleBalls extends UserActor {
 
     public RattleBalls(User u, ATBPExtension parentExt) {
         super(u, parentExt);
+        setStat("attackDamage", 1000);
     }
 
     @Override
     public void update(int msRan) {
         super.update(msRan);
+
+        if (ultActive) {
+            Console.debugLog(effectManager.getTempStat("speed"));
+        }
+
         if (passiveActive
                 && System.currentTimeMillis() - startPassiveStack >= PASSIVE_STACK_DURATION) {
             endPassive();
@@ -145,7 +151,7 @@ public class RattleBalls extends UserActor {
     public void handleLifeSteal() {
         if (passiveActive && passiveHits > 0) {
             double damage = getPlayerStat("attackDamage");
-            double lifesteal = (getPlayerStat("lifeSteal") / 100) + PASSIVE_LIFE_STEAL_VALUE;
+            double lifesteal = (getPlayerStat("lifeSteal") / 100) + PASSIVE_LIFE_STEAL_PERCENT;
             if (lifesteal > 100) lifesteal = 100;
             changeHealth((int) (damage * lifesteal));
             ExtensionCommands.removeStatusIcon(parentExt, player, "passive" + passiveHits);
@@ -373,7 +379,13 @@ public class RattleBalls extends UserActor {
                             team);
                     ExtensionCommands.actorAbilityResponse(
                             parentExt, player, "e", true, E_SECOND_USE_DELAY, 0);
-                    addEffect("speed", getStat("speed") * E_SPEED_VALUE, E_DURATION);
+                    effectManager.addEffect(
+                            "speed",
+                            E_SPEED_PERCENT,
+                            ModifierType.MULTIPLICATIVE,
+                            ModifierIntent.BUFF,
+                            E_DURATION);
+
                 } else {
                     endUlt();
                 }

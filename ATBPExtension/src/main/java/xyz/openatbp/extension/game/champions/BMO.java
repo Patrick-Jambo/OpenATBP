@@ -3,7 +3,9 @@ package xyz.openatbp.extension.game.champions;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -16,15 +18,16 @@ import xyz.openatbp.extension.game.actors.UserActor;
 
 public class BMO extends UserActor {
     private static final int PASSIVE_SLOW_DURATION = 2500;
-    private static final double PASSIVE_SLOW_VALUE = 0.5f;
+    private static final double PASSIVE_SLOW_PERCENT = 0.5f;
     private static final int Q_BLIND_DURATION = 2500;
     private static final float Q_OFFSET_DISTANCE_BOTTOM = 1.5f;
     private static final float Q_OFFSET_DISTANCE_TOP = 4f;
     private static final float Q_SPELL_RANGE = 6f;
     private static final int W_DURATION = 3000;
     private static final int W_RECAST_DELAY = 500;
-    private static final float W_ARMOR_VALUE = 1.2f;
-    private static final float W_SHIELDS_VALUE = 1.5f;
+    private static final float W_ARMOR_PERCENT = 0.2f;
+    private static final float W_SHIELDS_PERCENT = 0.5f;
+    public static final int W_STUN_DURATION = 1000;
     private static final int E_CAST_DELAY = 250;
     private static final int E_RANGE = 16;
 
@@ -34,6 +37,8 @@ public class BMO extends UserActor {
     private long lastWSound = 0;
     private boolean ultSlowActive = false;
     private boolean passiveFxRemoved = false;
+
+    private Map<Actor, Long> actorsWithPassiveSlow = new HashMap<>();
 
     public BMO(User u, ATBPExtension parentExt) {
         super(u, parentExt);
@@ -131,9 +136,9 @@ public class BMO extends UserActor {
     @Override
     public double getPlayerStat(String stat) {
         if (this.wActive) {
-            if (stat.equalsIgnoreCase("armor")) return super.getPlayerStat(stat) * W_ARMOR_VALUE;
+            if (stat.equalsIgnoreCase("armor")) return super.getPlayerStat(stat) * W_ARMOR_PERCENT;
             else if (stat.equalsIgnoreCase("spellResist"))
-                return super.getPlayerStat(stat) * W_SHIELDS_VALUE;
+                return super.getPlayerStat(stat) * W_SHIELDS_PERCENT;
         }
         return super.getPlayerStat(stat);
     }
@@ -173,7 +178,8 @@ public class BMO extends UserActor {
                             if (isNeitherStructureNorAlly(a)
                                     && qTrapezoid.contains(
                                             a.getLocation(), a.getCollisionRadius())) {
-                                a.addState(ActorState.BLINDED, 0d, Q_BLIND_DURATION);
+                                a.getEffectManager()
+                                        .addState(ActorState.BLINDED, 0d, Q_BLIND_DURATION);
                                 if (this.passiveStacks == 3) applySlow(a);
                             }
 
@@ -326,7 +332,13 @@ public class BMO extends UserActor {
     }
 
     private void applySlow(Actor a) {
-        a.addState(ActorState.SLOWED, PASSIVE_SLOW_VALUE, PASSIVE_SLOW_DURATION);
+        long lastProc = actorsWithPassiveSlow.getOrDefault(a, -1L);
+
+        if (lastProc == -1 || System.currentTimeMillis() - lastProc > PASSIVE_SLOW_DURATION) {
+            actorsWithPassiveSlow.put(a, System.currentTimeMillis());
+            a.getEffectManager()
+                    .addState(ActorState.SLOWED, PASSIVE_SLOW_PERCENT, PASSIVE_SLOW_DURATION);
+        }
     }
 
     private void addPasiveStacks() {
@@ -392,7 +404,7 @@ public class BMO extends UserActor {
         RoomHandler handler = parentExt.getRoomHandler(room.getName());
         for (Actor a : Champion.getActorsInRadius(handler, this.location, 4f)) {
             if (isNeitherStructureNorAlly(a)) {
-                a.addState(ActorState.STUNNED, 0d, 1000);
+                a.getEffectManager().addState(ActorState.STUNNED, 0d, W_STUN_DURATION);
             }
 
             if (isNeitherTowerNorAlly(a)) {

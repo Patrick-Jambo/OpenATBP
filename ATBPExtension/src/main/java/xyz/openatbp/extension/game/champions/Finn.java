@@ -19,9 +19,9 @@ import xyz.openatbp.extension.game.actors.UserActor;
 
 public class Finn extends UserActor {
     public static final int PASSIVE_DURATION = 5000;
-    public static final float Q_ATTACKSPEED_VALUE = 0.2f;
-    public static final float Q_ARMOR_VALUE = 0.15f;
-    public static final float Q_SPEED_VALUE = 0.5f;
+    public static final float Q_ATTACK_SPEED_PERCENT = 0.2f;
+    public static final float Q_ARMOR_PERCENT = 0.15f;
+    public static final float Q_SPEED_PERCENT = 0.1f;
     public static final int Q_ATTACKSPEED_DURATION = 3000;
     public static final int Q_ARMOR_DURATION = 3000;
     public static final int Q_SPEED_DURATION = 3000;
@@ -79,7 +79,8 @@ public class Finn extends UserActor {
                     for (Actor a : aInRadius) {
                         if (this.wallLines[i].ptSegDist(a.getLocation()) <= 0.5f) {
                             if (isNeitherStructureNorAlly(a)) {
-                                a.addState(ActorState.ROOTED, 0d, E_ROOT_DURATION);
+                                a.getEffectManager()
+                                        .addState(ActorState.ROOTED, 0d, E_ROOT_DURATION);
                             }
 
                             if (isNeitherTowerNorAlly(a)) {
@@ -264,11 +265,26 @@ public class Finn extends UserActor {
                             true,
                             false,
                             this.team);
-                    double asDelta = this.getStat("attackSpeed") * -Q_ATTACKSPEED_VALUE;
-                    this.addEffect("speed", Q_SPEED_VALUE, Q_SPEED_DURATION);
-                    this.addEffect(
-                            "armor", this.getStat("armor") * Q_ARMOR_VALUE, Q_ARMOR_DURATION);
-                    this.addEffect("attackSpeed", asDelta, Q_ATTACKSPEED_DURATION);
+
+                    effectManager.addEffect(
+                            "speed",
+                            Q_SPEED_PERCENT,
+                            ModifierType.MULTIPLICATIVE,
+                            ModifierIntent.BUFF,
+                            Q_SPEED_DURATION);
+                    effectManager.addEffect(
+                            "armor",
+                            Q_ARMOR_PERCENT,
+                            ModifierType.MULTIPLICATIVE,
+                            ModifierIntent.BUFF,
+                            Q_ARMOR_DURATION);
+                    effectManager.addEffect(
+                            "attackSpeed",
+                            Q_ATTACK_SPEED_PERCENT,
+                            ModifierType.MULTIPLICATIVE,
+                            ModifierIntent.BUFF,
+                            Q_ATTACKSPEED_DURATION);
+
                 } catch (Exception exception) {
                     logExceptionMessage(avatar, ability);
                     exception.printStackTrace();

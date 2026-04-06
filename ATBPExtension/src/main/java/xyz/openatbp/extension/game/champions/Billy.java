@@ -21,9 +21,9 @@ public class Billy extends UserActor {
     private static final float Q_SPELL_RANGE = 4.5f;
     public static final int Q_STUN_DURATION = 1500;
     private static final int W_ATTACKSPEED_DURATION = 4000;
-    private static final float W_ATTACKSPEED_VALUE = 0.7f;
+    private static final float W_ATTACK_SPEED_PERCENT = 0.7f;
     private static final int W_SPEED_DURATION = 6000;
-    private static final float W_SPEED_VALUE = 0.5f;
+    private static final float W_SPEED_PERCENT = 0.5f;
     private static final int W_CRATER_OFFSET = 1;
     private static final int E_CAST_DELAY = 750;
     private static final int E_EMP_DURATION = 4500;
@@ -189,7 +189,11 @@ public class Billy extends UserActor {
                                     if (isNeitherStructureNorAlly(a)) {
                                         a.handleKnockback(location, 3.5f);
                                         if (passiveUses == 3)
-                                            a.addState(ActorState.STUNNED, 0d, Q_STUN_DURATION);
+                                            a.getEffectManager()
+                                                    .addState(
+                                                            ActorState.STUNNED,
+                                                            0d,
+                                                            Q_STUN_DURATION);
                                     }
                                     if (isNeitherTowerNorAlly(a)) {
                                         double damage = getSpellDamage(spellData, true);
@@ -247,9 +251,19 @@ public class Billy extends UserActor {
                     ExtensionCommands.actorAnimate(
                             this.parentExt, this.room, this.id, "spell2", wTime, false);
                     if (this.passiveUses == 3) {
-                        double delta = this.getStat("attackSpeed") * -W_ATTACKSPEED_VALUE;
-                        this.addEffect("attackSpeed", delta, W_ATTACKSPEED_DURATION);
-                        this.addEffect("speed", W_SPEED_VALUE, W_SPEED_DURATION);
+                        effectManager.addEffect(
+                                "attackSpeed",
+                                W_ATTACK_SPEED_PERCENT,
+                                ModifierType.MULTIPLICATIVE,
+                                ModifierIntent.BUFF,
+                                W_ATTACKSPEED_DURATION);
+                        effectManager.addEffect(
+                                "speed",
+                                W_SPEED_PERCENT,
+                                ModifierType.MULTIPLICATIVE,
+                                ModifierIntent.BUFF,
+                                W_SPEED_DURATION);
+
                         this.usePassiveAbility();
                         basicAttackReset();
                         ExtensionCommands.addStatusIcon(

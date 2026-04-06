@@ -23,7 +23,7 @@ public class FlamePrincess extends UserActor {
     private static final int Q_BURST_RECTANGLE_LENGTH = 4;
     private static final int Q_BURST_RECTANGLE_WIDTH = 1;
 
-    private static final int W_POLY_DURATION = 3000;
+    public static final int W_POLY_DURATION = 3000;
     private static final int W_CAST_DELAY = 1000;
 
     private static final int E_DASH_COOLDOWN = 350;
@@ -48,6 +48,7 @@ public class FlamePrincess extends UserActor {
 
     public FlamePrincess(User u, ATBPExtension parentExt) {
         super(u, parentExt);
+        this.customPolySwap = true;
     }
 
     @Override
@@ -70,7 +71,7 @@ public class FlamePrincess extends UserActor {
         }
         if (System.currentTimeMillis() - lastPolymorphTime <= W_POLY_DURATION) {
             for (Actor a : this.parentExt.getRoomHandler(this.room.getName()).getPlayers()) {
-                boolean polymorphActive = a.getState(ActorState.POLYMORPH);
+                boolean polymorphActive = a.getEffectManager().hasState(ActorState.POLYMORPH);
                 if (polymorphActive) {
                     RoomHandler handler = parentExt.getRoomHandler(room.getName());
                     List<Actor> actorsInRadius =
@@ -92,8 +93,7 @@ public class FlamePrincess extends UserActor {
     }
 
     @Override
-    public void handleSwapToPoly(int duration) {
-        super.handleSwapToPoly(duration);
+    public void customSwapToPoly() {
         if (this.passiveEnabled) {
             ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flame_passive");
         }
@@ -104,7 +104,7 @@ public class FlamePrincess extends UserActor {
     }
 
     @Override
-    public void handleSwapFromPoly() {
+    public void customSwapFromPoly() {
         String bundle = this.form == Form.ULT ? "flame_ult" : getSkinAssetBundle();
         ExtensionCommands.swapActorAsset(this.parentExt, this.room, this.id, bundle);
         if (form == Form.ULT) {
@@ -377,7 +377,7 @@ public class FlamePrincess extends UserActor {
             ExtensionCommands.scaleActor(parentExt, room, id, 0.6667f);
             this.fpScale = 1;
         }
-        if (!this.getState(ActorState.POLYMORPH)) { // poly asset swap handled elsewhere
+        if (!effectManager.hasState(ActorState.POLYMORPH)) { // poly asset swap handled elsewhere
             ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
         }
         ExtensionCommands.removeFx(parentExt, room, id + "flameE");
@@ -426,7 +426,10 @@ public class FlamePrincess extends UserActor {
             for (Actor a : affectedUsers) {
                 if (a.getActorType() == ActorType.PLAYER) { // poly for bot handled elsewhere
                     UserActor userActor = (UserActor) a;
-                    userActor.addState(ActorState.POLYMORPH, 0d, 3000);
+                    userActor
+                            .getEffectManager()
+                            .addState(ActorState.POLYMORPH, 0d, W_POLY_DURATION);
+
                     lastPolymorphTime = System.currentTimeMillis();
                 }
                 double newDamage = getSpellDamage(spellData, true);

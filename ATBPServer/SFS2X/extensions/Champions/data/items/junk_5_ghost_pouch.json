@@ -1,0 +1,66 @@
+{
+  "junk": {
+    "name": "junk_5_ghost_pouch_name",
+    "description": "junk_5_ghost_pouch_description",
+    "modDescription1": "junk_5_ghost_pouch_mod1",
+    "modDescription2": "junk_5_ghost_pouch_mod2",
+    "modDescription3": "junk_5_ghost_pouch_mod3",
+    "mod1Icon": "stat_health",
+    "mod2Icon": "stat_cooldown",
+    "mod3Icon": "stat_icon_blank",
+    "category": 5,
+    "mods": {
+      "mod": [
+        {
+          "point": 1,
+          "stat": "health",
+          "type": 0,
+          "value": 25
+        },
+        {
+          "point": 1,
+          "stat": "coolDownReduction",
+          "type": 0,
+          "value": 10
+        },
+        {
+          "point": 2,
+          "stat": "health",
+          "type": 0,
+          "value": 75
+        },
+        {
+          "point": 2,
+          "stat": "coolDownReduction",
+          "type": 0,
+          "value": 15
+        },
+        {
+          "point": 3,
+          "stat": "health",
+          "type": 0,
+          "value": 100
+        },
+        {
+          "point": 3,
+          "stat": "coolDownReduction",
+          "type": 0,
+          "value": 20
+        },
+        {
+          "point": 4,
+          "stat": "health",
+          "type": 0,
+          "value": 150
+        },
+        {
+          "point": 4,
+          "stat": "coolDownReduction",
+          "type": 0,
+          "value": 25
+        }
+      ]
+    },
+    "script": ""
+  }
+}

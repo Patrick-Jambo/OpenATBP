@@ -157,10 +157,11 @@ public class PathFinder {
             // pathfinding needed
 
             List<Point2D> movePoints = findPath(start, end);
-            movePoints.remove(0);
-            movePointsToDest.addAll(movePoints);
+            if (!movePoints.isEmpty()) {
+                movePoints.remove(0);
+                movePointsToDest.addAll(movePoints);
+            }
         }
-
         return movePointsToDest;
     }
 

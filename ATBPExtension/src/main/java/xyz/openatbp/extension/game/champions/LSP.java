@@ -62,7 +62,7 @@ public class LSP extends UserActor {
             isCastingult = false;
             ExtensionCommands.playSound(parentExt, room, id, "sfx_skill_interrupted", location);
             ExtensionCommands.actorAnimate(parentExt, room, id, "idle", 1, false);
-            if (!getState(ActorState.POLYMORPH))
+            if (!effectManager.hasState(ActorState.POLYMORPH))
                 ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
         }
 

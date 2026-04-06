@@ -1,0 +1,25 @@
+<belt>
+	<name>belt_beta_risk_name</name>
+	<description>belt_beta_risk_description</description>
+	<description_short>belt_beta_risk_description_short</description_short>
+	<iconBackpack>backpack_finn</iconBackpack>
+	<icon>belt_billys_bag</icon>
+	<steam_achievement_name>UNDEFINED</steam_achievement_name>
+	<junk>
+		<slot1>
+			<junk_id>junk_1_magic_nail</junk_id>
+		</slot1>
+		<slot2>
+			<junk_id>junk_2_lightning_sword</junk_id>
+		</slot2>
+		<slot3>
+			<junk_id>junk_3_ice_armor</junk_id>
+		</slot3>
+		<slot4>
+			<junk_id>junk_4_future_crystal</junk_id>
+		</slot4>
+		<slot5>
+			<junk_id>junk_5_glasses_of_nerdicon</junk_id>
+		</slot5>
+	</junk>
+</belt>

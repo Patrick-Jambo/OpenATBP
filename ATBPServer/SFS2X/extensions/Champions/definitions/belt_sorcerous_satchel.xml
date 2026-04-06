@@ -1,0 +1,25 @@
+<belt>
+	<name>belt_sorcerous_satchel_name</name>
+	<description>belt_sorcerous_satchel_description</description>
+	<description_short>belt_sorcerous_satchel_description_short</description_short>
+	<iconPack>backpack_bubblegum</iconPack>	
+	<iconJunk></iconJunk>
+	<steam_achievement_name>Sorcerous Satchel achievement name</steam_achievement_name>
+	<junk>
+		<slot1>
+			<junk_id>junk_1_eyeball_whip</junk_id>
+		</slot1>
+		<slot2>
+			<junk_id>junk_2_magic_wand</junk_id>
+		</slot2>
+		<slot3>
+			<junk_id>junk_3_armor_of_zeldron</junk_id>
+		</slot3>
+		<slot4>
+			<junk_id>junk_4_flame_cloak</junk_id>
+		</slot4>
+		<slot5>
+			<junk_id>junk_5_glasses_of_nerdicon</junk_id>
+		</slot5>
+	</junk>
+</belt>

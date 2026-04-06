@@ -139,7 +139,7 @@ public abstract class Bot extends Actor {
             ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
         }
 
-        if (!getState(ActorState.AIRBORNE)) stopMoving();
+        if (!effectManager.hasState(ActorState.AIRBORNE)) stopMoving();
         ExtensionCommands.knockOutActor(parentExt, room, id, realKiller.getId(), deathTime);
 
         Runnable respawn = this::respawn;
@@ -379,7 +379,7 @@ public abstract class Bot extends Actor {
         }
 
         if (pickedUpHealthPack) {
-            pickedUpHealthPack = false; // TODO:
+            pickedUpHealthPack = false;
             setStat("healthRegen", getStat("healthRegen") - HP_PACK_REGEN);
             ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
         }
@@ -393,7 +393,7 @@ public abstract class Bot extends Actor {
                 && attackData.get("spellName").asText().equals("flame_spell_2_name")) {
             lastPolymorphTime = System.currentTimeMillis();
             isPolymorphed = true;
-            addState(ActorState.SLOWED, POLYMORPH_SLOW_VALUE, POLYMORPH_DURATION);
+            effectManager.addState(ActorState.SLOWED, POLYMORPH_SLOW_VALUE, POLYMORPH_DURATION);
 
             ExtensionCommands.swapActorAsset(parentExt, room, id, "flambit");
             ExtensionCommands.createActorFX(
@@ -801,7 +801,8 @@ public abstract class Bot extends Actor {
         if (attackCooldown > 0) attackCooldown -= 100;
 
         handleDamageQueue();
-        handleActiveEffects();
+        // handleActiveEffects();
+        effectManager.handleEffectsUpdate();
         handleMovementUpdate();
 
         if (MOVEMENT_DEBUG)
@@ -872,13 +873,6 @@ public abstract class Bot extends Actor {
         }
     }
 
-    protected void handleSwapFromPoly() {
-        if (isPolymorphed && System.currentTimeMillis() - lastPolymorphTime >= POLYMORPH_DURATION) {
-            isPolymorphed = false;
-            ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
-        }
-    }
-
     protected void faceTarget(Actor target) {
         if (target != null) {
             Point2D rotationPoint =
@@ -938,7 +932,7 @@ public abstract class Bot extends Actor {
         canMove = true;
         setHealth((int) maxHealth, (int) maxHealth);
         setLocation(spawnPoint);
-        removeEffects();
+        effectManager.removeEffects();
         agressors.clear();
         ExtensionCommands.snapActor(parentExt, room, id, location, location, false);
         ExtensionCommands.playSound(parentExt, room, id, "sfx/sfx_champion_respawn", location);

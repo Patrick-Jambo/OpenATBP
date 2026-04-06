@@ -133,7 +133,7 @@ public class Monster extends Actor {
             boolean returnVal = super.damaged(a, newDamage, attackData);
             if (!this.headingBack && isProperActor(a)) { // attacks the nearest attacker
                 state = AggroState.ATTACKED;
-                if (!this.getState(ActorState.CHARMED) && this.target == null
+                if (!effectManager.hasState(ActorState.CHARMED) && this.target == null
                         || a.getLocation().distance(this.getLocation())
                                 < this.target.getLocation().distance(this.location)) {
                     this.target = a;
@@ -167,7 +167,7 @@ public class Monster extends Actor {
 
     @Override
     public void handleCharm(UserActor charmer, int duration) {
-        this.addState(ActorState.CHARMED, 0d, duration);
+        effectManager.addState(ActorState.CHARMED, 0d, duration);
         if (charmer != null) {
             this.target = charmer;
             this.charmer = charmer;
@@ -294,7 +294,7 @@ public class Monster extends Actor {
         Console.debugLog(this.id + " has died! " + this.dead);
         if (!this.dead) { // No double deaths
             this.dead = true;
-            if (!this.getState(ActorState.AIRBORNE)) this.stopMoving();
+            if (!effectManager.hasState(ActorState.AIRBORNE)) this.stopMoving();
             this.currentHealth = -1;
             RoomHandler roomHandler = parentExt.getRoomHandler(this.room.getName());
             int scoreValue = parentExt.getActorStats(this.avatar).get("valueScore").asInt();
@@ -342,11 +342,14 @@ public class Monster extends Actor {
     @Override
     public void update(int msRan) {
         this.handleDamageQueue();
-        this.handleActiveEffects();
+        // this.handleActiveEffects();
         if (this.dead) return;
+
+        effectManager.handleEffectsUpdate();
         handleMovementUpdate();
 
-        if (this.target != null && (this.target.getState(ActorState.INVISIBLE))) {
+        if (this.target != null
+                && (this.target.getEffectManager().hasState(ActorState.INVISIBLE))) {
             this.state = AggroState.PASSIVE;
             startMoveTo(startingLocation);
             this.target = null;
@@ -354,7 +357,7 @@ public class Monster extends Actor {
         if (this.headingBack && this.location.distance(startingLocation) <= 1f) {
             this.headingBack = false;
         }
-        if (this.getState(ActorState.CHARMED) && this.charmer != null) {
+        if (effectManager.hasState(ActorState.CHARMED) && this.charmer != null) {
             moveTowardsCharmer(charmer);
         }
 
@@ -362,14 +365,6 @@ public class Monster extends Actor {
                 == 0) { // Every second it checks average player level and scales accordingly
             this.updateMaxHealth();
         }
-        /*if (this.movementLine != null)
-        this.location =
-                this.getRelativePoint(); // Sets location variable to its actual location*/
-        // using *math*
-        /*else this.movementLine = new Line2D.Float(this.location, this.location);
-        if (this.movementLine.getP1().distance(this.movementLine.getP2()) > 0.01d)
-            this.timeTraveled += 0.1f;*/
-        // this.handlePathing();
         if (this.target != null && this.target.getHealth() <= 0)
             this.setAggroState(AggroState.PASSIVE, null);
         if (movementDebug && this.type == MonsterType.BIG)
@@ -400,10 +395,11 @@ public class Monster extends Actor {
                 } else if (!this.withinRange(this.target) && this.canMove()) {
                     this.moveTowardsActor();
                 } else if (this.withinRange(this.target)
-                        && !this.states.get(ActorState.FEARED)
-                        && !this.states.get(ActorState.CHARMED)) {
-                    if (this.movementLine.getP1().distance(this.movementLine.getP2()) > 0.01f)
-                        this.stopMoving();
+                        // TODO: refactor to work with new movement system
+                        && !effectManager.hasState(ActorState.FEARED)
+                        && !effectManager.hasState(ActorState.CHARMED)) {
+                    if (location.distance(target.getLocation())
+                            < getPlayerStat("attackRange") - 0.5f) this.stopMoving();
                 }
             }
         }
@@ -412,12 +408,12 @@ public class Monster extends Actor {
 
     @Override
     public boolean canMove() {
-        for (ActorState s : this.states.keySet()) {
+        for (ActorState s : effectManager.getStates().keySet()) {
             if (s == ActorState.ROOTED
                     || s == ActorState.STUNNED
                     || s == ActorState.FEARED
                     || s == ActorState.AIRBORNE) {
-                if (this.states.get(s)) return false;
+                if (effectManager.hasState(s)) return false;
             }
         }
         return this.canMove;
@@ -457,7 +453,7 @@ public class Monster extends Actor {
         // on
         // collision radius
         if (!this.canMove()) return;
-        if (this.states.get(ActorState.FEARED)) return;
+        if (effectManager.hasState(ActorState.FEARED)) return;
         if (this.target == null) return;
 
         startMoveTo(target.getLocation());

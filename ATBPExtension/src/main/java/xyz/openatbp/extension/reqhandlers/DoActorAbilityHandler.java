@@ -15,6 +15,8 @@ import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.ModifierIntent;
+import xyz.openatbp.extension.game.ModifierType;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 @MultiHandler
@@ -97,7 +99,13 @@ public class DoActorAbilityHandler extends BaseClientRequestHandler {
                 float delta = speedPerZeldronPoints[pointsPutIntoZeldron - 1];
                 String iconName = "junk_3_armor_of_zeldron";
 
-                player.addEffect("speed", delta, ZELDRON_BUFF_DURATION);
+                player.getEffectManager()
+                        .addEffect(
+                                "speed",
+                                delta,
+                                ModifierType.MULTIPLICATIVE,
+                                ModifierIntent.BUFF,
+                                ZELDRON_BUFF_DURATION);
 
                 Long lastZeldronTime = player.getLastZeldronBuff();
 

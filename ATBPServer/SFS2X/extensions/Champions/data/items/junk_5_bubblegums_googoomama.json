@@ -1,0 +1,66 @@
+{
+  "junk": {
+    "name": "junk_5_bubblegums_googoomama_name",
+    "description": "junk_5_bubblegums_googoomama_description",
+    "modDescription1": "junk_5_bubblegums_googoomama_mod1",
+    "modDescription2": "junk_5_bubblegums_googoomama_mod2",
+    "modDescription3": "junk_5_bubblegums_googoomama_mod3",
+    "mod1Icon": "stat_health",
+    "mod2Icon": "stat_cooldown",
+    "mod3Icon": "stat_icon_blank",
+    "category": 5,
+    "mods": {
+      "mod": [
+        {
+          "point": 1,
+          "stat": "health",
+          "type": 0,
+          "value": 25
+        },
+        {
+          "point": 1,
+          "stat": "coolDownReduction",
+          "type": 0,
+          "value": 5
+        },
+        {
+          "point": 2,
+          "stat": "health",
+          "type": 0,
+          "value": 75
+        },
+        {
+          "point": 2,
+          "stat": "coolDownReduction",
+          "type": 0,
+          "value": 7
+        },
+        {
+          "point": 3,
+          "stat": "health",
+          "type": 0,
+          "value": 125
+        },
+        {
+          "point": 3,
+          "stat": "coolDownReduction",
+          "type": 0,
+          "value": 10
+        },
+        {
+          "point": 4,
+          "stat": "health",
+          "type": 0,
+          "value": 200
+        },
+        {
+          "point": 4,
+          "stat": "coolDownReduction",
+          "type": 0,
+          "value": 15
+        }
+      ]
+    },
+    "script": ""
+  }
+}
