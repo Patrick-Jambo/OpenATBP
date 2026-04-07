@@ -51,19 +51,23 @@ public class EffectManager {
                 break;
 
             case ROOTED:
+                actor.stopMoving();
+                actor.interruptDash(true);
+                break;
+
             case STUNNED:
+            case CHARMED:
+                actor.interruptDash(false);
                 actor.stopMoving();
                 break;
 
-            case CHARMED:
-                handleCharm();
-                break;
-
             case FEARED:
-                handleFear(actor.getFearer());
+            case SILENCED:
+                actor.interruptDash(false);
                 break;
 
             case POLYMORPH:
+                actor.interruptDash(false);
                 if (actor.hasCustomPolySwap()) actor.customSwapToPoly();
                 else handleSwapToPoly();
                 break;
@@ -330,6 +334,14 @@ public class EffectManager {
 
     public void handleEffectsUpdate() {
         if (isActorIgnored(actor)) return;
+
+        if (hasState(ActorState.CHARMED) && canMoveDuringCharmOrFear(ActorState.CHARMED)) {
+            actor.handleCharmMovement();
+        }
+
+        if (hasState(ActorState.FEARED) && canMoveDuringCharmOrFear(ActorState.FEARED)) {
+            actor.handleFear(actor.getFearer());
+        }
 
         // HANDLES EFFECTS
         modifiers.removeIf(StatModifier::isExpired);

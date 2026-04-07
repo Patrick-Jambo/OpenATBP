@@ -9,9 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import com.smartfoxserver.v2.entities.User;
 
-import xyz.openatbp.extension.ATBPExtension;
-import xyz.openatbp.extension.ExtensionCommands;
-import xyz.openatbp.extension.RoomHandler;
+import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Bot;
@@ -19,6 +17,7 @@ import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class Finn extends UserActor {
     public static final int PASSIVE_DURATION = 5000;
@@ -47,6 +46,7 @@ public class Finn extends UserActor {
     private boolean isCastingUlt = false;
     private Path2D finnUltRing;
     private boolean ringBoostApplied = false;
+    private int wDuration = 0;
 
     public Finn(User u, ATBPExtension parentExt) {
         super(u, parentExt);
@@ -304,21 +304,54 @@ public class Finn extends UserActor {
                 break;
             case 2:
                 this.canCast[1] = false;
-                float W_SPELL_RANGE =
-                        location.distance(dest) >= 5 ? 5 : (float) this.location.distance(dest);
+                RoomHandler rh = this.parentExt.getRoomHandler(this.room.getName());
+                PathFinder pf = rh.getPathFinder();
+
+                Point2D dashEndPoint = pf.getIntersectionPoint(location, dest);
+
+                float distance = (float) location.distance(dashEndPoint);
+                wDuration = (int) ((distance / DEFAULT_DASH_SPEED) * 1000);
+
                 AbilityShape wRect =
                         AbilityShape.createRectangle(
-                                location, dest, W_SPELL_RANGE, W_OFFSET_DISTANCE);
+                                location, dashEndPoint, distance, W_OFFSET_DISTANCE);
 
-                Point2D ogLocation = this.location;
-                Point2D finalDashPoint = this.dash(dest, false, DASH_SPEED);
-                double time = ogLocation.distance(finalDashPoint) / DASH_SPEED;
-                int wTime = (int) (time * 1000);
-                Runnable endAnim =
-                        () ->
-                                ExtensionCommands.actorAnimate(
-                                        parentExt, room, id, "idle", wTime, false);
-                scheduleTask(endAnim, wTime);
+                RoomHandler handler = parentExt.getRoomHandler(room.getName());
+                for (Actor a : Champion.getActorsInRadius(handler, location, distance)) {
+                    if (isNeitherTowerNorAlly(a)
+                            && wRect.contains(a.getLocation(), a.getCollisionRadius())) {
+                        double damage = handlePassive(a, getSpellDamage(spellData, true));
+                        a.addToDamageQueue(Finn.this, damage, spellData, false);
+                        passiveStart = System.currentTimeMillis();
+                    }
+                }
+
+                Runnable onEnd =
+                        () -> {
+                            doWEndAnim();
+                            handleWCD();
+                        };
+
+                Runnable onInterrupt =
+                        () -> {
+                            doWEndAnim();
+                            handleWCD();
+                            playIdleAndInterruptSound();
+                        };
+
+                DashContext ctx =
+                        new DashContext.Builder(
+                                        new Point2D.Double(location.getX(), location.getY()),
+                                        dashEndPoint,
+                                        (float) DEFAULT_DASH_SPEED)
+                                .canBeRedirected(true)
+                                .triggerEndEffectOnRoot(false)
+                                .onEnd(onEnd)
+                                .onInterrupt(onInterrupt)
+                                .build();
+
+                startDash(ctx);
+
                 String dashFX = SkinData.getFinnWFX(avatar);
                 String dashSFX = SkinData.getFinnWSFX(avatar);
                 ExtensionCommands.createActorFX(
@@ -326,41 +359,21 @@ public class Finn extends UserActor {
                         this.room,
                         this.id,
                         dashFX,
-                        wTime,
+                        wDuration,
                         this.id + "finnWTrail",
                         true,
                         "",
                         true,
                         false,
                         this.team);
-                ExtensionCommands.playSound(
-                        this.parentExt, this.room, this.id, dashSFX, this.location);
 
-                RoomHandler rh = this.parentExt.getRoomHandler(this.room.getName());
-                List<Actor> nearbyEnemies =
-                        Champion.getEnemyActorsInRadius(rh, team, location, W_SPELL_RANGE);
-                if (!nearbyEnemies.isEmpty() && getHealth() > 0) {
-                    for (Actor a : nearbyEnemies) {
-
-                        if (isNeitherTowerNorAlly(a)
-                                && wRect.contains(a.getLocation(), a.getCollisionRadius())) {
-                            double damage = handlePassive(a, getSpellDamage(spellData, true));
-                            a.addToDamageQueue(this, damage, spellData, false);
-                            passiveStart = System.currentTimeMillis();
-                        }
-                    }
-                }
+                ExtensionCommands.playSound(parentExt, room, id, dashSFX, location);
 
                 ExtensionCommands.actorAbilityResponse(
-                        this.parentExt,
-                        this.player,
-                        "w",
-                        true,
-                        getReducedCooldown(cooldown),
-                        gCooldown);
+                        parentExt, player, "w", true, getReducedCooldown(cooldown), gCooldown);
                 int delay1 = getReducedCooldown(cooldown);
                 scheduleTask(
-                        abilityRunnable(ability, spellData, cooldown, gCooldown, finalDashPoint),
+                        abilityRunnable(ability, spellData, cooldown, gCooldown, dashEndPoint),
                         delay1);
                 break;
             case 3:
@@ -481,6 +494,17 @@ public class Finn extends UserActor {
                         abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay2);
                 break;
         }
+    }
+
+    private void doWEndAnim() {
+        ExtensionCommands.actorAnimate(parentExt, room, id, "idle", 100, false);
+    }
+
+    private void handleWCD() {
+        int cd = ChampionData.getBaseAbilityCooldown(this, 1);
+        int finalCD = getReducedCooldown(cd) - wDuration;
+        Runnable allowUse = () -> canCast[1] = true;
+        scheduleTask(allowUse, finalCD);
     }
 
     protected double handlePassive(Actor target, double damage) {
@@ -604,9 +628,7 @@ public class Finn extends UserActor {
         }
 
         @Override
-        protected void spellW() {
-            canCast[1] = true;
-        }
+        protected void spellW() {}
 
         @Override
         protected void spellE() {

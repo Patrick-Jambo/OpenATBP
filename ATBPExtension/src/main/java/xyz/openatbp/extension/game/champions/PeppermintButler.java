@@ -13,6 +13,7 @@ import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class PeppermintButler extends UserActor {
     private static final double PASSIVE_HP_REG_PERCENT = 0.02d;
@@ -59,6 +60,11 @@ public class PeppermintButler extends UserActor {
     public PeppermintButler(User u, ATBPExtension parentExt) {
         super(u, parentExt);
         this.customPolySwap = true;
+    }
+
+    private void wEnd() {
+        performWAttack();
+        handleWCD();
     }
 
     @Override
@@ -119,7 +125,7 @@ public class PeppermintButler extends UserActor {
             this.passiveLocation = null;
             if (effectManager.hasState(ActorState.STEALTH)) {
                 String animation = "idle";
-                if (this.location.distance(this.movementLine.getP2()) > 0.1d) animation = "run";
+                if (isMoving) animation = "run";
                 ExtensionCommands.actorAnimate(
                         this.parentExt, this.room, this.id, animation, 1, false);
                 effectManager.setState(ActorState.STEALTH, false);
@@ -172,26 +178,23 @@ public class PeppermintButler extends UserActor {
             }
         }
 
-        if (this.wActivated && hasDashAttackInterruptCC()) {
-            ExtensionCommands.playSound(parentExt, room, id, "sfx_skill_interrupted", location);
-            ExtensionCommands.actorAnimate(parentExt, room, id, "idle", 1, false);
-            endW();
-            removeWRing();
-
-            if (dashStarted) {
-                ExtensionCommands.removeFx(parentExt, room, "pepbut_dig_rocks");
-            }
-        }
-
         if (wActivated && System.currentTimeMillis() - wStartTime >= W_DASH_DELAY && !dashStarted) {
             dashStarted = true;
-            dashStartTime = System.currentTimeMillis();
 
-            Point2D startLocation = location;
-            Point2D dashLocation = dash(dashDestination, true, W_SPEED);
+            RoomHandler rh = parentExt.getRoomHandler(room.getName());
+            PathFinder pf = rh.getPathFinder();
 
-            double time = startLocation.distance(dashLocation) / W_SPEED;
+            dashDestination = pf.getNonObstaclePointOrIntersection(location, dashDestination);
+            double time = location.distance(dashDestination) / W_SPEED;
             dashDurationMs = (int) (time * 1000);
+
+            DashContext ctx =
+                    new DashContext.Builder(location, dashDestination, (float) W_SPEED)
+                            .isLeap(true)
+                            .canBeRedirected(false)
+                            .onEnd(this::wEnd)
+                            .build();
+            startDash(ctx);
 
             ExtensionCommands.playSound(parentExt, room, id, "sfx_pepbut_dig", location);
             ExtensionCommands.actorAnimate(parentExt, room, id, "spell2b", dashDurationMs, true);
@@ -209,19 +212,14 @@ public class PeppermintButler extends UserActor {
                     team);
         }
 
-        if (wActivated
-                && dashStarted
-                && System.currentTimeMillis() - dashStartTime >= dashDurationMs) {
-            performWAttack();
-            endW();
-        }
+        if (dashStarted && movePointsToDest != null && !movePointsToDest.isEmpty()) {
+            Point2D newDest = movePointsToDest.get(movePointsToDest.size() - 1);
 
-        if (dashStarted
-                && dashDestination != null
-                && !location.equals(dashDestination)
-                && !isDead()) {
-            removeWRing();
-            createWRing(location);
+            if (!newDest.equals(dashDestination)) {
+                removeWRing();
+                createWRing(movePointsToDest.get(movePointsToDest.size() - 1));
+                dashDestination = newDest;
+            }
         }
     }
 
@@ -563,7 +561,7 @@ public class PeppermintButler extends UserActor {
         return false;
     }
 
-    private void endW() {
+    private void handleWCD() {
         wActivated = false;
         dashStarted = false;
 
@@ -593,8 +591,8 @@ public class PeppermintButler extends UserActor {
                 "pepbut_dig_explode",
                 id + "_wExplode",
                 1000,
-                (float) location.getX(),
-                (float) location.getY(),
+                (float) dashDestination.getX(),
+                (float) dashDestination.getY(),
                 false,
                 team,
                 0f);
@@ -607,8 +605,8 @@ public class PeppermintButler extends UserActor {
                     "pepbut_feral_explosion",
                     id + "_wferalExplode",
                     2000,
-                    (float) location.getX(),
-                    (float) location.getY(),
+                    (float) dashDestination.getX(),
+                    (float) dashDestination.getY(),
                     false,
                     team,
                     0f);

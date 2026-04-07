@@ -157,7 +157,6 @@ public class Hunson extends UserActor {
     @Override
     public void attack(Actor a) {
         super.attack(a);
-        Console.debugLog("Passive: " + this.passiveActivated + " | CanUse: " + this.canUsePassive);
         if (this.hasStatusEffect(a) && !this.passiveActivated && this.canUsePassive) {
             this.passiveActivated = true;
             this.canUsePassive = false;
@@ -374,7 +373,6 @@ public class Hunson extends UserActor {
     private boolean hasStatusEffect(Actor a) {
         ActorState[] states = ActorState.values();
         for (ActorState s : states) {
-            Console.debugLog("STATE: " + s.name());
             if (a.getEffectManager().hasState(s)
                     && s != ActorState.BRUSH
                     && s != ActorState.TRANSFORMED
@@ -463,7 +461,6 @@ public class Hunson extends UserActor {
             passiveActivated = false;
             ExtensionCommands.actorAbilityResponse(parentExt, player, "passive", true, cooldown, 0);
             Runnable allowPassive = () -> canUsePassive = true;
-            Console.debugLog("Cooldown: " + cooldown);
             scheduleTask(allowPassive, cooldown);
         }
     }
@@ -494,7 +491,7 @@ public class Hunson extends UserActor {
             }
 
             if (isNeitherStructureNorAlly(victim)) {
-                victim.handlePull(Hunson.this.location, Q_PULL_DISTANCE);
+                victim.handlePull(location, (float) Q_PULL_DISTANCE);
                 victim.getEffectManager()
                         .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
             }

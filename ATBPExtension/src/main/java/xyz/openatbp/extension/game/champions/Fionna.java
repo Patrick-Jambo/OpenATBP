@@ -27,6 +27,7 @@ public class Fionna extends UserActor {
     public static final double PASSIVE_MAX_DMG_PERCENT = 0.6d;
     public static final double Q_SLOW_PERCENT = 0.5;
     public static final int Q_SLOW_DURATION = 1000;
+    public static final double Q_DASH_SPEED = 15d;
 
     private enum SwordType {
         FIERCE,
@@ -76,12 +77,6 @@ public class Fionna extends UserActor {
         this.updateStatMenu(statsToUpdate);
         this.previousAttackDamage = this.getPlayerStat("attackDamage");
         this.previousSpellDamage = this.getPlayerStat("spellDamage");
-
-        RoomHandler rh = parentExt.getRoomHandler(room.getName());
-        PathFinder pf = rh.getPathFinder();
-
-        // pf.displayMapBoundaries(parentExt, room, id, team);
-        // pf.displayObstacles(parentExt, room, id, team);
     }
 
     @Override
@@ -153,6 +148,79 @@ public class Fionna extends UserActor {
         return super.getPlayerStat(stat);
     }
 
+    private void onQInterrupt() {
+        playIdleAndInterruptSound();
+        if (dashesRemaining == 0) {
+            Runnable enableQCasting = () -> canCast[0] = true;
+            int delay = getReducedCooldown(qCooldown) - qTime;
+            scheduleTask(enableQCasting, delay);
+
+            ExtensionCommands.removeStatusIcon(
+                    parentExt, player, id + "_dash" + dashesRemaining + 1);
+            ExtensionCommands.actorAbilityResponse(parentExt, player, "q", true, delay, 0);
+        } else {
+            canCast[0] = true;
+        }
+    }
+
+    private Runnable onQEnd() {
+        return () -> {
+            if (dashesRemaining > 0) canCast[0] = true;
+            int dashInt = dashesRemaining + 1;
+            float range = 1f;
+            String explosionFx = "fionna_dash_explode_small";
+            if (dashInt == 1) {
+                range = 2.5f;
+                explosionFx = "fionna_dash_explode";
+                Runnable enableQCasting = () -> canCast[0] = true;
+                int delay = getReducedCooldown(qCooldown) - qTime;
+                scheduleTask(enableQCasting, delay);
+            }
+            if (getHealth() > 0) {
+                JsonNode spellData = parentExt.getAttackData(avatar, "spell1");
+                ExtensionCommands.createWorldFX(
+                        parentExt,
+                        room,
+                        id,
+                        explosionFx,
+                        id + "_explosion" + dashInt,
+                        1500,
+                        (float) location.getX(),
+                        (float) location.getY(),
+                        false,
+                        team,
+                        0f);
+                if (dashInt == 1) {
+                    ExtensionCommands.createWorldFX(
+                            parentExt,
+                            room,
+                            id,
+                            "fx_target_ring_2.5",
+                            id + "qCircle",
+                            800,
+                            (float) location.getX(),
+                            (float) location.getY(),
+                            true,
+                            team,
+                            0f);
+                }
+                RoomHandler handler = parentExt.getRoomHandler(room.getName());
+                for (Actor a : Champion.getActorsInRadius(handler, location, range)) {
+                    if (isNeitherTowerNorAlly(a)) {
+                        actorsHitWithQ.add(a);
+                        double damage = getSpellDamage(spellData, true);
+                        a.addToDamageQueue(Fionna.this, damage, spellData, false);
+                    }
+
+                    if (isNeitherStructureNorAlly(a) && dashInt == 1) {
+                        a.getEffectManager()
+                                .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
+                    }
+                }
+            }
+        };
+    }
+
     @Override
     public void useAbility(
             int ability,
@@ -172,11 +240,26 @@ public class Fionna extends UserActor {
                 }
                 if (dashesRemaining > 0) {
                     this.dashTime = System.currentTimeMillis();
-                    Point2D origLocation = this.location;
-                    Point2D dashPoint = this.dash(dest, false, 15d);
-                    double time = origLocation.distance(dashPoint) / 15d;
+
+                    RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                    PathFinder pf = rh.getPathFinder();
+
+                    Point2D dashPoint = pf.getIntersectionPoint(location, dest);
+                    double time = location.distance(dashPoint) / Q_DASH_SPEED;
                     this.qTime = (int) (time * 1000);
+
+                    DashContext ctx =
+                            new DashContext.Builder(location, dest, (float) Q_DASH_SPEED)
+                                    .canBeRedirected(true)
+                                    .onEnd(onQEnd())
+                                    .onInterrupt(this::onQInterrupt)
+                                    .triggerEndEffectOnRoot(true)
+                                    .build();
+
+                    startDash(ctx);
+
                     this.dashesRemaining--;
+
                     if (this.dashesRemaining == 0) {
                         this.dashTime = -1;
                         if (this.actorsHitWithQ.isEmpty()) this.qCooldown *= 0.7d;
@@ -222,9 +305,6 @@ public class Fionna extends UserActor {
                     int gruntNum = 3 - this.dashesRemaining;
                     ExtensionCommands.playSound(
                             parentExt, room, this.id, "fionna_grunt" + gruntNum, this.location);
-                    scheduleTask(
-                            abilityRunnable(ability, spellData, cooldown, gCooldown, dashPoint),
-                            qTime);
                 }
                 break;
             case 2:
@@ -282,8 +362,6 @@ public class Fionna extends UserActor {
                 int delay1 = getReducedCooldown(cooldown);
                 scheduleTask(
                         abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay1);
-                break;
-            case 4:
                 break;
         }
     }
@@ -382,60 +460,7 @@ public class Fionna extends UserActor {
         }
 
         @Override
-        protected void spellQ() {
-            if (dashesRemaining > 0) canCast[0] = true;
-            int dashInt = dashesRemaining + 1;
-            float range = 1f;
-            String explosionFx = "fionna_dash_explode_small";
-            if (dashInt == 1) {
-                range = 2.5f;
-                explosionFx = "fionna_dash_explode";
-                Runnable enableQCasting = () -> canCast[0] = true;
-                int delay = getReducedCooldown(qCooldown) - qTime;
-                scheduleTask(enableQCasting, delay);
-            }
-            if (getHealth() > 0) {
-                ExtensionCommands.createWorldFX(
-                        parentExt,
-                        room,
-                        id,
-                        explosionFx,
-                        id + "_explosion" + dashInt,
-                        1500,
-                        (float) dest.getX(),
-                        (float) dest.getY(),
-                        false,
-                        team,
-                        0f);
-                if (dashInt == 1) {
-                    ExtensionCommands.createWorldFX(
-                            parentExt,
-                            room,
-                            id,
-                            "fx_target_ring_2.5",
-                            id + "qCircle",
-                            800,
-                            (float) dest.getX(),
-                            (float) dest.getY(),
-                            true,
-                            team,
-                            0f);
-                }
-                RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                for (Actor a : Champion.getActorsInRadius(handler, dest, range)) {
-                    if (isNeitherTowerNorAlly(a)) {
-                        actorsHitWithQ.add(a);
-                        double damage = getSpellDamage(spellData, true);
-                        a.addToDamageQueue(Fionna.this, damage, spellData, false);
-                    }
-
-                    if (isNeitherStructureNorAlly(a) && dashInt == 1) {
-                        a.getEffectManager()
-                                .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
-                    }
-                }
-            }
-        }
+        protected void spellQ() {}
 
         @Override
         protected void spellW() {

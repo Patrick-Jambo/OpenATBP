@@ -1,5 +1,7 @@
 package xyz.openatbp.extension.game.champions;
 
+import static xyz.openatbp.extension.game.effects.EffectManager.KNOCKBACK_SPEED;
+
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
@@ -18,6 +20,7 @@ import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class BubbleGum extends UserActor {
     private static final String[] PASSIVE_NAMES = {
@@ -35,6 +38,7 @@ public class BubbleGum extends UserActor {
     private static final float Q_SPEED_VALUE_PERCENT = 0.4f;
     private static final int E_DURATION = 4000;
     private static final int E_SECOND_USE_DELAY = 750;
+    public static final float E_KNOCKBACK_DIST = 3.5f;
 
     private int passiveAmmunition = 3;
     private long passiveTimeStamp = 0;
@@ -145,7 +149,6 @@ public class BubbleGum extends UserActor {
     @Override
     public void attack(Actor a) {
         if (this.attackCooldown == 0) {
-            Console.debugLog("TEST");
             this.applyStopMovingDuringAttack();
             String projectile = "bubblegum_projectile";
             String emit = SkinData.getBubbleGumBasicAttackEmit(avatar);
@@ -317,17 +320,41 @@ public class BubbleGum extends UserActor {
             for (Actor a : actors) {
                 double spellDamage = getSpellDamage(spellData, true);
                 if (a.getActorType() != ActorType.BASE && a.getActorType() != ActorType.TOWER) {
-                    a.handleKnockback(bombLocation, 3.5f);
-                    if (effectManager.hasState(ActorState.SLOWED) && !a.equals(this))
+
+                    if (!a.equals(this)) {
+                        a.handleKnockback(bombLocation, E_KNOCKBACK_DIST);
+                    }
+
+                    if (effectManager.hasState(ActorState.SLOWED) && !a.equals(this)) {
                         spellDamage *= 1.25d;
+                    }
+
+                    Runnable animDelay =
+                            () ->
+                                    ExtensionCommands.actorAnimate(
+                                            parentExt, room, id, "spell3c", 500, false);
 
                     if (a.equals(this)) {
+
+                        float distToBomb = (float) location.distance(bombLocation);
+                        float range = E_KNOCKBACK_DIST + distToBomb;
+
+                        Point2D initLeap =
+                                Champion.getAbilityLine(bombLocation, location, range).getP2();
+                        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                        PathFinder pf = rh.getPathFinder();
+
+                        Point2D leapLoc = pf.getNonObstaclePointOrIntersection(location, initLeap);
+
+                        DashContext ctx =
+                                new DashContext.Builder(location, leapLoc, KNOCKBACK_SPEED)
+                                        .isLeap(true)
+                                        .canBeRedirected(false)
+                                        .onEnd(animDelay)
+                                        .build();
+                        startDash(ctx);
+
                         ExtensionCommands.actorAnimate(parentExt, room, id, "spell3b", 325, false);
-                        Runnable animDelay =
-                                () ->
-                                        ExtensionCommands.actorAnimate(
-                                                parentExt, room, id, "spell3c", 350, false);
-                        scheduleTask(animDelay, 325);
                     }
                 }
 

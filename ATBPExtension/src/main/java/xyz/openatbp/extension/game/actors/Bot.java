@@ -1,6 +1,5 @@
 package xyz.openatbp.extension.game.actors;
 
-import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,7 +94,6 @@ public abstract class Bot extends Actor {
         this.displayName = displayName;
         this.id = "bot_" + avatar + "_" + team + "_" + Math.random();
         this.team = team;
-        this.movementLine = new Line2D.Float(this.location, this.location);
         this.actorType = ActorType.COMPANION;
         this.stats = initializeStats();
         this.spawnPoint = mapConfig.respawnPoint;
@@ -878,7 +876,6 @@ public abstract class Bot extends Actor {
         if (target != null) {
             Point2D rotationPoint =
                     Champion.getAbilityLine(location, target.getLocation(), 0.1f).getP2();
-            setLocation(rotationPoint);
 
             ExtensionCommands.moveActor(
                     parentExt,
@@ -932,7 +929,6 @@ public abstract class Bot extends Actor {
         dead = false;
         canMove = true;
         setHealth((int) maxHealth, (int) maxHealth);
-        setLocation(spawnPoint);
         effectManager.removeEffects();
         agressors.clear();
         ExtensionCommands.snapActor(parentExt, room, id, location, location, false);

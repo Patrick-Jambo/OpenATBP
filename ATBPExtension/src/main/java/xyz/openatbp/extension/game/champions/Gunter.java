@@ -11,12 +11,10 @@ import com.smartfoxserver.v2.entities.User;
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
-import xyz.openatbp.extension.game.AbilityRunnable;
-import xyz.openatbp.extension.game.AbilityShape;
-import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.Projectile;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class Gunter extends UserActor {
     private static final float E_OFFSET_DISTANCE_BOTTOM = 0.5f;
@@ -123,48 +121,88 @@ public class Gunter extends UserActor {
                     this.ultActivated = false;
                 }
                 this.canCast[0] = false;
-                Point2D finalDastPoint = this.location;
-                try {
-                    Point2D ogLocation = this.location;
-                    finalDastPoint = this.dash(dest, true, DASH_SPEED);
-                    double time = ogLocation.distance(finalDastPoint) / DASH_SPEED;
-                    this.qTime = (int) (time * 1000);
-                    ExtensionCommands.playSound(
-                            parentExt, this.room, this.id, "sfx_gunter_slide", this.location);
-                    ExtensionCommands.createActorFX(
-                            parentExt,
-                            room,
-                            this.id,
-                            "gunter_slide_trail",
-                            qTime,
-                            this.id + "_gunterTrail",
-                            true,
-                            "Bip01",
-                            true,
-                            false,
-                            team);
-                    ExtensionCommands.createActorFX(
-                            parentExt,
-                            room,
-                            this.id,
-                            "gunter_slide_snow",
-                            qTime,
-                            this.id + "_gunterTrail",
-                            true,
-                            "Bip01",
-                            true,
-                            false,
-                            team);
-                    ExtensionCommands.actorAnimate(parentExt, room, id, "spell1b", qTime, false);
-                } catch (Exception exception) {
-                    logExceptionMessage(avatar, ability);
-                    exception.printStackTrace();
-                }
+                RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                PathFinder pf = rh.getPathFinder();
+
+                Point2D dashPoint = pf.getIntersectionPoint(location, dest);
+
+                double time = location.distance(dashPoint) / DEFAULT_DASH_SPEED;
+                qTime = (int) (time * 1000);
+
+                Runnable onEnd =
+                        () -> {
+                            if (getHealth() > 0 && !hasDashAttackInterruptCC()) {
+                                ExtensionCommands.createActorFX(
+                                        parentExt,
+                                        room,
+                                        id,
+                                        "gunter_belly_slide_bottles",
+                                        1500,
+                                        id + "_slide_bottles",
+                                        false,
+                                        "",
+                                        false,
+                                        false,
+                                        team);
+                                ExtensionCommands.playSound(
+                                        parentExt, room, id, "sfx_gunter_slide_shatter", location);
+                                ExtensionCommands.actorAnimate(
+                                        parentExt, room, id, "spell1c", 500, false);
+                                RoomHandler handler = parentExt.getRoomHandler(room.getName());
+                                List<Actor> affectedActors =
+                                        Champion.getActorsInRadius(handler, location, 2f);
+                                for (Actor a : affectedActors) {
+                                    if (isNeitherTowerNorAlly(a)) {
+                                        double dmg = getSpellDamage(spellData, true);
+                                        a.addToDamageQueue(Gunter.this, dmg, spellData, false);
+                                    }
+                                }
+                            }
+                        };
+
+                DashContext ctx =
+                        new DashContext.Builder(location, dest, (float) DEFAULT_DASH_SPEED)
+                                .canBeRedirected(true)
+                                .triggerEndEffectOnRoot(true)
+                                .onInterrupt(this::playIdleAndInterruptSound)
+                                .onEnd(onEnd)
+                                .build();
+                startDash(ctx);
+
+                ExtensionCommands.playSound(parentExt, room, id, "sfx_gunter_slide", location);
+
+                ExtensionCommands.createActorFX(
+                        parentExt,
+                        room,
+                        this.id,
+                        "gunter_slide_trail",
+                        qTime,
+                        this.id + "_gunterTrail",
+                        true,
+                        "Bip01",
+                        true,
+                        false,
+                        team);
+                ExtensionCommands.createActorFX(
+                        parentExt,
+                        room,
+                        this.id,
+                        "gunter_slide_snow",
+                        qTime,
+                        this.id + "_gunterTrail",
+                        true,
+                        "Bip01",
+                        true,
+                        false,
+                        team);
+                ExtensionCommands.actorAnimate(parentExt, room, id, "spell1b", qTime, false);
+
                 ExtensionCommands.actorAbilityResponse(
                         this.parentExt, player, "q", true, getReducedCooldown(cooldown), gCooldown);
-                scheduleTask(
-                        abilityRunnable(ability, spellData, cooldown, gCooldown, finalDastPoint),
-                        qTime);
+                Runnable enableQCasting = () -> canCast[0] = true;
+                int delay = getReducedCooldown(cooldown) - qTime;
+                scheduleTask(enableQCasting, delay);
+
                 break;
             case 2:
                 this.canCast[1] = false;
@@ -192,8 +230,9 @@ public class Gunter extends UserActor {
                 }
                 ExtensionCommands.actorAbilityResponse(
                         this.parentExt, player, "w", true, getReducedCooldown(cooldown), gCooldown);
-                int delay = getReducedCooldown(cooldown);
-                scheduleTask(abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay);
+                int delay2 = getReducedCooldown(cooldown);
+                scheduleTask(
+                        abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay2);
                 break;
             case 3:
                 this.canCast[2] = false;
@@ -241,9 +280,9 @@ public class Gunter extends UserActor {
                 }
                 ExtensionCommands.actorAbilityResponse(
                         this.parentExt, player, "e", true, getReducedCooldown(cooldown), gCooldown);
-                int delay1 = getReducedCooldown(cooldown);
+                int delay3 = getReducedCooldown(cooldown);
                 scheduleTask(
-                        abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay1);
+                        abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay3);
                 break;
         }
     }
@@ -297,36 +336,7 @@ public class Gunter extends UserActor {
         }
 
         @Override
-        protected void spellQ() {
-            Runnable enableQCasting = () -> canCast[0] = true;
-            int delay = getReducedCooldown(cooldown) - qTime;
-            scheduleTask(enableQCasting, delay);
-            if (getHealth() > 0 && !hasDashAttackInterruptCC()) {
-                ExtensionCommands.createActorFX(
-                        parentExt,
-                        room,
-                        id,
-                        "gunter_belly_slide_bottles",
-                        1500,
-                        id + "_slide_bottles",
-                        false,
-                        "",
-                        false,
-                        false,
-                        team);
-                ExtensionCommands.playSound(
-                        parentExt, room, id, "sfx_gunter_slide_shatter", location);
-                ExtensionCommands.actorAnimate(parentExt, room, id, "spell1c", 500, false);
-                RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                List<Actor> affectedActors = Champion.getActorsInRadius(handler, location, 2f);
-                for (Actor a : affectedActors) {
-                    if (isNeitherTowerNorAlly(a)) {
-                        double dmg = getSpellDamage(spellData, true);
-                        a.addToDamageQueue(Gunter.this, dmg, spellData, false);
-                    }
-                }
-            }
-        }
+        protected void spellQ() {}
 
         @Override
         protected void spellW() {

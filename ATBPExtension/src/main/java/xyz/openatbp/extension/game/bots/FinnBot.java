@@ -21,6 +21,7 @@ import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class FinnBot extends Bot {
     public static final double ATTACK_RANGE = 1.5;
@@ -204,54 +205,64 @@ public class FinnBot extends Bot {
 
         lastWUse = System.currentTimeMillis();
 
-        float W_SPELL_RANGE = (float) location.distance(destination);
-        AbilityShape wRect =
-                AbilityShape.createRectangle(
-                        location, destination, W_SPELL_RANGE, W_OFFSET_DISTANCE);
+        RoomHandler rh = this.parentExt.getRoomHandler(this.room.getName());
+        PathFinder pf = rh.getPathFinder();
 
-        Point2D ogLocation = this.location;
-        Point2D finalDashPoint = this.dash(destination, false, DASH_SPEED);
+        Point2D dashEndPoint = pf.getIntersectionPoint(location, destination);
 
-        double time = ogLocation.distance(finalDashPoint) / DASH_SPEED;
-        int wTime = (int) (time * 1000);
+        float distance = (float) location.distance(dashEndPoint);
+        int wDuration = (int) ((distance / DEFAULT_DASH_SPEED) * 1000);
 
-        ExtensionCommands.actorAnimate(parentExt, room, id, "spell2", wTime, true);
+        DashContext ctx =
+                new DashContext.Builder(
+                                new Point2D.Double(location.getX(), location.getY()),
+                                dashEndPoint,
+                                (float) DEFAULT_DASH_SPEED)
+                        .canBeRedirected(false)
+                        .triggerEndEffectOnRoot(false)
+                        .onEnd(this::doWEndAnim)
+                        .onInterrupt(this::doWEndAnim)
+                        .build();
 
-        Runnable endAnim =
-                () -> ExtensionCommands.actorAnimate(parentExt, room, id, "idle", wTime, false);
-        scheduleTask(endAnim, wTime);
+        startDash(ctx);
+
+        ExtensionCommands.actorAnimate(parentExt, room, id, "spell2", wDuration, true);
+
         String dashFX = SkinData.getFinnWFX(avatar);
         String dashSFX = SkinData.getFinnWSFX(avatar);
         ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.id,
+                parentExt,
+                room,
+                id,
                 dashFX,
-                wTime,
-                this.id + "finnWTrail",
+                wDuration,
+                id + "finnWTrail",
                 true,
                 "",
                 true,
                 false,
-                this.team);
-        ExtensionCommands.playSound(this.parentExt, this.room, this.id, dashSFX, this.location);
+                team);
+        ExtensionCommands.playSound(parentExt, room, id, dashSFX, location);
 
-        RoomHandler rh = this.parentExt.getRoomHandler(this.room.getName());
-        List<Actor> nearbyEnemies =
-                Champion.getEnemyActorsInRadius(rh, team, location, W_SPELL_RANGE);
-        if (!nearbyEnemies.isEmpty() && getHealth() > 0) {
+        JsonNode spellData = parentExt.getAttackData(avatar, "spell2");
 
-            JsonNode spellData = parentExt.getAttackData(avatar, "spell2");
-            for (Actor a : nearbyEnemies) {
+        AbilityShape wRect =
+                AbilityShape.createRectangle(location, dashEndPoint, distance, W_OFFSET_DISTANCE);
 
-                if (isNonStructureEnemy(a)
-                        && wRect.contains(a.getLocation(), a.getCollisionRadius())) {
-                    double damage = handlePassive(a, getSpellDamage(spellData));
-                    a.addToDamageQueue(this, damage, spellData, false);
-                    passiveStart = System.currentTimeMillis();
-                }
+        RoomHandler handler = parentExt.getRoomHandler(room.getName());
+        for (Actor a : Champion.getActorsInRadius(handler, location, distance)) {
+            if (a.getTeam() != this.team
+                    && a.getActorType() != ActorType.TOWER
+                    && wRect.contains(a.getLocation(), a.getCollisionRadius())) {
+                double damage = handlePassive(a, getSpellDamage(spellData));
+                a.addToDamageQueue(this, damage, spellData, false);
+                passiveStart = System.currentTimeMillis();
             }
         }
+    }
+
+    private void doWEndAnim() {
+        ExtensionCommands.actorAnimate(parentExt, room, id, "idle", 100, false);
     }
 
     @Override

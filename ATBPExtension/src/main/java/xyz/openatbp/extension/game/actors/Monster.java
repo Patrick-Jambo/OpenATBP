@@ -1,6 +1,5 @@
 package xyz.openatbp.extension.game.actors;
 
-import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -212,12 +211,6 @@ public class Monster extends Actor {
     }
 
     @Override
-    public void handlePull(Point2D source, double pullDistance) {
-        super.handlePull(source, pullDistance);
-        this.attackRangeOverride = true;
-    }
-
-    @Override
     public void attack(Actor a) { // TODO: Almost identical to minions - maybe move to Actor class?
         // Called when it is attacking a player
         if (this.attackCooldown == 0) {
@@ -275,8 +268,6 @@ public class Monster extends Actor {
     public void setTarget(Actor a) {
         if (this.state == AggroState.PASSIVE) this.setAggroState(AggroState.ATTACKED, a);
         this.target = a;
-        this.movementLine = new Line2D.Float(this.location, a.getLocation());
-        this.timeTraveled = 0f;
         this.moveTowardsActor();
     }
 
@@ -411,30 +402,6 @@ public class Monster extends Actor {
     @Override
     public boolean withinRange(Actor a) {
         return a.getLocation().distance(this.location) <= this.getPlayerStat("attackRange");
-    }
-
-    public Point2D getRelativePoint() { // Gets player's current location based on time
-        if (this.movementLine == null) return this.location;
-        if (this.timeTraveled == 0
-                && this.movementLine.getP1().distance(this.movementLine.getP2()) > 0.01f)
-            this.timeTraveled += 0.1f; // Prevents any stagnation in movement
-        Point2D rPoint = new Point2D.Float();
-        Point2D destination = movementLine.getP2();
-        float x2 = (float) destination.getX();
-        float y2 = (float) destination.getY();
-        float x1 = (float) movementLine.getX1();
-        float y1 = (float) movementLine.getY1();
-        Line2D movementLine = new Line2D.Double(x1, y1, x2, y2);
-        double dist = movementLine.getP1().distance(movementLine.getP2());
-        double time = dist / (float) this.getPlayerStat("speed");
-        double currentTime = this.timeTraveled;
-        if (currentTime > time) currentTime = time;
-        double currentDist = (float) this.getPlayerStat("speed") * currentTime;
-        float x = (float) (x1 + (currentDist / dist) * (x2 - x1));
-        float y = (float) (y1 + (currentDist / dist) * (y2 - y1));
-        rPoint.setLocation(x, y);
-        if (dist != 0) return rPoint;
-        else return movementLine.getP1();
     }
 
     public void

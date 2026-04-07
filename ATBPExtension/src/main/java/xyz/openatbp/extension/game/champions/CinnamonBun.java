@@ -1,6 +1,5 @@
 package xyz.openatbp.extension.game.champions;
 
-import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +19,7 @@ import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class CinnamonBun extends UserActor {
     private static final float PASSIVE_HEAL_PERCENT = 0.05f;
@@ -33,6 +33,7 @@ public class CinnamonBun extends UserActor {
     private static final int E_DURATION = 4500;
     private static final int E_TICK_DELAY = 500;
     private static final float E_SPEED_BUFF_PERCENT = 0.1f;
+    public static final float W_DASH_SPEED = 15f;
 
     private Point2D ultPoint = null;
     private Point2D ultPoint2 = null;
@@ -69,7 +70,8 @@ public class CinnamonBun extends UserActor {
                         a.addToDamageQueue(this, damage, spellData, true);
                     }
 
-                    if (isNeitherStructureNorAlly(a)) {
+                    if (isNeitherStructureNorAlly(a)
+                            && wPolygon.contains(a.getLocation(), a.getCollisionRadius())) {
                         long lastProc = actorsWithWSlow.getOrDefault(a, -1L);
 
                         if (lastProc == -1
@@ -254,66 +256,65 @@ public class CinnamonBun extends UserActor {
                 break;
             case 2:
                 this.canCast[1] = false;
-                Point2D finalDashPoint = null;
-                try {
-                    this.wStartTime = System.currentTimeMillis();
-                    handlePassive();
-                    Point2D origLocation = this.location;
-                    Line2D wLine = Champion.getAbilityLine(origLocation, dest, 6.5f);
-                    double slideX = Champion.getAbilityLine(origLocation, dest, 1.5f).getX2();
-                    double slideY = Champion.getAbilityLine(origLocation, dest, 1.5f).getY2();
-                    float rotation = getRotation(dest);
-                    finalDashPoint = this.dash(wLine.getP2(), false, 15d);
-                    double time = origLocation.distance(finalDashPoint) / 15d;
-                    int wTime = (int) (time * 1000);
-                    Line2D wPolyStartLine = Champion.getAbilityLine(origLocation, dest, 0.5f);
-                    Line2D wPolyLengthLine = Champion.getAbilityLine(origLocation, dest, 7f);
-                    Point2D wPolyStartPoint =
-                            new Point2D.Float(
-                                    (float) wPolyStartLine.getX2(), (float) wPolyStartLine.getY2());
-                    Point2D wPolyEndPoint =
-                            new Point2D.Float(
-                                    (float) wPolyLengthLine.getX2(),
-                                    (float) wPolyLengthLine.getY2());
-                    wPolygon =
-                            AbilityShape.createRectangle(
-                                    wPolyStartPoint,
-                                    wPolyEndPoint,
-                                    W_SPELL_RANGE,
-                                    W_OFFSET_DISTANCE);
 
-                    ExtensionCommands.createActorFX(
-                            this.parentExt,
-                            this.room,
-                            this.id,
-                            "fx_target_rect_7",
-                            W_DURATION,
-                            this.id + "w",
-                            false,
-                            "",
-                            true,
-                            true,
-                            this.team);
-                    ExtensionCommands.createWorldFX(
-                            this.parentExt,
-                            this.room,
-                            this.id,
-                            "cb_frosting_slide",
-                            this.id + "_slide",
-                            W_DURATION,
-                            (float) slideX,
-                            (float) slideY,
-                            false,
-                            this.team,
-                            rotation);
-                    ExtensionCommands.playSound(
-                            this.parentExt, this.room, this.id, "sfx_cb_power2", this.location);
-                    ExtensionCommands.actorAnimate(
-                            this.parentExt, this.room, this.id, "spell2b", wTime, false);
-                } catch (Exception exception) {
-                    logExceptionMessage(avatar, ability);
-                    exception.printStackTrace();
-                }
+                wStartTime = System.currentTimeMillis();
+                handlePassive();
+                double slideX = Champion.getAbilityLine(location, dest, 1.5f).getX2();
+                double slideY = Champion.getAbilityLine(location, dest, 1.5f).getY2();
+                float rotation = getRotation(dest);
+
+                RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                PathFinder pf = rh.getPathFinder();
+
+                Point2D leapDest = Champion.getAbilityLine(location, dest, W_SPELL_RANGE).getP2();
+
+                Point2D leapPoint = pf.getNonObstaclePointOrIntersection(location, leapDest);
+                double time = location.distance(leapPoint) / W_DASH_SPEED;
+                int wTime = (int) (time * 1000);
+
+                DashContext ctx =
+                        new DashContext.Builder(location, leapPoint, W_DASH_SPEED)
+                                .isLeap(true)
+                                .canBeRedirected(false)
+                                .build();
+                startDash(ctx);
+
+                Point2D rectStart = Champion.getAbilityLine(location, dest, 0.5f).getP2();
+                Point2D rectEnd = Champion.getAbilityLine(location, dest, 7f).getP2();
+
+                wPolygon =
+                        AbilityShape.createRectangle(
+                                rectStart, rectEnd, W_SPELL_RANGE, W_OFFSET_DISTANCE);
+
+                ExtensionCommands.createActorFX(
+                        this.parentExt,
+                        this.room,
+                        this.id,
+                        "fx_target_rect_7",
+                        W_DURATION,
+                        this.id + "w",
+                        false,
+                        "",
+                        true,
+                        true,
+                        this.team);
+                ExtensionCommands.createWorldFX(
+                        this.parentExt,
+                        this.room,
+                        this.id,
+                        "cb_frosting_slide",
+                        this.id + "_slide",
+                        W_DURATION,
+                        (float) slideX,
+                        (float) slideY,
+                        false,
+                        this.team,
+                        rotation);
+                ExtensionCommands.playSound(
+                        this.parentExt, this.room, this.id, "sfx_cb_power2", this.location);
+                ExtensionCommands.actorAnimate(
+                        this.parentExt, this.room, this.id, "spell2b", wTime, false);
+
                 ExtensionCommands.actorAbilityResponse(
                         this.parentExt,
                         this.player,
@@ -323,7 +324,7 @@ public class CinnamonBun extends UserActor {
                         gCooldown);
                 int delay1 = getReducedCooldown(cooldown);
                 scheduleTask(
-                        abilityRunnable(ability, spellData, cooldown, gCooldown, finalDashPoint),
+                        abilityRunnable(ability, spellData, cooldown, gCooldown, leapPoint),
                         delay1);
                 break;
             case 3:

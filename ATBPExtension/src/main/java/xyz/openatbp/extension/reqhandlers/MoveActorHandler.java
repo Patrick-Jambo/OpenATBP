@@ -8,7 +8,6 @@ import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.actors.UserActor;
-import xyz.openatbp.extension.game.effects.ActorState;
 
 public class MoveActorHandler extends BaseClientRequestHandler {
     @Override
@@ -26,11 +25,7 @@ public class MoveActorHandler extends BaseClientRequestHandler {
         }
         UserActor user = roomHandler.getPlayer(String.valueOf(sender.getId()));
         if (user != null) user.resetTarget();
-        if (user != null
-                && user.canMove()
-                && !user.getIsDashing()
-                && !user.getIsAutoAttacking()
-                && !user.getEffectManager().hasState(ActorState.CHARMED)) {
+        if (user != null && user.canMove() && !user.getIsAutoAttacking()) {
             user.resetIdleTime();
             long timeSinceBasicAttack =
                     sender.getVariable("stats").getSFSObjectValue().getLong("timeSinceBasicAttack");

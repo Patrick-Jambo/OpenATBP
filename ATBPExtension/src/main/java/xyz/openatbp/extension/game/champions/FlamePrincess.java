@@ -14,6 +14,7 @@ import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class FlamePrincess extends UserActor {
 
@@ -334,12 +335,23 @@ public class FlamePrincess extends UserActor {
                 } else if (this.ultUses < 5) {
                     if (canDash()) {
                         this.ultUses++;
-                        Point2D ogLocation = this.location;
-                        Point2D dashLocation = this.dash(dest, false, E_DASH_SPEED);
-                        double time = ogLocation.distance(dashLocation) / E_DASH_SPEED;
+
+                        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                        PathFinder pathFinder = rh.getPathFinder();
+
+                        Point2D dashPoint = pathFinder.getIntersectionPoint(location, dest);
+
+                        double time = location.distance(dashPoint) / E_DASH_SPEED;
                         this.dashTime = (int) (time * 1000);
-                        ExtensionCommands.actorAnimate(
-                                this.parentExt, this.room, this.id, "run", this.dashTime, false);
+
+                        DashContext ctx =
+                                new DashContext.Builder(location, dashPoint, E_DASH_SPEED)
+                                        .canBeRedirected(true)
+                                        .onInterrupt(this::playIdleAndInterruptSound)
+                                        .build();
+                        startDash(ctx);
+
+                        ExtensionCommands.actorAnimate(parentExt, room, id, "run", dashTime, false);
                         int remainingTime = (int) (System.currentTimeMillis() - ultStartTime);
 
                         if (remainingTime + dashTime > E_DURATION) { // handle last moment dashing

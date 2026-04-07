@@ -1,5 +1,7 @@
 package xyz.openatbp.extension.game.champions;
 
+import static xyz.openatbp.extension.game.effects.EffectManager.KNOCKBACK_SPEED;
+
 import java.awt.geom.Point2D;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +20,7 @@ import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class Jake extends UserActor {
     public static final int PASSIVE_PER_TARGET_CD = 8000;
@@ -30,7 +33,8 @@ public class Jake extends UserActor {
     public static final double E_SPEED_PERCENT = 0.8;
     public static final int E_DURATION = 5000;
     public static final int E_STOMP_CD = 500;
-    public static final int Q_DASH_SPEED = 13;
+    public static final int Q_VICTIM_SEPARATION = 2;
+    public static final float W_KNOCKBACK_DIST = 3.5f;
 
     private boolean grabActive = false;
     private Point2D grabPoint;
@@ -67,7 +71,8 @@ public class Jake extends UserActor {
 
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
 
-            List<Actor> foes = Champion.getActorsInRadius(handler, location, MAX_Q_RANGE);
+            List<Actor> foes =
+                    Champion.getEnemyActorsInRadius(handler, team, location, MAX_Q_RANGE);
             foes.removeIf(f -> f.getActorType() == ActorType.TOWER);
             foes.removeIf(f -> !(qRect.contains(f.getLocation(), f.getCollisionRadius())));
 
@@ -113,36 +118,33 @@ public class Jake extends UserActor {
                             false,
                             team);
                 }
-                Point2D initLoc =
-                        Champion.getAbilityLine(origLocation, victim.getLocation(), distance - 1)
-                                .getP2();
 
-                Point2D dashPoint = this.dash(initLoc, true, Q_DASH_SPEED);
-                double time = origLocation.distance(dashPoint) / Q_DASH_SPEED;
-                int dashTimeMs = (int) (time * 1000);
+                PathFinder pf = handler.getPathFinder();
+                if (!pf.lineIntersectsObstacle(location, victim.getLocation())) {
+                    float pullDist =
+                            (float) location.distance(victim.getLocation()) - Q_VICTIM_SEPARATION;
 
-                ExtensionCommands.createActorFX(
-                        parentExt,
-                        room,
-                        id,
-                        "jake_trail",
-                        dashTimeMs,
-                        id + "qTrail",
-                        true,
-                        "",
-                        false,
-                        false,
-                        team);
+                    victim.handlePull(location, pullDist);
 
-                ExtensionCommands.actorAnimate(parentExt, room, id, "spell1b", dashTimeMs, true);
+                    int timeMS = (int) ((pullDist / KNOCKBACK_SPEED) * 1000);
 
-                Runnable nextAnimation =
-                        () -> {
-                            unlockAbilitiesAfterDelay();
-                            ExtensionCommands.actorAnimate(
-                                    parentExt, room, id, "spell1c", 500, false);
-                        };
-                scheduleTask(nextAnimation, dashTimeMs);
+                    ExtensionCommands.createActorFX(
+                            parentExt,
+                            room,
+                            id,
+                            "jake_trail",
+                            timeMS,
+                            victim.getId() + "qTrail",
+                            true,
+                            "",
+                            false,
+                            false,
+                            team);
+                }
+
+                unlockAbilitiesAfterDelay();
+                ExtensionCommands.actorAnimate(parentExt, room, id, "spell1c", 500, false);
+
             } else if (grabStatus < 8) {
                 grabPoint = Champion.getAbilityLine(grabPoint, qDestination, 1).getP2();
                 grabStatus++;
@@ -196,66 +198,6 @@ public class Jake extends UserActor {
                 }
             }
         }
-    }
-
-    @Override
-    public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
-        this.isDashing = true;
-        if (movementDebug)
-            ExtensionCommands.createWorldFX(
-                    this.parentExt,
-                    this.room,
-                    this.id,
-                    "gnome_a",
-                    this.id + "_test" + Math.random(),
-                    5000,
-                    (float) dest.getX(),
-                    (float) dest.getY(),
-                    false,
-                    0,
-                    0f);
-        Point2D dashPoint = dest;
-        /*
-        if (MovementManager.insideAnyObstacle(
-                this.parentExt,
-                this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap(),
-                dest)) {
-            Line2D extendedLine =
-                    MovementManager.extendLine(new Line2D.Double(this.location, dest), 5f);
-            Point2D[] points = MovementManager.findAllPoints(extendedLine);
-            boolean atDashPoint = false;
-            for (Point2D p : points) {
-                if (p.distance(dest) <= 0.01 && !atDashPoint) atDashPoint = true;
-                if (atDashPoint) {
-                    if (!MovementManager.insideAnyObstacle(
-                            this.parentExt,
-                            this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap(),
-                            p)) {
-                        dashPoint = p;
-                        break;
-                    }
-                }
-            }
-            if (dashPoint == null) dashPoint = dest;
-        } else dashPoint = dest;
-
-         */
-        double time = dashPoint.distance(this.location) / dashSpeed;
-        int timeMs = (int) (time * 1000d);
-        this.stopMoving(timeMs);
-        Runnable setIsDashing = () -> this.isDashing = false;
-        parentExt.getTaskScheduler().schedule(setIsDashing, timeMs, TimeUnit.MILLISECONDS);
-        ExtensionCommands.moveActor(
-                this.parentExt,
-                this.room,
-                this.id,
-                this.location,
-                dashPoint,
-                (float) dashSpeed,
-                true);
-        this.setLocation(dashPoint);
-        this.target = null;
-        return dashPoint;
     }
 
     @Override
@@ -403,7 +345,7 @@ public class Jake extends UserActor {
                         RoomHandler handler = parentExt.getRoomHandler(room.getName());
                         for (Actor a : Champion.getActorsInRadius(handler, location, 3f)) {
                             if (isNeitherStructureNorAlly(a)) {
-                                a.handleKnockback(location, 3.5f);
+                                a.handleKnockback(location, W_KNOCKBACK_DIST);
                             }
 
                             if (isNeitherTowerNorAlly(a)) {

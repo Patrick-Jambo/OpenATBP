@@ -2,8 +2,8 @@ package xyz.openatbp.extension.game.actors;
 
 import static xyz.openatbp.extension.game.actors.UserActor.*;
 import static xyz.openatbp.extension.game.effects.EffectManager.FEAR_MOVING_DISTANCE;
+import static xyz.openatbp.extension.game.effects.EffectManager.KNOCKBACK_SPEED;
 
-import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +26,7 @@ import xyz.openatbp.extension.pathfinding.PathFinder;
 public abstract class Actor {
 
     public static final float CHARM_MIN_DISTANCE = 2f;
+    public static final int TELEPORT_SPEED = 100;
 
     public enum AttackType {
         PHYSICAL,
@@ -35,7 +36,6 @@ public abstract class Actor {
     protected double currentHealth;
     protected double maxHealth;
     protected Point2D location;
-    protected Line2D movementLine;
     protected boolean dead = false;
     protected float timeTraveled;
     protected String id;
@@ -57,6 +57,7 @@ public abstract class Actor {
     protected boolean towerAggroCompanion = false;
     protected boolean isDashing = false;
     protected Actor charmer;
+    protected Point2D fearMovePoint = null;
     protected Actor fearer;
     protected Point2D moveStartPoint;
     protected Point2D moveDestination;
@@ -67,6 +68,7 @@ public abstract class Actor {
     protected long totalMoveTimeMs;
     protected int visualTargetIndex = 0;
 
+    protected boolean isAutoAttacking = false;
     protected boolean isMoving = false;
     protected float moveSpeed = 3;
 
@@ -81,6 +83,20 @@ public abstract class Actor {
 
     protected long lastGrobDeviceProc = 0L;
     protected boolean grobShieldActive = false;
+
+    protected DashContext activeDash = null;
+
+    protected MovementState movementState = MovementState.IDLE;
+
+    protected int dashGeneration = 0;
+
+    public MovementState getMovementState() {
+        return movementState;
+    }
+
+    public void setMovementState(MovementState movementState) {
+        this.movementState = movementState;
+    }
 
     public void setCharmer(Actor charmer) {
         this.charmer = charmer;
@@ -141,8 +157,6 @@ public abstract class Actor {
 
     public void setLocation(Point2D location) {
         this.location = location;
-        this.movementLine = new Line2D.Float(location, location);
-        this.timeTraveled = 0f;
     }
 
     public String getAvatar() {
@@ -258,6 +272,10 @@ public abstract class Actor {
                 if (effectManager.hasState(s)) return false;
             }
         }
+        if (movementState == MovementState.DASHING
+                || movementState == MovementState.LEAPING
+                || movementState == MovementState.KNOCKBACK
+                || movementState == MovementState.PULLED) return false;
         return this.canMove;
     }
 
@@ -275,46 +293,154 @@ public abstract class Actor {
         totalMoveTimeMs = 0;
         visualTargetIndex = 0;
 
-        ExtensionCommands.moveActor(parentExt, room, id, location, location, moveSpeed, true);
+        ExtensionCommands.moveActor(parentExt, room, id, location, location, moveSpeed, false);
     }
 
     protected boolean isStopped() {
         return !isMoving && movePointsToDest != null && movePointsToDest.isEmpty();
     }
 
-    public void dash(Point2D destination, double speed) {}
+    public void startDash(DashContext ctx) {
+        activeDash = ctx;
+        movementState = ctx.isLeap() ? MovementState.LEAPING : MovementState.DASHING;
 
-    public void leap(Point2D destination, double speed) {}
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
 
-    public void teleport(Point2D destination) {}
+        Point2D dashEndPoint;
+        switch (movementState) {
+            case LEAPING:
+                dashEndPoint =
+                        rh.getPathFinder()
+                                .getNonObstaclePointOrIntersection(location, ctx.getDest());
+                break;
 
-    public Point2D dash(Point2D dest, boolean noClip, double dashSpeed) {
-        return null;
+            default:
+                dashEndPoint = rh.getPathFinder().getIntersectionPoint(location, ctx.getDest());
+                break;
+        }
+
+        activeDash.setDest(dashEndPoint);
+
+        int timeMs = (int) ((location.distance(dashEndPoint) / ctx.getSpeed()) * 1000);
+        moveSpeed = ctx.getSpeed();
+
+        final int generation = ++dashGeneration;
+        scheduleTask(
+                () -> {
+                    if (dashGeneration == generation) completeDash();
+                },
+                timeMs);
+
+        startMoveTo(dashEndPoint);
     }
 
-    public void handleKnockback(Point2D source, float distance) {}
+    public void completeDash() {
+        if (activeDash == null) return;
+        DashContext ctx = activeDash;
+        activeDash = null;
+        movementState = MovementState.IDLE;
+        moveSpeed = (float) getPlayerStat("speed");
+        if (ctx.getOnEnd() != null) ctx.getOnEnd().run();
+    }
 
-    public void handlePull(Point2D source, double pullDistance) {}
+    public void interruptDash(boolean triggeredByRoot) {
+        if (activeDash == null || movementState == MovementState.LEAPING) return;
+        dashGeneration++; // invalidates the scheduled completeDash
+        DashContext ctx = activeDash;
+        activeDash = null;
+        movementState = MovementState.IDLE;
+        moveSpeed = (float) getPlayerStat("speed");
+        stopMoving();
 
-    public void handleCharm(UserActor charmer, int duration) {}
+        if (triggeredByRoot && ctx.getTriggerEndEffectOnRoot()) {
+            if (ctx.getOnEnd() != null) ctx.getOnEnd().run();
+        } else {
+            if (ctx.getOnInterrupt() != null) ctx.getOnInterrupt().run();
+        }
+    }
+
+    public void teleport(Point2D destination) {
+        stopMoving();
+        setLocation(destination);
+        ExtensionCommands.moveActor(parentExt, room, id, location, location, TELEPORT_SPEED, true);
+    }
+
+    public void handleKnockback(Point2D source, float distance) {
+        double distToAttacker = location.distance(source);
+        float dist = (float) (distance + distToAttacker);
+        Point2D knockbackDest = Champion.getAbilityLine(source, location, dist).getP2();
+
+        if (activeDash != null) {
+            if (activeDash.canBeRedirected()) {
+                activeDash.setDest(knockbackDest);
+                startMoveTo(knockbackDest);
+            } else {
+                interruptDash(false);
+            }
+            return;
+        }
+
+        applyForcedMovement(knockbackDest, MovementState.KNOCKBACK);
+    }
+
+    public void handlePull(Point2D source, float distance) {
+        // opposite of knockback — line goes FROM actor TOWARD source
+        Point2D pullDest = Champion.getAbilityLine(location, source, distance).getP2();
+
+        // pull always cancels dashes, no redirect
+        if (activeDash != null) {
+            interruptDash(false);
+        }
+
+        applyForcedMovement(pullDest, MovementState.PULLED);
+    }
+
+    private void applyForcedMovement(Point2D dest, MovementState state) {
+        float finalDist = (float) location.distance(dest);
+        int time = (int) ((finalDist / KNOCKBACK_SPEED) * 1000);
+
+        if (movementState == MovementState.IDLE) {
+            movementState = state;
+            moveSpeed = KNOCKBACK_SPEED;
+            scheduleTask(
+                    () -> {
+                        movementState = MovementState.IDLE;
+                        moveSpeed = (float) getPlayerStat("speed");
+                    },
+                    time);
+        }
+        startMoveTo(dest);
+    }
 
     public void handleCharmMovement() {
         if (effectManager.hasState(ActorState.CHARMED)
                 && location.distance(charmer.getLocation()) > CHARM_MIN_DISTANCE) {
             startMoveTo(charmer.getLocation());
+        } else if (effectManager.hasState(ActorState.CHARMED)) {
+            stopMoving();
         }
     }
 
     public void handleFear(Actor fearer) {
-        Point2D fearerLoc = fearer.getLocation();
-        Point2D stopPoint =
-                Champion.getAbilityLine(location, fearerLoc, FEAR_MOVING_DISTANCE).getP2();
+        if (fearMovePoint == null) {
+            Point2D fearerLoc = fearer.getLocation();
+            Point2D stopPoint =
+                    Champion.getAbilityLine(location, fearerLoc, FEAR_MOVING_DISTANCE).getP2();
 
-        double dx = stopPoint.getX() - location.getX();
-        double dy = stopPoint.getY() - location.getY();
-        Point2D perpEnd = new Point2D.Double(location.getX() + dy, location.getY() - dx);
+            double dx = stopPoint.getX() - location.getX();
+            double dy = stopPoint.getY() - location.getY();
 
-        startMoveTo(perpEnd);
+            fearMovePoint = new Point2D.Double(location.getX() + dy, location.getY() - dx);
+        }
+
+        if (fearMovePoint.distance(location) > 0.1) {
+            startMoveTo(fearMovePoint);
+        }
+    }
+
+    public void playIdleAndInterruptSound() {
+        ExtensionCommands.actorAnimate(parentExt, room, id, "idle", 100, false);
+        ExtensionCommands.playSound(parentExt, room, id, "sfx_skill_interrupted", location);
     }
 
     public void stopMoving(int delay) {
@@ -332,6 +458,13 @@ public abstract class Actor {
         PathFinder pF = rh.getPathFinder();
 
         movePointsToDest = pF.getMovePointsToDest(location, endPoint);
+
+        if (movementState == MovementState.LEAPING
+                && !movePointsToDest.isEmpty()
+                && activeDash != null) {
+            movePointsToDest.clear();
+            movePointsToDest.add(activeDash.getDest());
+        }
 
         /*if (movePointsToDest.size() > 1) {
             for (Point2D p : movePointsToDest) {
@@ -465,6 +598,10 @@ public abstract class Actor {
         double y =
                 moveStartPoint.getY() + (moveDestination.getY() - moveStartPoint.getY()) * progress;
         location = new Point2D.Float((float) x, (float) y);
+
+        if (activeDash != null && activeDash.getOnTick() != null) {
+            activeDash.getOnTick().run();
+        }
     }
 
     private int findVisualTargetIndex() {
@@ -495,6 +632,7 @@ public abstract class Actor {
     }
 
     public boolean withinRange(Actor a) {
+        if (a == null) return false;
         if (a.getActorType() == ActorType.BASE)
             return a.getLocation().distance(this.location) - 1.5f
                     <= this.getPlayerStat("attackRange");

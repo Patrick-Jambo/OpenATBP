@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.ATBPExtension;
-import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
@@ -140,7 +139,6 @@ public class Lemongrab extends UserActor {
             Point2D dest) {
         switch (ability) {
             case 1:
-                Console.debugLog(location.distance(dest));
                 this.canCast[0] = false;
                 try {
                     stopMoving(castDelay);
@@ -214,7 +212,6 @@ public class Lemongrab extends UserActor {
                 scheduleTask(abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay);
                 break;
             case 2:
-                Console.debugLog(location.distance(dest));
                 this.canCast[1] = false;
                 try {
                     stopMoving(castDelay);
@@ -267,7 +264,6 @@ public class Lemongrab extends UserActor {
                         abilityRunnable(ability, spellData, cooldown, gCooldown, dest), W_DELAY);
                 break;
             case 3:
-                Console.debugLog(location.distance(dest));
                 this.canCast[2] = false;
                 try {
                     stopMoving();

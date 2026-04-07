@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.ChampionData;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
@@ -19,6 +20,7 @@ import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class ChooseGoose extends UserActor {
     private static final int PASSIVE_COOLDOWN = 20000;
@@ -38,7 +40,7 @@ public class ChooseGoose extends UserActor {
     private static final float Q_ARMOR_DEBUFF_PERCENT = 0.2f;
     private static final int Q_ARMOR_DEBUFF_DURATION = 3000;
 
-    private static final double W_JUMP_SPEED = 16d;
+    private static final float W_JUMP_SPEED = 16f;
     private static final float W_IMPACT_RADIUS = 2f;
     private static final int W_SILENCE_DURATION = 1000;
     private static final double W_ARMOR_BUFF_PERCENT = 0.3;
@@ -216,10 +218,20 @@ public class ChooseGoose extends UserActor {
 
                 String sound = "sfx_choosegoose_w_jump";
 
-                Point2D ogLocation = location;
-                Point2D dPoint = dash(dest, true, W_JUMP_SPEED);
-                double time = ogLocation.distance(dPoint) / W_JUMP_SPEED;
+                RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                PathFinder pf = rh.getPathFinder();
+
+                Point2D leapDest = pf.getNonObstaclePointOrIntersection(location, dest);
+                double time = location.distance(leapDest) / W_JUMP_SPEED;
                 int wTime = (int) (time * 1000);
+
+                DashContext ctx =
+                        new DashContext.Builder(location, leapDest, W_JUMP_SPEED)
+                                .isLeap(true)
+                                .canBeRedirected(false)
+                                .onEnd(this::wEnd)
+                                .build();
+                startDash(ctx);
 
                 ExtensionCommands.actorAnimate(parentExt, room, id, "spell2a", wTime, false);
                 ExtensionCommands.playSound(parentExt, room, id, sound, location);
@@ -240,7 +252,6 @@ public class ChooseGoose extends UserActor {
                 int cd1 = getReducedCooldown(cooldown);
                 ExtensionCommands.actorAbilityResponse(
                         parentExt, player, "w", true, cd1, gCooldown);
-                scheduleTask(abilityRunnable(ability, spellData, wTime, gCooldown, dPoint), wTime);
                 break;
             case 3:
                 canCast[2] = false;
@@ -358,17 +369,104 @@ public class ChooseGoose extends UserActor {
                             enemyLocation.getX() + (randomDistance * Math.cos(randomAngle)),
                             enemyLocation.getY() + (randomDistance * Math.sin(randomAngle)));
 
-            /*Point2D chestPoint =
-            MovementManager.getDashPoint(
-                    enemy, new Line2D.Float(enemyLocation, randomLocation));*/
+            RoomHandler rh = parentExt.getRoomHandler(room.getName());
+            PathFinder pf = rh.getPathFinder();
+            Point2D chestPoint =
+                    pf.getNonObstaclePointOrIntersection(enemyLocation, randomLocation);
 
-            // chest = new Chest(chestPoint, getOppositeTeam());
-            RoomHandler handler = parentExt.getRoomHandler(room.getName());
-            handler.addCompanion(chest);
-            /*ExtensionCommands.playSound(
-            parentExt, room, id, "sfx_choosegoose_chest_spawn", chestPoint);*/
+            chest = new Chest(chestPoint, getOppositeTeam());
+            rh.addCompanion(chest);
+            ExtensionCommands.playSound(
+                    parentExt, room, id, "sfx_choosegoose_chest_spawn", chestPoint);
             ExtensionCommands.actorAbilityResponse(
                     parentExt, player, "passive", true, PASSIVE_COOLDOWN, 0);
+        }
+    }
+
+    private void wEnd() {
+        int cooldown = ChampionData.getBaseAbilityCooldown(this, 2);
+        Runnable enableWCasting = () -> canCast[1] = true;
+        scheduleTask(enableWCasting, getReducedCooldown(cooldown));
+        jumpActive = false;
+
+        if (getHealth() > 0) {
+            JsonNode spellData = parentExt.getAttackData(avatar, "spell2");
+            ExtensionCommands.actorAnimate(parentExt, room, id, "spell2b", 500, false);
+            String sound = "sfx_choosegoose_w_impact";
+
+            ExtensionCommands.playSound(parentExt, room, id, sound, location);
+
+            ExtensionCommands.createWorldFX(
+                    parentExt,
+                    room,
+                    id,
+                    "finn_dash_whirlwind_fx",
+                    id + "_dashImpactFX" + Math.random(),
+                    2000,
+                    (float) location.getX(),
+                    (float) location.getY(),
+                    false,
+                    team,
+                    0f);
+            ExtensionCommands.createWorldFX(
+                    parentExt,
+                    room,
+                    id,
+                    "fx_target_ring_2",
+                    id + "_dashImpactRing" + Math.random(),
+                    500,
+                    (float) location.getX(),
+                    (float) location.getY(),
+                    true,
+                    team,
+                    0f);
+
+            RoomHandler handler = parentExt.getRoomHandler(room.getName());
+            double damage = getSpellDamage(spellData, false);
+
+            for (Actor a : handler.getActorsInRadius(location, W_IMPACT_RADIUS)) {
+                if (isNeitherTowerNorAlly(a)) {
+                    a.addToDamageQueue(ChooseGoose.this, damage, spellData, false);
+                }
+
+                if (isNeitherStructureNorAlly(a) && a.getLocation().distance(location) <= 1) {
+                    a.getEffectManager().addState(ActorState.SILENCED, 0, W_SILENCE_DURATION);
+                }
+            }
+
+            ExtensionCommands.createActorFX(
+                    parentExt,
+                    room,
+                    id,
+                    "jake_shield",
+                    W_BUFF_DURATION,
+                    id + "_wShield",
+                    true,
+                    "mixamorig:Spine",
+                    false,
+                    false,
+                    team);
+
+            effectManager.addEffect(
+                    "armor",
+                    W_ARMOR_BUFF_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    W_BUFF_DURATION);
+            effectManager.addState(ActorState.IMMUNITY, 0, W_BUFF_DURATION);
+
+            ExtensionCommands.createActorFX(
+                    parentExt,
+                    room,
+                    id,
+                    "statusEffect_immunity",
+                    W_BUFF_DURATION,
+                    id + "_wImmunity",
+                    true,
+                    "displayBar",
+                    false,
+                    false,
+                    team);
         }
     }
 
@@ -420,90 +518,7 @@ public class ChooseGoose extends UserActor {
         }
 
         @Override
-        protected void spellW() {
-            Runnable enableWCasting = () -> canCast[1] = true;
-            scheduleTask(enableWCasting, getReducedCooldown(cooldown));
-            jumpActive = false;
-
-            if (getHealth() > 0) {
-                ExtensionCommands.actorAnimate(parentExt, room, id, "spell2b", 500, false);
-                String sound = "sfx_choosegoose_w_impact";
-
-                ExtensionCommands.playSound(parentExt, room, id, sound, location);
-
-                ExtensionCommands.createWorldFX(
-                        parentExt,
-                        room,
-                        id,
-                        "finn_dash_whirlwind_fx",
-                        id + "_dashImpactFX" + Math.random(),
-                        2000,
-                        (float) location.getX(),
-                        (float) location.getY(),
-                        false,
-                        team,
-                        0f);
-                ExtensionCommands.createWorldFX(
-                        parentExt,
-                        room,
-                        id,
-                        "fx_target_ring_2",
-                        id + "_dashImpactRing" + Math.random(),
-                        500,
-                        (float) location.getX(),
-                        (float) location.getY(),
-                        true,
-                        team,
-                        0f);
-
-                RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                double damage = getSpellDamage(spellData, false);
-
-                for (Actor a : handler.getActorsInRadius(location, W_IMPACT_RADIUS)) {
-                    if (isNeitherTowerNorAlly(a)) {
-                        a.addToDamageQueue(ChooseGoose.this, damage, spellData, false);
-                    }
-
-                    if (isNeitherStructureNorAlly(a) && a.getLocation().distance(location) <= 1) {
-                        a.getEffectManager().addState(ActorState.SILENCED, 0, W_SILENCE_DURATION);
-                    }
-                }
-
-                ExtensionCommands.createActorFX(
-                        parentExt,
-                        room,
-                        id,
-                        "jake_shield",
-                        W_BUFF_DURATION,
-                        id + "_wShield",
-                        true,
-                        "mixamorig:Spine",
-                        false,
-                        false,
-                        team);
-
-                effectManager.addEffect(
-                        "armor",
-                        W_ARMOR_BUFF_PERCENT,
-                        ModifierType.MULTIPLICATIVE,
-                        ModifierIntent.BUFF,
-                        W_BUFF_DURATION);
-                effectManager.addState(ActorState.IMMUNITY, 0, W_BUFF_DURATION);
-
-                ExtensionCommands.createActorFX(
-                        parentExt,
-                        room,
-                        id,
-                        "statusEffect_immunity",
-                        W_BUFF_DURATION,
-                        id + "_wImmunity",
-                        true,
-                        "displayBar",
-                        false,
-                        false,
-                        team);
-            }
-        }
+        protected void spellW() {}
 
         @Override
         protected void spellE() {

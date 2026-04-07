@@ -8,7 +8,6 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import com.smartfoxserver.v2.entities.User;
-import com.smartfoxserver.v2.entities.data.ISFSObject;
 
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.Console;
@@ -33,6 +32,7 @@ public class Neptr extends UserActor {
     private static final int E_DAMAGE_DURATION = 3000;
     private static final int E_CAST_DELAY = 500;
     private static final int E_SILENCE_DURATION = 1000;
+    public static final float E_KNOCKBACK_DIST = 3.5f;
     private boolean passiveActive = false;
     private long passiveStart = 0;
     private int mineNum = 0;
@@ -141,12 +141,12 @@ public class Neptr extends UserActor {
     }
 
     @Override
-    public void move(ISFSObject params, Point2D destination) {
+    public void startMoveTo(Point2D endPoint) {
+        super.startMoveTo(endPoint);
         if (this.isStopped())
             ExtensionCommands.playSound(
                     this.parentExt, this.player, this.id, "sfx_neptr_move_start", this.location);
         this.soundPlayed = false;
-        super.move(params, destination);
     }
 
     @Override
@@ -346,7 +346,7 @@ public class Neptr extends UserActor {
             for (Actor a : Champion.getActorsInRadius(handler, ultLocation, 3f)) {
                 if (a.getActorType() != ActorType.BASE) {
                     if (isNeitherStructureNorAlly(a)) {
-                        a.handleKnockback(Neptr.this.location, 3.5f);
+                        a.handleKnockback(Neptr.this.location, E_KNOCKBACK_DIST);
                         a.getEffectManager().addState(ActorState.SILENCED, 0d, E_SILENCE_DURATION);
                     }
                     if (isNeitherTowerNorAlly(a)) {

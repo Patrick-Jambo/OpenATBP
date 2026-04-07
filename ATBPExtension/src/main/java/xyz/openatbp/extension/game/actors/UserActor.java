@@ -3,7 +3,6 @@ package xyz.openatbp.extension.game.actors;
 import static xyz.openatbp.extension.game.champions.GooMonster.GOO_BUFF_DURATION;
 import static xyz.openatbp.extension.game.champions.Keeoth.KEEOTH_BUFF_DURATION;
 
-import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
@@ -46,7 +45,7 @@ public class UserActor extends Actor {
     public static final int ROBO_CD = 10000;
     public static final int SIMON_GLASSES_RANGE = 5;
 
-    public static final double DASH_SPEED = 20d;
+    public static final double DEFAULT_DASH_SPEED = 20d;
     public static final int HEALTH_PACK_REGEN = 15;
     public static final float DC_AD_BUFF = 1.2f;
     public static final float DC_ARMOR_BUFF = 1.2f;
@@ -80,7 +79,6 @@ public class UserActor extends Actor {
     protected Map<String, ScheduledFuture<?>> iconHandlers = new HashMap<>();
     protected int idleTime = 0;
     protected boolean changeTowerAggro = false;
-    protected boolean isAutoAttacking = false;
     // Set debugging options via config.properties next to the extension jar
     protected static boolean movementDebug;
     private static boolean invincibleDebug;
@@ -130,7 +128,6 @@ public class UserActor extends Actor {
         float x = playerLoc.getSFSObject("p1").getFloat("x");
         float z = playerLoc.getSFSObject("p1").getFloat("z");
         this.location = new Point2D.Float(x, z);
-        this.movementLine = new Line2D.Float(this.location, this.location);
         this.stats = this.initializeStats();
         this.attackCooldown = this.stats.get("attackSpeed");
         this.currentHealth = this.stats.get("health");
@@ -290,21 +287,6 @@ public class UserActor extends Actor {
 
     public boolean getIsAutoAttacking() {
         return this.isAutoAttacking;
-    }
-
-    public void move(ISFSObject params, Point2D destination) {
-        Point2D orig = new Point2D.Float(params.getFloat("orig_x"), params.getFloat("orig_z"));
-        this.location = orig;
-        this.movementLine = new Line2D.Float(orig, destination);
-        this.timeTraveled = 0f;
-        ExtensionCommands.moveActor(
-                this.parentExt,
-                this.room,
-                this.id,
-                this.location,
-                destination,
-                (float) this.getPlayerStat("speed"),
-                params.getBool("orient"));
     }
 
     public void addHit(boolean dotDamage) {
@@ -984,7 +966,7 @@ public class UserActor extends Actor {
                     this.location,
                     5f,
                     false);
-        if (this.location.distance(this.movementLine.getP2()) <= 0.01f) {
+        if (!isMoving && movePointsToDest != null && movePointsToDest.isEmpty()) {
             this.idleTime += 100;
         }
         boolean insideBrush = false;
@@ -1231,23 +1213,6 @@ public class UserActor extends Actor {
         return !effectManager.hasState(ActorState.ROOTED);
     }
 
-    @Override
-    public boolean canMove() {
-        for (ActorState s :
-                effectManager
-                        .getStates()
-                        .keySet()) { // removed CHARMED state from here to make charmer following
-            // possible (I hope it doesn't break anything :))
-            if (s == ActorState.ROOTED
-                    || s == ActorState.STUNNED
-                    || s == ActorState.FEARED
-                    || s == ActorState.AIRBORNE) {
-                if (effectManager.hasState(s)) return false;
-            }
-        }
-        return this.canMove;
-    }
-
     public boolean hasInterrupingCC() {
         ActorState[] states = {
             ActorState.CHARMED,
@@ -1343,7 +1308,6 @@ public class UserActor extends Actor {
                         + this.team);
         this.location = respawnPoint;
         this.futureCrystalActive = true;
-        this.movementLine = new Line2D.Float(respawnPoint, respawnPoint);
         this.timeTraveled = 0f;
         this.canMove = true;
         this.setHealth((int) this.maxHealth, (int) this.maxHealth);
@@ -1362,8 +1326,8 @@ public class UserActor extends Actor {
                 ModifierType.ADDITIVE,
                 ModifierIntent.BUFF,
                 RESPAWN_SPEED_BOOST_MS,
-                id + "_statusEffect_speed",
-                "statusEffect_speed",
+                "_statusEffect_speed",
+                id + "statusEffect_speed",
                 "targetNode");
 
         ExtensionCommands.createActorFX(

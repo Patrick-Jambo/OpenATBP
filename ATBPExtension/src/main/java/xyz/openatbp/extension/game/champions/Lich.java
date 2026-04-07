@@ -17,6 +17,7 @@ import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class Lich extends UserActor {
     private static final int PASSIVE_DURATION = 20000;
@@ -292,22 +293,18 @@ public class Lich extends UserActor {
                     if (eLocation != null) {
                         ExtensionCommands.actorAnimate(
                                 this.parentExt, this.room, this.id, "idle", 100, false);
-                        /*Point2D teleportLocation =
-                        MovementManager.getDashPoint(
-                                this, new Line2D.Float(location, eLocation));*/
-                        /*ExtensionCommands.snapActor(
-                        parentExt, room, this.id, location, teleportLocation, false);*/
-                        /*this.setLocation(teleportLocation);
-                        if (this.skully != null) {
-                            this.skully.setLocation(teleportLocation);
-                            ExtensionCommands.snapActor(
-                                    parentExt,
-                                    room,
-                                    this.skully.getId(),
-                                    this.skully.getLocation(),
-                                    teleportLocation,
-                                    false);
-                        }*/
+
+                        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                        PathFinder pf = rh.getPathFinder();
+                        Point2D teleportPoint =
+                                pf.getNonObstaclePointOrIntersection(location, eLocation);
+                        teleport(eLocation);
+
+                        if (skully != null) {
+                            skully.setLocation(teleportPoint);
+                            skully.teleport(teleportPoint);
+                        }
+
                         ExtensionCommands.removeStatusIcon(parentExt, player, "ultDuration");
                         ExtensionCommands.createActorFX(
                                 parentExt,

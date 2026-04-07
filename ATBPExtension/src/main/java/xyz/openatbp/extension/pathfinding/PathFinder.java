@@ -90,8 +90,46 @@ public class PathFinder {
         return this.mapArea;
     }
 
-    public List<Obstacle> getObstacleList() {
-        return this.obstacleList;
+    public Point2D getNonObstaclePointOrIntersection(Point2D startPoint, Point2D dest) {
+        if (isPointInsideObstacle(dest)) {
+            return getIntersectionPoint(startPoint, dest);
+        } else {
+            return dest;
+        }
+    }
+
+    public boolean lineIntersectsObstacle(Point2D start, Point2D dest) {
+        Line2D line = new Line2D.Float(start, dest);
+        for (Obstacle obs : obstacleList) {
+            for (Line2D edge : obs.getEdges()) {
+                if (edge.intersectsLine(line)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isPointInsideObstacle(Point2D point) {
+        for (Obstacle obs : obstacleList) {
+            if (obs.getPath().contains(point)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Point2D getIntersectionPoint(Point2D start, Point2D end) {
+        Line2D line = new Line2D.Float(start, end);
+        for (Obstacle obs : obstacleList) {
+            for (Line2D edge : obs.getEdges()) {
+                if (edge.intersectsLine(line)) {
+                    Point2D intersectionPoint = getIntersectionPoint(line, edge);
+                    return getValidMovePointToIntersection(start, intersectionPoint);
+                }
+            }
+        }
+        return new Point2D.Double(end.getX(), end.getY());
     }
 
     public List<Point2D> getMovePointsToDest(Point2D start, Point2D end) {

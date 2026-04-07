@@ -62,13 +62,16 @@ public class DoActorAbilityHandler extends BaseClientRequestHandler {
         // Console.debugLog(params.getDump());
         String playerActor = player.getAvatar();
         JsonNode spellData = getSpellData(playerActor, spellNum);
+
         if (spellData.has("castType")
                 && spellData.get("castType").asText().equalsIgnoreCase("AIMED")) {
             Point2D serverLocation =
                     new Point2D.Float(params.getFloat("fx"), params.getFloat("fz"));
             player.setLocation(serverLocation);
         }
+
         Point2D oldLocation = new Point2D.Float(x, z);
+
         ISFSObject specialAttackData = new SFSObject();
         List<Float> locationArray = new ArrayList<>(Arrays.asList(x, y, z));
         specialAttackData.putUtfString("id", userId);
