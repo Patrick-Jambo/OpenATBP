@@ -358,6 +358,10 @@ public abstract class Bot extends Actor {
 
         handleElectrodeGun(a, attackData);
 
+        if (a.getActorType() == ActorType.PLAYER && getAttackType(attackData) == AttackType.SPELL) {
+            handleMagicCube((UserActor) a);
+        }
+
         if (a instanceof UserActor) {
             UserActor ua = (UserActor) a;
             ua.checkTowerAggro(ua);

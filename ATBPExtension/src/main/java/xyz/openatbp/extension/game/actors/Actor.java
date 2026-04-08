@@ -727,10 +727,10 @@ public abstract class Actor {
         }
     }
 
-    private void handleMagicCube(UserActor attacker, AttackType type) {
+    protected void handleMagicCube(UserActor attacker) {
         double cubeEffect = ChampionData.getCustomJunkStat(attacker, "junk_4_antimagic_cube");
 
-        if (type == AttackType.SPELL && cubeEffect != -1) {
+        if (cubeEffect != -1) {
             Map<Actor, Long> procs = attacker.getMagicCubeProcs();
             if (procs.containsKey(this)) {
                 long lastProc = procs.get(this);
@@ -772,8 +772,6 @@ public abstract class Actor {
         if (a.getClass() == IceKing.class && this.hasMovementCC()) damage *= 1.1;
         if (a.getActorType() == ActorType.PLAYER) {
             UserActor ua = (UserActor) a;
-
-            handleMagicCube(ua, getAttackType(attackData));
 
             if (ChampionData.getJunkLevel(ua, "junk_2_peppermint_tank") > 0
                     && getAttackType(attackData) == AttackType.SPELL) {

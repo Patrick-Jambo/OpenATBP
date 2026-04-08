@@ -317,7 +317,14 @@ public class UserActor extends Actor {
         try {
             if (invincibleDebug) return false;
             if (this.dead) return true;
-            if (a.getActorType() == ActorType.PLAYER) checkTowerAggro((UserActor) a);
+            if (a.getActorType() == ActorType.PLAYER) {
+                UserActor ua = (UserActor) a;
+                checkTowerAggro(ua);
+
+                if (getAttackType(attackData) == AttackType.SPELL) {
+                    handleMagicCube(ua);
+                }
+            }
             if (a.getActorType() == ActorType.COMPANION) {
                 checkTowerAggroCompanion(a);
             }
