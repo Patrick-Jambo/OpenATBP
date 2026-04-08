@@ -406,6 +406,7 @@ public class RattleBalls extends UserActor {
                     ExtensionCommands.actorAbilityResponse(
                             parentExt, player, "e", true, E_SECOND_USE_DELAY, 0);
                     effectManager.addEffect(
+                            this.id + "_rattle_e_speed",
                             "speed",
                             E_SPEED_PERCENT,
                             ModifierType.MULTIPLICATIVE,

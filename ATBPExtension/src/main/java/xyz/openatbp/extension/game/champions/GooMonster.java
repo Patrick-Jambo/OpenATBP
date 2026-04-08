@@ -128,6 +128,7 @@ public class GooMonster extends Monster {
                     ua.setGooBuffStartTime(System.currentTimeMillis());
                     ua.getEffectManager()
                             .addEffect(
+                                    ua.getId() + "_goo_buff",
                                     "speed",
                                     delta,
                                     ModifierType.MULTIPLICATIVE,

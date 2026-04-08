@@ -907,6 +907,7 @@ public abstract class RoomHandler implements Runnable {
 
                     a.getEffectManager()
                             .addEffect(
+                                    a.getId() + "_altar_buff1",
                                     stat1,
                                     percent,
                                     ModifierType.MULTIPLICATIVE,
@@ -917,6 +918,7 @@ public abstract class RoomHandler implements Runnable {
                                     "");
                     a.getEffectManager()
                             .addEffect(
+                                    a.getId() + "_altar_buff2",
                                     stat2,
                                     percent,
                                     ModifierType.MULTIPLICATIVE,

@@ -114,12 +114,14 @@ public class Neptr extends UserActor {
                         this.parentExt, this.room, this.id, "vo/vo_neptr_passive", this.location);
             }
             effectManager.addEffect(
+                    this.id + "_neptr_passive_speed",
                     "speed",
                     PASSIVE_SPEED_PERCENT,
                     ModifierType.MULTIPLICATIVE,
                     ModifierIntent.BUFF,
                     PASSIVE_SPEED_DURATION);
             effectManager.addEffect(
+                    this.id + "_neptr_passive_as",
                     "attackSpeed",
                     PASSIVE_ATTACK_SPEED_PERCENT,
                     ModifierType.MULTIPLICATIVE,

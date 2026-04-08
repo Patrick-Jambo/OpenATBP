@@ -318,6 +318,7 @@ public class MagicMan extends UserActor {
 
                     a.getEffectManager()
                             .addEffect(
+                                    a.getId() + "_magicman_ult_armor",
                                     stat1,
                                     E_ARMOR_PERCENT,
                                     ModifierType.MULTIPLICATIVE,
@@ -325,6 +326,7 @@ public class MagicMan extends UserActor {
                                     E_DEBUFF_DURATION);
                     a.getEffectManager()
                             .addEffect(
+                                    a.getId() + "_magicman_ult_spellResist",
                                     stat2,
                                     E_SHIELDS_PERCENT,
                                     ModifierType.MULTIPLICATIVE,
@@ -536,6 +538,7 @@ public class MagicMan extends UserActor {
                     .run();
             if (this.target.getActorType() == ActorType.PLAYER) {
                 effectManager.addEffect(
+                        id + "_magic_man_passive_speed",
                         "speed",
                         PASSIVE_SPEED_PERCENT,
                         ModifierType.MULTIPLICATIVE,

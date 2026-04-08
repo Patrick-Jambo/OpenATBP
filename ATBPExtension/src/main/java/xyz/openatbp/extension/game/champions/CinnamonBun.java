@@ -9,10 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import com.smartfoxserver.v2.entities.User;
 
-import xyz.openatbp.extension.ATBPExtension;
-import xyz.openatbp.extension.ChampionData;
-import xyz.openatbp.extension.ExtensionCommands;
-import xyz.openatbp.extension.RoomHandler;
+import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
@@ -52,6 +49,46 @@ public class CinnamonBun extends UserActor {
     @Override
     public void update(int msRan) {
         super.update(msRan);
+        if (ultUses == 1
+                && ultPoint != null
+                && location.distance(ultPoint) <= 2
+                && !effectManager.hasEffect(id + "_cb_e_speed")) {
+            addESpeed();
+        }
+
+        if (ultUses == 1
+                && ultPoint != null
+                && location.distance(ultPoint) > 2
+                && effectManager.hasEffect(id + "_cb_e_speed")) {
+            removeESpeed();
+        }
+
+        if (ultUses > 1
+                && ultPoint2 == null
+                && ultPoint != null
+                && location.distance(ultPoint) <= 4
+                && !effectManager.hasEffect(id + "_cb_e_speed")) {
+            addESpeed();
+        } else if (effectManager.hasEffect(id + "_cb_e_speed") && location.distance(ultPoint) > 4) {
+            effectManager.removeAllEffectsById(id + "_cb_e_speed");
+        }
+
+        if (ultUses > 1 && ultPoint2 != null && ultPoint != null) {
+            boolean insideUltRing = false;
+            for (Point2D p : new Point2D[] {ultPoint, ultPoint2}) {
+                if (location.distance(p) <= 2) {
+                    insideUltRing = true;
+                    break;
+                }
+            }
+
+            if (insideUltRing && !effectManager.hasEffect(id + "_cb_e_speed")) {
+                addESpeed();
+            } else if (!insideUltRing && effectManager.hasEffect(id + "_cb_e_speed")) {
+                effectManager.removeAllEffectsById(id + "_cb_e_speed ult uses 2");
+            }
+        }
+
         if (this.wPolygon != null && System.currentTimeMillis() - this.wStartTime >= W_DURATION) {
             this.wPolygon = null;
         }
@@ -113,15 +150,7 @@ public class CinnamonBun extends UserActor {
                     }
                 }
             }
-            if (location.distance(ultPoint) <= radius
-                    || (ultPoint2 != null && location.distance(ultPoint2) <= radius)) {
-                effectManager.addEffect(
-                        "speed",
-                        E_SPEED_BUFF_PERCENT,
-                        ModifierType.MULTIPLICATIVE,
-                        ModifierIntent.BUFF,
-                        150);
-            }
+
         } else if (this.ultPoint != null
                 && System.currentTimeMillis() - this.ultStart >= E_DURATION) {
             int baseCooldown = ChampionData.getBaseAbilityCooldown(this, 3);
@@ -192,6 +221,20 @@ public class CinnamonBun extends UserActor {
             this.ultUses = 0;
             this.ultStart = 0;
         }
+    }
+
+    private void removeESpeed() {
+        effectManager.removeAllEffectsById(id + "_cb_e_speed");
+    }
+
+    private void addESpeed() {
+        effectManager.addEffect(
+                id + "_cb_e_speed",
+                "speed",
+                E_SPEED_BUFF_PERCENT,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                E_DURATION);
     }
 
     @Override

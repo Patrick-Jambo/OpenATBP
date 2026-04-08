@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
@@ -65,6 +66,12 @@ public class IceKing extends UserActor {
     @Override
     public void update(int msRan) {
         super.update(msRan);
+        if ((ultLocation == null || ultLocation.distance(location) > E_RADIUS)
+                && effectManager.hasEffect(id + "_iceking_e_speed")) {
+            Console.debugLog("Removing speed effect");
+            effectManager.removeAllEffectsById(id + "_iceking_e_speed");
+        }
+
         if (this.ultActive && this.ultLocation != null) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             List<Actor> actorsInUlt =
@@ -99,17 +106,21 @@ public class IceKing extends UserActor {
                 }
             }
 
+            if (ultLocation != null
+                    && ultLocation.distance(location) <= E_RADIUS
+                    && !effectManager.hasEffect(id + "_iceking_e_speed")) {
+                effectManager.addEffect(
+                        id + "_iceking_e_speed",
+                        "speed",
+                        E_SPEED_PERCENT,
+                        ModifierType.MULTIPLICATIVE,
+                        ModifierIntent.BUFF,
+                        E_DURATION);
+                this.updateStatMenu("speed");
+            }
             if (!actorsInUlt.isEmpty()) {
                 for (Actor a : actorsInUlt) {
-                    if (a.equals(this)) {
-                        effectManager.addEffect(
-                                "speed",
-                                E_SPEED_PERCENT,
-                                ModifierType.MULTIPLICATIVE,
-                                ModifierIntent.BUFF,
-                                150);
-                        this.updateStatMenu("speed");
-                    } else if (isNeitherTowerNorAlly(a)) {
+                    if (isNeitherTowerNorAlly(a)) {
                         JsonNode spellData = this.parentExt.getAttackData("iceking", "spell3");
                         double dmg = getSpellDamage(spellData, false) / 10d;
                         a.addToDamageQueue(this, dmg, spellData, true);
@@ -237,6 +248,7 @@ public class IceKing extends UserActor {
                     .addState(ActorState.SLOWED, PASSIVE_SLOW_PERCENT, PASSIVE_SLOW_DURAITON);
             a.getEffectManager()
                     .addEffect(
+                            a.getId() + "_iceking_passive_slow",
                             "attackSpeed",
                             PASSIVE_AS_DEBUFF_PERCENT,
                             ModifierType.MULTIPLICATIVE,

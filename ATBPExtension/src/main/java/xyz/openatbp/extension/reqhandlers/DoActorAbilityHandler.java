@@ -104,6 +104,7 @@ public class DoActorAbilityHandler extends BaseClientRequestHandler {
 
                 player.getEffectManager()
                         .addEffect(
+                                player.getId() + "_zeldron_buff",
                                 "speed",
                                 delta,
                                 ModifierType.MULTIPLICATIVE,

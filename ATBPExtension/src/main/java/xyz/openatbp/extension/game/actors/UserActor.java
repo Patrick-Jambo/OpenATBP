@@ -1321,6 +1321,7 @@ public class UserActor extends Actor {
         ExtensionCommands.respawnActor(this.parentExt, this.room, this.id);
 
         effectManager.addEffect(
+                this.getId() + "_respawn_speed_boost",
                 "speed",
                 RESPAWN_SPEED_BOOST,
                 ModifierType.ADDITIVE,

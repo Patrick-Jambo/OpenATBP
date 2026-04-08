@@ -119,12 +119,14 @@ public class IceKingBot extends Bot {
             a.getEffectManager()
                     .addState(ActorState.SLOWED, PASSIVE_SLOW_PERCENT, PASSIVE_SLOW_DURAITON);
 
-            effectManager.addEffect(
-                    "attackSpeed",
-                    PASSIVE_AS_DEBUFF_PERCENT,
-                    ModifierType.MULTIPLICATIVE,
-                    ModifierIntent.DEBUFF,
-                    PASSIVE_AS_DEBUFF_TIME);
+            a.getEffectManager()
+                    .addEffect(
+                            a.getId() + "_iceking_passive_debuff",
+                            "attackSpeed",
+                            PASSIVE_AS_DEBUFF_PERCENT,
+                            ModifierType.MULTIPLICATIVE,
+                            ModifierIntent.DEBUFF,
+                            PASSIVE_AS_DEBUFF_TIME);
 
             this.iceShield = false;
             this.lastAbilityUsed = System.currentTimeMillis() + 5000;
@@ -576,11 +578,12 @@ public class IceKingBot extends Bot {
                 for (Actor a : actorsInUlt) {
                     if (a.equals(this)) {
                         effectManager.addEffect(
+                                this.id + "_iceking_e_speed",
                                 "speed",
                                 E_SPEED_PERCENT,
                                 ModifierType.MULTIPLICATIVE,
                                 ModifierIntent.BUFF,
-                                150);
+                                E_DURATION);
 
                     } else if (isNonStructureEnemy(a)) {
                         JsonNode spellData = this.parentExt.getAttackData("iceking", "spell3");

@@ -572,6 +572,7 @@ public class Marceline extends UserActor {
                         hpRegenActive = false;
                     }
                     Marceline.this.effectManager.addEffect(
+                            Marceline.this.id + "_marcy_e_as_buff",
                             "attackSpeed",
                             E_AS_PERCENT,
                             ModifierType.MULTIPLICATIVE,

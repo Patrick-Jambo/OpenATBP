@@ -198,12 +198,14 @@ public class Hunson extends UserActor {
                     "hunson_spell_4_short_description",
                     PASSIVE_DURATION);
             effectManager.addEffect(
+                    this.id + "_hunson_passive_as_buff",
                     "attackSpeed",
                     PASSIVE_ATTACK_SPEED_PERCENT,
                     ModifierType.MULTIPLICATIVE,
                     ModifierIntent.BUFF,
                     PASSIVE_ATTACK_SPEED_DURATION);
             effectManager.addEffect(
+                    this.id + "_hunson_passive_speed_buff",
                     "speed",
                     PASSIVE_SPEED_VALUE,
                     ModifierType.ADDITIVE,
@@ -440,12 +442,14 @@ public class Hunson extends UserActor {
                     team);
 
             effectManager.addEffect(
+                    id + "_hunson_e_armor",
                     "armor",
                     E_ARMOR_PERCENT,
                     ModifierType.MULTIPLICATIVE,
                     ModifierIntent.BUFF,
                     E_DURATION);
             effectManager.addEffect(
+                    id + "_hunson_e_spellVamp",
                     "spellVamp",
                     E_SPELLVAMP_VALUE,
                     ModifierType.ADDITIVE,

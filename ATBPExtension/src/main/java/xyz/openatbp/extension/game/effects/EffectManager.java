@@ -42,6 +42,7 @@ public class EffectManager {
             case SLOWED:
                 StatModifier m =
                         new StatModifier(
+                                actor.getId() + "_slow",
                                 "speed",
                                 modifier,
                                 ModifierType.MULTIPLICATIVE,
@@ -232,16 +233,22 @@ public class EffectManager {
     }
 
     public void addEffect(
-            String stat, double percent, ModifierType type, ModifierIntent intent, int durationMs) {
+            String effectId,
+            String stat,
+            double percent,
+            ModifierType type,
+            ModifierIntent intent,
+            int durationMs) {
         if (isActorIgnored(actor)) return;
 
         if (canApplyStateOrEffect(intent)) {
-            StatModifier m = new StatModifier(stat, percent, type, intent, durationMs);
+            StatModifier m = new StatModifier(effectId, stat, percent, type, intent, durationMs);
             modifiers.add(m);
         }
     }
 
     public void addEffect(
+            String effectId,
             String stat,
             double percent,
             ModifierType type,
@@ -253,7 +260,7 @@ public class EffectManager {
         if (isActorIgnored(actor)) return;
 
         if (canApplyStateOrEffect(intent)) {
-            StatModifier m = new StatModifier(stat, percent, type, intent, durationMs);
+            StatModifier m = new StatModifier(effectId, stat, percent, type, intent, durationMs);
             modifiers.add(m);
 
             ExtensionCommands.createActorFX(
@@ -269,6 +276,14 @@ public class EffectManager {
                     false,
                     actor.getTeam());
         }
+    }
+
+    public boolean hasEffect(String effectId) {
+        return modifiers.stream().anyMatch(m -> m.getEffectId().equals(effectId));
+    }
+
+    public void removeAllEffectsById(String effectId) {
+        modifiers.removeIf(m -> m.getEffectId().equals(effectId));
     }
 
     public void removeAllStatEffects(String stat) {
@@ -346,31 +361,29 @@ public class EffectManager {
         // HANDLES EFFECTS
         modifiers.removeIf(StatModifier::isExpired);
 
-        if (!modifiers.isEmpty()) {
-            tempStats = new HashMap<>(actor.getStats()); // start with base stats
+        tempStats = new HashMap<>(actor.getStats()); // start with base stats
 
-            Map<String, List<StatModifier>> modifiersByStat = new HashMap<>();
-            for (StatModifier m : modifiers) {
-                modifiersByStat.computeIfAbsent(m.getStatName(), k -> new ArrayList<>()).add(m);
-            }
+        Map<String, List<StatModifier>> modifiersByStat = new HashMap<>();
+        for (StatModifier m : modifiers) {
+            modifiersByStat.computeIfAbsent(m.getStatName(), k -> new ArrayList<>()).add(m);
+        }
 
-            for (Map.Entry<String, List<StatModifier>> entry : modifiersByStat.entrySet()) {
-                String stat = entry.getKey();
-                double base = actor.getStats().get(stat);
+        for (Map.Entry<String, List<StatModifier>> entry : modifiersByStat.entrySet()) {
+            String stat = entry.getKey();
+            double base = actor.getStats().get(stat);
 
-                double multiplicative =
-                        entry.getValue().stream()
-                                .filter(m -> m.getType() == ModifierType.MULTIPLICATIVE)
-                                .reduce(1.0, (acc, m) -> acc * m.getModifier(), (a, b) -> a * b);
+            double multiplicative =
+                    entry.getValue().stream()
+                            .filter(m -> m.getType() == ModifierType.MULTIPLICATIVE)
+                            .reduce(1.0, (acc, m) -> acc * m.getModifier(), (a, b) -> a * b);
 
-                double additive =
-                        entry.getValue().stream()
-                                .filter(m -> m.getType() == ModifierType.ADDITIVE)
-                                .mapToDouble(StatModifier::getModifier)
-                                .sum();
+            double additive =
+                    entry.getValue().stream()
+                            .filter(m -> m.getType() == ModifierType.ADDITIVE)
+                            .mapToDouble(StatModifier::getModifier)
+                            .sum();
 
-                tempStats.put(stat, (base * multiplicative) + additive);
-            }
+            tempStats.put(stat, (base * multiplicative) + additive);
         }
 
         if (!stateEffects.isEmpty()) {

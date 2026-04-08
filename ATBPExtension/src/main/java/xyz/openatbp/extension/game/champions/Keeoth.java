@@ -80,6 +80,7 @@ public class Keeoth extends Monster {
 
                     ua.getEffectManager()
                             .addEffect(
+                                    ua.getId() + "_keeoth_buff_ad_vamp",
                                     "lifeSteal",
                                     KEEOTH_AD_VAMP,
                                     ModifierType.ADDITIVE,
@@ -90,6 +91,7 @@ public class Keeoth extends Monster {
                                     "");
                     ua.getEffectManager()
                             .addEffect(
+                                    ua.getId() + "_keeoth_buff_ap_vamp",
                                     "spellVamp",
                                     KEEOTH_AP_VAMP,
                                     ModifierType.ADDITIVE,
@@ -101,12 +103,14 @@ public class Keeoth extends Monster {
                         critChange += 5d;
                     }
 
-                    effectManager.addEffect(
-                            "criticalChance",
-                            critChange,
-                            ModifierType.ADDITIVE,
-                            ModifierIntent.BUFF,
-                            KEEOTH_BUFF_DURATION);
+                    ua.getEffectManager()
+                            .addEffect(
+                                    ua.getId() + "keeoth_crit",
+                                    "criticalChance",
+                                    critChange,
+                                    ModifierType.ADDITIVE,
+                                    ModifierIntent.BUFF,
+                                    KEEOTH_BUFF_DURATION);
 
                     double healthChange = (double) ua.getHealth() * 0.3d;
                     ua.heal((int) healthChange); // TODO: Maybe change?

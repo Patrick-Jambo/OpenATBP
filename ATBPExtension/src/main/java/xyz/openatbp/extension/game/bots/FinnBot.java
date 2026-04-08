@@ -180,18 +180,21 @@ public class FinnBot extends Bot {
                 false,
                 this.team);
         effectManager.addEffect(
+                this.id + "_finn_q_speed",
                 "speed",
                 Q_SPEED_PERCENT,
                 ModifierType.MULTIPLICATIVE,
                 ModifierIntent.BUFF,
                 Q_SPEED_DURATION);
         effectManager.addEffect(
+                this.id + "_finn_q_armor",
                 "armor",
                 Q_ARMOR_PERCENT,
                 ModifierType.MULTIPLICATIVE,
                 ModifierIntent.BUFF,
                 Q_ARMOR_DURATION);
         effectManager.addEffect(
+                this.id + "_finn_q_attack_speed",
                 "attackSpeed",
                 Q_ATTACK_SPEED_PERCENT,
                 ModifierType.MULTIPLICATIVE,

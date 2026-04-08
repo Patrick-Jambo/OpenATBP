@@ -421,6 +421,7 @@ public class PeppermintButler extends UserActor {
                                 this.form = Form.FERAL;
 
                                 effectManager.addEffect(
+                                        this.id + "_pep_e_speed",
                                         "speed",
                                         E_SPEED_PERCENT,
                                         ModifierType.MULTIPLICATIVE,

@@ -268,12 +268,14 @@ public class Billy extends UserActor {
                 ExtensionCommands.actorAnimate(parentExt, room, id, "spell2", wLeapDuration, false);
                 if (passiveUses == 3) {
                     effectManager.addEffect(
+                            this.id + "_billy_w_attack_speed",
                             "attackSpeed",
                             W_ATTACK_SPEED_PERCENT,
                             ModifierType.MULTIPLICATIVE,
                             ModifierIntent.BUFF,
                             W_ATTACKSPEED_DURATION);
                     effectManager.addEffect(
+                            this.id + "_billy_w_speed",
                             "speed",
                             W_SPEED_PERCENT,
                             ModifierType.MULTIPLICATIVE,

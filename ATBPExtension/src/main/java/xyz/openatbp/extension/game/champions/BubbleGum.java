@@ -102,6 +102,7 @@ public class BubbleGum extends UserActor {
                     } else if (a.getId().equalsIgnoreCase(this.id)) {
                         if (System.currentTimeMillis() - lastQSpeed > Q_SPEED_DURATION) {
                             effectManager.addEffect(
+                                    this.id + "_pb_q_speed",
                                     "speed",
                                     Q_SPEED_VALUE_PERCENT,
                                     ModifierType.MULTIPLICATIVE,
@@ -167,6 +168,7 @@ public class BubbleGum extends UserActor {
                 passiveStacks.put(victim, stacks + 1);
                 victim.getEffectManager()
                         .addEffect(
+                                victim.getId() + "_pb_as_passive_debuff",
                                 "attackSpeed",
                                 PASSIVE_AS_STACK_PERCENT,
                                 ModifierType.MULTIPLICATIVE,

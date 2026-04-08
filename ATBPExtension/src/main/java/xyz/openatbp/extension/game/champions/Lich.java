@@ -191,6 +191,7 @@ public class Lich extends UserActor {
                 int delay = 0;
                 try {
                     effectManager.addEffect(
+                            this.id + "_lich_q_speed",
                             "speed",
                             Q_SPEED_PERCENT,
                             ModifierType.MULTIPLICATIVE,

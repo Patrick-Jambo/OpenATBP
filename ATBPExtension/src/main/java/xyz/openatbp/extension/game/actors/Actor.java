@@ -746,6 +746,7 @@ public abstract class Actor {
 
     private void applyMagicCubeDebuff(UserActor attacker, double debuffValue) {
         effectManager.addEffect(
+                this.id + "_magicCubeDebuff",
                 "spellDamage",
                 debuffValue,
                 ModifierType.ADDITIVE,
@@ -876,6 +877,7 @@ public abstract class Actor {
                     double delta = ((double) critChance / 100.0);
 
                     effectManager.addEffect(
+                            this.id + "_saiProc",
                             "armor",
                             delta,
                             ModifierType.MULTIPLICATIVE,

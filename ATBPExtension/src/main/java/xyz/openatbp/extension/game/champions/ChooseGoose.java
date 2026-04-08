@@ -160,12 +160,14 @@ public class ChooseGoose extends UserActor {
                 }
 
                 effectManager.addEffect(
+                        this.id + "_goose_q_as_buff",
                         "attackSpeed",
                         Q_AS_BUFF_PERCENT,
                         ModifierType.MULTIPLICATIVE,
                         ModifierIntent.BUFF,
                         Q_DURATION);
                 effectManager.addEffect(
+                        this.id + "_goose_q_ad_buff",
                         "attackDamage",
                         Q_AD_BUFF_PERCENT,
                         ModifierType.MULTIPLICATIVE,
@@ -448,6 +450,7 @@ public class ChooseGoose extends UserActor {
                     team);
 
             effectManager.addEffect(
+                    this.id + "_goose_w_armor_buff",
                     "armor",
                     W_ARMOR_BUFF_PERCENT,
                     ModifierType.MULTIPLICATIVE,
@@ -642,6 +645,7 @@ public class ChooseGoose extends UserActor {
 
                 a.getEffectManager()
                         .addEffect(
+                                a.getId() + "_goose_passive_speed",
                                 "speed",
                                 PASSIVE_SPEED_PERCENT,
                                 ModifierType.MULTIPLICATIVE,
@@ -649,6 +653,7 @@ public class ChooseGoose extends UserActor {
                                 PASSIVE_BUFF_DURATION);
                 a.getEffectManager()
                         .addEffect(
+                                a.getId() + "_goose_passive_armor",
                                 "armor",
                                 PASSIVE_ARMOR_PERCENT,
                                 ModifierType.MULTIPLICATIVE,
@@ -832,6 +837,7 @@ public class ChooseGoose extends UserActor {
                     if (currentStacks == 2) {
                         target.getEffectManager()
                                 .addEffect(
+                                        target.getId() + "_goose_q_armor_debuff",
                                         "armor",
                                         Q_ARMOR_DEBUFF_PERCENT,
                                         ModifierType.MULTIPLICATIVE,
