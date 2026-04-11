@@ -204,8 +204,8 @@ public class MainMapRoomHandler extends RoomHandler {
         try {
             this.gameOver = true;
             this.room.setProperty("state", 3);
-            ExtensionCommands.gameOver(
-                    parentExt, room, dcPlayers, winningTeam, IS_RANKED_MATCH, false);
+            ExtensionCommands.gameOver(parentExt, room, dcPlayers, winningTeam, false);
+            updateDBCoinsAndAccountXp(winningTeam);
             if (IS_RANKED_MATCH) {
                 logChampionData(winningTeam);
                 logMatchHistory(winningTeam);
@@ -264,19 +264,6 @@ public class MainMapRoomHandler extends RoomHandler {
                         if (currentElo + eloGain < 0) eloGain = currentElo * -1;
                         if (ua.getTeam() == winningTeam) wins++;
 
-                        int currentRankProgress = dataObj.get("player").get("rankProgress").asInt();
-                        int accountExpGained = BASE_ACCOUNT_EXP_VALUE;
-                        int rankIncrease = 0;
-                        if (ua.getTeam() == winningTeam)
-                            accountExpGained += WINNER_ACCOUNT_EXP_INCREASE;
-
-                        if (currentRankProgress + accountExpGained >= 100) {
-                            rankIncrease++;
-                            currentRankProgress = 0;
-                        } else {
-                            currentRankProgress += accountExpGained;
-                        }
-
                         boolean updateSpree = false;
                         boolean updateMulti = false;
                         boolean updateHighestScore = false;
@@ -318,8 +305,6 @@ public class MainMapRoomHandler extends RoomHandler {
                                 Updates.set(
                                         "player.tier", ChampionData.getTier(currentElo + eloGain)));
                         updateList.add(Updates.inc("player.elo", eloGain));
-                        updateList.add(Updates.inc("player.rank", rankIncrease));
-                        updateList.add(Updates.set("player.rankProgress", currentRankProgress));
                         updateList.add(Updates.inc("player.winsPVP", wins));
                         updateList.add(
                                 Updates.inc(

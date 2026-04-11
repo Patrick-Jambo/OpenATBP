@@ -131,7 +131,7 @@ public class FinnBot extends Bot {
 
     @Override
     public void handleFightingAbilities() {
-        if (target != null) {
+        if (target != null && canAttack()) {
             double distance = target.getLocation().distance(location);
 
             boolean targetLowHP = target.getPHealth() <= 0.05;
@@ -150,12 +150,14 @@ public class FinnBot extends Bot {
 
     @Override
     public void handleRetreatAbilities() {
-        Point2D fleePoint = getNextFleeWaypoint();
-        Point2D dashPoint = Champion.getAbilityLine(location, fleePoint, 5f).getP2();
+        if (canAttack()) {
+            Point2D fleePoint = getNextFleeWaypoint();
+            Point2D dashPoint = Champion.getAbilityLine(location, fleePoint, 5f).getP2();
 
-        if (canUseW()) useW(dashPoint);
+            if (canUseW()) useW(dashPoint);
 
-        if (canUseE()) useE(location);
+            if (canUseE()) useE(location);
+        }
     }
 
     @Override

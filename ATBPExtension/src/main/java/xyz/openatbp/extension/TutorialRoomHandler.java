@@ -28,6 +28,8 @@ public class TutorialRoomHandler extends RoomHandler {
     private static final Point2D SUPER_MINION_SPAWN = new Point2D.Float(-47, 4);
     private static final Point2D SUPER_MINION_SPAWN2 = new Point2D.Float(-44, 4.5f);
     private static final Point2D MOVE_DESTINATION2 = new Point2D.Float(-2.8f, 0.1f);
+    public static final int TUTORIAL_COINS = 1000;
+
     private TutorialSuperMinion superMinion;
     private UserActor tutorialPlayer;
     private boolean playerMovedOutOfBase = false;
@@ -60,6 +62,11 @@ public class TutorialRoomHandler extends RoomHandler {
         }
         ExtensionCommands.towerDown(parentExt, this.room, 0);
         ExtensionCommands.towerDown(parentExt, this.room, 3);
+    }
+
+    @Override
+    public void initPlayers() {
+        super.initPlayers();
 
         tutorialPlayer = players.get(0);
 
@@ -111,6 +118,8 @@ public class TutorialRoomHandler extends RoomHandler {
         if (mSecondsRan % 1000 == 0) { // Handle every second
             try {
                 secondsRan++;
+
+                Console.debugLog("Seconds Ran: " + secondsRan);
 
                 if (secondsRan == 8) {
                     ExtensionCommands.playSound(
@@ -182,6 +191,7 @@ public class TutorialRoomHandler extends RoomHandler {
             removeWayPoint();
             createCompleteStepFX();
             superMinion = new TutorialSuperMinion(parentExt, room, SUPER_MINION_SPAWN, 1);
+            companions.add(superMinion);
             ExtensionCommands.playSound(
                     parentExt,
                     room,
@@ -200,6 +210,7 @@ public class TutorialRoomHandler extends RoomHandler {
             basicAttackPerformed = true;
             createCompleteStepFX();
             superMinion = new TutorialSuperMinion(parentExt, room, SUPER_MINION_SPAWN2, 2);
+            companions.add(superMinion);
             ExtensionCommands.playSound(
                     parentExt,
                     room,
@@ -467,7 +478,7 @@ public class TutorialRoomHandler extends RoomHandler {
                             tutorialCoins = true;
                             List<Bson> updateList = new ArrayList<>();
                             updateList.add(Updates.inc("player.winsBots", 1));
-                            updateList.add(Updates.inc("player.coins", 700));
+                            updateList.add(Updates.inc("player.coins", TUTORIAL_COINS));
 
                             Bson updates = Updates.combine(updateList);
                             UpdateOptions options = new UpdateOptions().upsert(false);
@@ -478,8 +489,7 @@ public class TutorialRoomHandler extends RoomHandler {
                     }
                 }
             }
-            ExtensionCommands.gameOver(
-                    parentExt, room, dcPlayers, winningTeam, false, tutorialCoins);
+            ExtensionCommands.gameOver(parentExt, room, dcPlayers, winningTeam, tutorialCoins);
             parentExt.stopScript(room.getName(), false);
         } catch (Exception e) {
             e.printStackTrace();

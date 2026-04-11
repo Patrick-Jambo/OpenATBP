@@ -107,7 +107,7 @@ public class LemongrabBot extends Bot {
 
     @Override
     public void handleFightingAbilities() {
-        if (target == null) return;
+        if (target == null || !canAttack()) return;
         if (canUseQ()) {
             faceTarget(target);
             useQ(target.getLocation());
@@ -125,14 +125,16 @@ public class LemongrabBot extends Bot {
 
     @Override
     public void handleRetreatAbilities() {
-        if (lastPlayerAttacker != null) {
+        if (lastPlayerAttacker != null && canAttack()) {
             double distance = lastPlayerAttacker.getLocation().distance(location);
 
             if (canUseQ() && distance <= Q_MAX_CAST_RANGE) {
+                faceTarget(lastPlayerAttacker);
                 useQ(lastPlayerAttacker.getLocation());
             }
 
             if (canUseE() && getPHealth() <= 0.1 && distance <= E_MAX_CAST_RANGE) {
+                faceTarget(lastPlayerAttacker);
                 useE(lastPlayerAttacker.getLocation());
             }
         }

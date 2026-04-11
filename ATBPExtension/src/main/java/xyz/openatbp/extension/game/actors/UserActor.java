@@ -299,6 +299,12 @@ public class UserActor extends Actor {
         return actorDef.get("MonoBehaviours").get("ActorData").get("spell" + spell);
     }
 
+    @Override
+    public void applyStopMovingDuringAttack() {
+        super.applyStopMovingDuringAttack();
+        preventStealth();
+    }
+
     public void preventStealth() {
         Console.debugLog("Prevent stealth");
         effectManager.addState(ActorState.REVEALED, 0d, 3000);
@@ -524,16 +530,6 @@ public class UserActor extends Actor {
                         .getTaskScheduler()
                         .schedule(delayedAttack, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
             }
-        }
-    }
-
-    public void applyStopMovingDuringAttack() {
-        if (this.parentExt.getActorData(this.getAvatar()).has("attackType")) {
-            this.preventStealth();
-            this.stopMoving();
-            this.isAutoAttacking = true;
-            Runnable resetIsAttacking = () -> this.isAutoAttacking = false;
-            scheduleTask(resetIsAttacking, BASIC_ATTACK_DELAY);
         }
     }
 

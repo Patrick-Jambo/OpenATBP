@@ -107,7 +107,8 @@ public class PracticeRoomHandler extends RoomHandler {
         try {
             this.gameOver = true;
             this.room.setProperty("state", 3);
-            ExtensionCommands.gameOver(parentExt, room, dcPlayers, winningTeam, false, false);
+            ExtensionCommands.gameOver(parentExt, room, dcPlayers, winningTeam, false);
+            updateDBCoinsAndAccountXp(winningTeam);
             // logChampionData(winningTeam);
 
             for (UserActor ua : this.players) {

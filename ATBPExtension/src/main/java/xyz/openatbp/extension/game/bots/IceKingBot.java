@@ -144,7 +144,7 @@ public class IceKingBot extends Bot {
     @Override
     public void handleFightingAbilities() {
 
-        if (target != null) {
+        if (target != null && canAttack()) {
             if (canUseQ() && target.getLocation().distance(location) <= Q_RANGE) {
                 faceTarget(target);
                 useQ(target.getLocation());
@@ -167,7 +167,7 @@ public class IceKingBot extends Bot {
 
     @Override
     public void handleRetreatAbilities() {
-        if (canUseE()) useE(location);
+        if (canUseE() && canAttack()) useE(location);
     }
 
     private void handleLastAbilityVar() {
@@ -212,10 +212,6 @@ public class IceKingBot extends Bot {
         enemies.removeIf(a -> a instanceof Tower);
         if (timeOk(3)) {
             if (getPHealth() <= 0.15) {
-                /*Console.debugLog("P health is below 0.15");
-                Console.debugLog("P health: " + getPHealth());
-                Console.debugLog("current health: " + getHealth());
-                Console.debugLog("max health: " + getMaxHealth());*/
                 return true;
             }
             for (Actor a : enemies) {
@@ -321,7 +317,6 @@ public class IceKingBot extends Bot {
 
     @Override
     public void useE(Point2D destination) {
-        /*Console.debugLog("E Used!");*/
         handleLastAbilityVar();
         lastEUse = System.currentTimeMillis();
         globalCooldown = eCastDelayMS;

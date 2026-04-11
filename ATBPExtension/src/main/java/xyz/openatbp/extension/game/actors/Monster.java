@@ -15,6 +15,8 @@ import xyz.openatbp.extension.game.effects.ActorState;
 
 public class Monster extends Actor {
 
+    public static final float JG_MONSTER_AGGRO_RANGE = 10f;
+
     enum AggroState {
         PASSIVE,
         ATTACKED
@@ -113,10 +115,12 @@ public class Monster extends Actor {
     public boolean damaged(Actor a, int damage, JsonNode attackData) { // Runs when taking damage
         try {
             if (this.dead) return true;
-            if (Champion.getUserActorsInRadius(
-                                    parentExt.getRoomHandler(room.getName()), location, 10f)
-                            .isEmpty()
-                    && state == AggroState.PASSIVE) return false;
+            RoomHandler rh = parentExt.getRoomHandler(room.getName());
+            List<Actor> enemies =
+                    Champion.getEnemyActorsInRadius(rh, team, location, JG_MONSTER_AGGRO_RANGE);
+            enemies.removeIf(e -> !(e instanceof UserActor || e instanceof Bot));
+
+            if (enemies.isEmpty() && state == AggroState.PASSIVE) return false;
             if (a.getActorType() == ActorType.PLAYER) {
                 UserActor ua = (UserActor) a;
                 if (ChampionData.getJunkLevel(ua, "junk_1_demon_blood_sword") > 0) {

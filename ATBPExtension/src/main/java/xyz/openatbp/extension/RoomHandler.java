@@ -3,11 +3,14 @@ package xyz.openatbp.extension;
 import static com.mongodb.client.model.Filters.eq;
 
 import java.awt.geom.Point2D;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
@@ -190,6 +193,48 @@ public abstract class RoomHandler implements Runnable {
 
     public ScheduledFuture<?> getScriptHandler() {
         return this.scriptHandler;
+    }
+
+    protected void updateDBCoinsAndAccountXp(int winningTeam) throws IOException {
+        for (UserActor ua : players) {
+            RoomGroup roomGroup = GameManager.getRoomGroupEnum(room.getGroupId());
+            int coinsGained = GameManager.getGameOverCoins(ua.getTeam(), winningTeam, roomGroup);
+            int prestigePointsGained =
+                    GameManager.getGameOverPrestigePoints(ua.getTeam(), winningTeam, roomGroup);
+
+            if (coinsGained == 0 || prestigePointsGained == 0) return;
+
+            MongoCollection<Document> playerData = parentExt.getPlayerDatabase();
+            String tegID = (String) ua.getUser().getSession().getProperty("tegid");
+            Document data = playerData.find(eq("user.TEGid", tegID)).first();
+
+            if (data != null) {
+                Document playerObject = data.get("player", Document.class);
+                if (playerObject != null) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode dataNode = mapper.readTree(data.toJson());
+
+                    int rankIncrement = 0;
+
+                    int currentRankProgress = dataNode.get("player").get("rankProgress").asInt();
+
+                    if (currentRankProgress + prestigePointsGained >= 100) {
+                        rankIncrement = 1;
+                        currentRankProgress = 0;
+                    } else {
+                        currentRankProgress += prestigePointsGained;
+                    }
+
+                    List<Bson> updateList = new ArrayList<>();
+                    updateList.add(Updates.inc("player.coins", coinsGained));
+                    updateList.add(Updates.inc("player.rank", rankIncrement));
+                    updateList.add(Updates.set("player.rankProgress", currentRankProgress));
+                    Bson updates = Updates.combine(updateList);
+                    UpdateOptions options = new UpdateOptions().upsert(true);
+                    Console.debugLog(playerData.updateOne(data, updates, options));
+                }
+            }
+        }
     }
 
     protected void logChampionData(int winningTeam) {
@@ -945,8 +990,10 @@ public abstract class RoomHandler implements Runnable {
 
     private int getAltarNum(int i) {
         int altarNum;
-        String groupId = this.room.getGroupId();
-        if (groupId.equals("PVP") || groupId.equals("PVE")) {
+        String groupId = room.getGroupId();
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(groupId));
+
+        if (gameMap == GameMap.BATTLE_LAB) {
             altarNum = i == 0 ? 1 : i == 1 ? 0 : i;
         } else {
             // altar num 0 - top

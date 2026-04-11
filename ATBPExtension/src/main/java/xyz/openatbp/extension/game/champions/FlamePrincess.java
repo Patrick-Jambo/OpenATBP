@@ -12,6 +12,7 @@ import com.smartfoxserver.v2.entities.User;
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
+import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.pathfinding.PathFinder;
@@ -437,11 +438,8 @@ public class FlamePrincess extends UserActor {
                             .collect(Collectors.toList());
 
             for (Actor a : affectedUsers) {
-                if (a.getActorType() == ActorType.PLAYER) { // poly for bot handled elsewhere
-                    UserActor userActor = (UserActor) a;
-                    userActor
-                            .getEffectManager()
-                            .addState(ActorState.POLYMORPH, 0d, W_POLY_DURATION);
+                if (a instanceof UserActor || a instanceof Bot) { // poly for bot handled elsewhere
+                    a.getEffectManager().addState(ActorState.POLYMORPH, 0d, W_POLY_DURATION);
 
                     lastPolymorphTime = System.currentTimeMillis();
                 }

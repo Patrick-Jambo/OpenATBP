@@ -15,18 +15,14 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
-import xyz.openatbp.extension.game.effects.ActorState;
 
 public abstract class Bot extends Actor {
     private static final boolean MOVEMENT_DEBUG = false;
     public static final int CYCLOPS_DURATION = 60000;
-    public static final double POLYMORPH_SLOW_VALUE = 0.3d;
     private static final float TOWER_RANGE = 6f;
     public static final int INT = 15;
     public static final int HP_PACK_REGEN = INT;
     public static final double LOW_HP_PERCENTAGE_ACTION = 0.3;
-    private final Point2D spawnPoint;
-    private static final int POLYMORPH_DURATION = 3000;
     private static final int FOUNTAIN_HEAL = 250;
 
     protected final boolean testing = false;
@@ -37,8 +33,6 @@ public abstract class Bot extends Actor {
     protected boolean isAutoAttacking = false;
     protected boolean isDashing = false;
 
-    protected Long lastPolymorphTime = 0L;
-    protected boolean isPolymorphed = false;
     protected UserActor enemy;
     protected Long enemyDmgTime = 0L;
     protected HashMap<Actor, Long> agressors = new HashMap<>();
@@ -97,7 +91,6 @@ public abstract class Bot extends Actor {
         this.team = team;
         this.actorType = ActorType.COMPANION;
         this.stats = initializeStats();
-        this.spawnPoint = mapConfig.respawnPoint;
         this.displayName = avatar.toUpperCase() + " BOT";
         this.xpWorth = 25;
 
@@ -119,7 +112,7 @@ public abstract class Bot extends Actor {
     public void die(Actor a) {
         dead = true;
         currentHealth = 0;
-        canMove = false;
+        setCanMove(false);
 
         Actor realKiller = a;
 
@@ -134,11 +127,10 @@ public abstract class Bot extends Actor {
             }
         }
 
-        if (isPolymorphed) {
-            ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
+        if (movementState != MovementState.KNOCKBACK && movementState != MovementState.PULLED) {
+            stopMoving();
         }
 
-        if (!effectManager.hasState(ActorState.AIRBORNE)) stopMoving();
         ExtensionCommands.knockOutActor(parentExt, room, id, realKiller.getId(), deathTime);
 
         Runnable respawn = this::respawn;
@@ -204,8 +196,6 @@ public abstract class Bot extends Actor {
                 int newMaxHealth = getMaxHealth() + value;
                 setHealth(getHealth(), newMaxHealth);
             }
-
-            Console.debugLog("BOT BAG LEVEL UP: " + stat + " by " + value);
 
         } catch (NullPointerException e) {
             e.printStackTrace();
@@ -386,56 +376,7 @@ public abstract class Bot extends Actor {
             setStat("healthRegen", getStat("healthRegen") - HP_PACK_REGEN);
             ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
         }
-
-        handlePolymorph(attackData);
         return super.damaged(a, damage, attackData);
-    }
-
-    protected void handlePolymorph(JsonNode attackData) {
-        if (attackData.has("spellName")
-                && attackData.get("spellName").asText().equals("flame_spell_2_name")) {
-            lastPolymorphTime = System.currentTimeMillis();
-            isPolymorphed = true;
-            effectManager.addState(ActorState.SLOWED, POLYMORPH_SLOW_VALUE, POLYMORPH_DURATION);
-
-            ExtensionCommands.swapActorAsset(parentExt, room, id, "flambit");
-            ExtensionCommands.createActorFX(
-                    parentExt,
-                    room,
-                    id,
-                    "statusEffect_polymorph",
-                    1000,
-                    id + "_statusEffect_polymorph",
-                    true,
-                    "",
-                    true,
-                    false,
-                    team);
-            ExtensionCommands.createActorFX(
-                    parentExt,
-                    room,
-                    id,
-                    "flambit_aoe",
-                    POLYMORPH_DURATION,
-                    id + "_flambit_aoe",
-                    true,
-                    "",
-                    true,
-                    false,
-                    team);
-            ExtensionCommands.createActorFX(
-                    parentExt,
-                    room,
-                    id,
-                    "fx_target_ring_2",
-                    POLYMORPH_DURATION,
-                    id + "_flambit_ring_",
-                    true,
-                    "",
-                    true,
-                    true,
-                    getOppositeTeam());
-        }
     }
 
     public boolean timeOk(int ability) {
@@ -645,7 +586,6 @@ public abstract class Bot extends Actor {
         if (lastPlayerAttacker != null) {
             boolean wasAttackedRecently = System.currentTimeMillis() - lastPlayerAttackTime <= 2000;
             if (wasAttackedRecently && !isEnemyProtectedByTower(lastPlayerAttacker)) {
-                Console.debugLog("protected player test");
                 this.target = lastPlayerAttacker;
                 return BotState.FIGHTING;
             }
@@ -748,10 +688,10 @@ public abstract class Bot extends Actor {
 
         if (mapConfig.hasDefenseAlter2()) defenseAltars[1] = mapConfig.defenseAltar2;
 
-        for (Point2D defAltars : defenseAltars) {
-            int status = rh.getAltarStatus(defAltars);
+        for (Point2D defenseAltar : defenseAltars) {
+            int status = rh.getAltarStatus(defenseAltar);
             if (status != 10) {
-                altarToCapture = mapConfig.offenseAltar;
+                altarToCapture = defenseAltar;
                 return BotState.ALTAR;
             }
         }
@@ -840,7 +780,6 @@ public abstract class Bot extends Actor {
 
         handleRespawnTimer(msRan);
         handleFountainRegen(msRan);
-        // handleSwapFromPoly();
         handleHpPackEnd();
 
         if (msRan % 5000 == 0) {
@@ -850,8 +789,7 @@ public abstract class Bot extends Actor {
         // BOT ACTIONS
         BotState botState = evaluateBotState();
         if (botState != null) {
-            /* Console.debugLog("Bot state: " + botState);
-            Console.debugLog("location: " + location);*/
+            /* Console.debugLog("Bot state: " + botState);*/
             executeBotState(botState);
         }
     }
@@ -914,14 +852,8 @@ public abstract class Bot extends Actor {
 
     @Override
     public boolean canMove() {
-        if (isDashing || isAutoAttacking) return false;
+        if (isAutoAttacking || isDead()) return false;
         return super.canMove();
-    }
-
-    @Override
-    public boolean canAttack() {
-        if (isDashing || isPolymorphed) return false;
-        return super.canAttack();
     }
 
     @Override
@@ -951,12 +883,12 @@ public abstract class Bot extends Actor {
 
     public void respawn() {
         dead = false;
-        canMove = true;
+        setLocation(mapConfig.respawnPoint);
+        ExtensionCommands.snapActor(parentExt, room, id, location, location, false);
+        setCanMove(true);
         setHealth((int) maxHealth, (int) maxHealth);
         effectManager.removeEffects();
         agressors.clear();
-        setLocation(mapConfig.respawnPoint);
-        ExtensionCommands.snapActor(parentExt, room, id, location, location, false);
         ExtensionCommands.playSound(parentExt, room, id, "sfx/sfx_champion_respawn", location);
         ExtensionCommands.createActorFX(
                 parentExt,
@@ -1027,7 +959,7 @@ public abstract class Bot extends Actor {
             levelUpStats();
             simulateBackpackLevelUp("belt_champions");
             levelUpCooldowns();
-            logCooldowns();
+            // logCooldowns();
 
             ExtensionCommands.playSound(parentExt, room, id, "sfx_level_up_beam", location);
 
@@ -1049,7 +981,7 @@ public abstract class Bot extends Actor {
     @Override
     public void attack(Actor a) {
         if (this.attackCooldown == 0) {
-            this.applyStopMovingDuringAttack();
+            applyStopMovingDuringAttack();
             double critChance = this.getPlayerStat("criticalChance") / 100d;
             double random = Math.random();
             boolean crit = random < critChance;
@@ -1103,15 +1035,6 @@ public abstract class Bot extends Actor {
                         .schedule(delayedAttack, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
             }
         }
-    }
-
-    protected void applyStopMovingDuringAttack() {
-        stopMoving();
-        isAutoAttacking = true;
-        Runnable resetIsAttacking = () -> isAutoAttacking = false;
-        parentExt
-                .getTaskScheduler()
-                .schedule(resetIsAttacking, BASIC_ATTACK_DELAY, TimeUnit.MILLISECONDS);
     }
 
     protected boolean handleAttack(Actor a) {

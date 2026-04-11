@@ -90,18 +90,6 @@ public class EffectManager {
         return canMove && !hasState(ActorState.CHARMED);
     }
 
-    public void handleCharm() {
-        if (canMoveDuringCharmOrFear(ActorState.CHARMED)) {
-            actor.handleCharmMovement();
-        }
-    }
-
-    public void handleFear(Actor fearer) { // xd
-        if (canMoveDuringCharmOrFear(ActorState.FEARED)) {
-            actor.handleFear(fearer);
-        }
-    }
-
     public boolean hasState(ActorState state) {
         return states.getOrDefault(state, false);
     }

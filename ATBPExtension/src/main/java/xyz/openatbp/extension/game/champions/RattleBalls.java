@@ -50,7 +50,6 @@ public class RattleBalls extends UserActor {
 
     public RattleBalls(User u, ATBPExtension parentExt) {
         super(u, parentExt);
-        setStat("attackDamage", 1000);
     }
 
     @Override

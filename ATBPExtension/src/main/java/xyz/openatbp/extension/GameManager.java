@@ -1,5 +1,7 @@
 package xyz.openatbp.extension;
 
+import static xyz.openatbp.extension.TutorialRoomHandler.TUTORIAL_COINS;
+
 import java.awt.geom.Point2D;
 import java.util.*;
 
@@ -355,12 +357,37 @@ public class GameManager {
         GameModeSpawns.spawnHealthForMode(room, parentExt);
     }
 
+    public static int getGameOverCoins(int team, int winningTeam, RoomGroup roomGroup) {
+        // SHOP CURRENCY
+        switch (roomGroup) {
+            case RANKED:
+                return team == winningTeam ? 100 : 75;
+            case PVB:
+                return team == winningTeam ? 40 : 20;
+            case PRACTICE:
+                return team == winningTeam ? 25 : 10;
+        }
+        return 0;
+    }
+
+    public static int getGameOverPrestigePoints(int team, int winningTeam, RoomGroup roomGroup) {
+        // ACCOUNT XP
+        switch (roomGroup) {
+            case RANKED:
+                return team == winningTeam ? 20 : 10;
+            case PVB:
+                return team == winningTeam ? 10 : 5;
+            case PRACTICE:
+                return team == winningTeam ? 5 : 2;
+        }
+        return 0;
+    }
+
     public static JsonNode getTeamData(
             ATBPExtension parentExt,
             HashMap<User, UserActor> dcPlayers,
             int team,
             Room room,
-            boolean isRankedMatch,
             boolean tutorialCoins,
             int winningTeam) {
         final String[] STATS = {
@@ -397,12 +424,12 @@ public class GameManager {
             damageDealtPhysical
 
          */
-        int coins = isRankedMatch ? 80 : tutorialCoins ? 700 : 0;
-        int prestigePoints = isRankedMatch ? 10 : 0;
-        if (team == winningTeam && isRankedMatch) {
-            coins += 20;
-            prestigePoints += 5;
-        }
+
+        RoomGroup roomGroup = getRoomGroupEnum(room.getGroupId());
+        int coins = getGameOverCoins(team, winningTeam, roomGroup);
+        int prestigePoints = getGameOverPrestigePoints(team, winningTeam, roomGroup);
+        if (tutorialCoins) coins = TUTORIAL_COINS;
+
         ObjectNode node = objectMapper.createObjectNode();
         for (User u : room.getUserList()) {
             UserActor ua =
@@ -442,9 +469,7 @@ public class GameManager {
                     player.put("playerName", ua.getFrame());
                     player.put("myElo", (double) playerVar.getInt("elo"));
                     player.put("coins", coins);
-                    player.put(
-                            "prestigePoints",
-                            10); // Just going to have this be a flat amount for now
+                    player.put("prestigePoints", prestigePoints);
                     node.set(String.valueOf(u.getId()), player);
                 }
             }

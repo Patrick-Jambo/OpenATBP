@@ -32,11 +32,12 @@ public class ChampionData {
         for (int i = 0; i < XP_LEVELS.length; i++) {
             if (xp < XP_LEVELS[i]) return i + 1;
         }
-        return -1;
+        return XP_LEVELS.length;
     }
 
     public static int getLevelXP(int level) {
-        if (level == 0) return 0;
+        if (level <= 0) return 0;
+        if (level > XP_LEVELS.length) return XP_LEVELS[XP_LEVELS.length - 1];
         return XP_LEVELS[level - 1];
     }
 

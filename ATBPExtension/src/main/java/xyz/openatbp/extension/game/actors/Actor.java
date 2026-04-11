@@ -242,6 +242,12 @@ public abstract class Actor {
         return stats;
     }
 
+    public void addDamageGameStat(UserActor ua, double value, AttackType type) {
+        ua.addGameStat("damageDealtTotal", value);
+        if (type == AttackType.PHYSICAL) ua.addGameStat("damageDealtPhysical", value);
+        else ua.addGameStat("damageDealtSpell", value);
+    }
+
     public boolean canAttack() {
         for (ActorState s : effectManager.getStates().keySet()) {
             if (s == ActorState.STUNNED
@@ -252,14 +258,13 @@ public abstract class Actor {
                 if (effectManager.hasState(s)) return false;
             }
         }
+        if (movementState == MovementState.DASHING
+                || movementState == MovementState.LEAPING
+                || movementState == MovementState.KNOCKBACK
+                || movementState == MovementState.PULLED) return false;
+
         if (this.attackCooldown < 0) this.attackCooldown = 0;
         return this.attackCooldown == 0;
-    }
-
-    public void addDamageGameStat(UserActor ua, double value, AttackType type) {
-        ua.addGameStat("damageDealtTotal", value);
-        if (type == AttackType.PHYSICAL) ua.addGameStat("damageDealtPhysical", value);
-        else ua.addGameStat("damageDealtSpell", value);
     }
 
     // MOVEMENT
@@ -462,6 +467,7 @@ public abstract class Actor {
     }
 
     public void startMoveTo(Point2D endPoint) {
+        if (isAutoAttacking) return;
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
         PathFinder pF = rh.getPathFinder();
 
@@ -1002,6 +1008,15 @@ public abstract class Actor {
         data.putDouble("pHealth", this.getPHealth());
         data.putInt("health", (int) this.maxHealth);
         ExtensionCommands.updateActorData(this.parentExt, this.room, this.id, data);
+    }
+
+    public void applyStopMovingDuringAttack() {
+        if (this.parentExt.getActorData(this.getAvatar()).has("attackType")) {
+            this.stopMoving();
+            this.isAutoAttacking = true;
+            Runnable resetIsAttacking = () -> this.isAutoAttacking = false;
+            scheduleTask(resetIsAttacking, BASIC_ATTACK_DELAY);
+        }
     }
 
     public int getMitigatedDamage(double rawDamage, AttackType attackType, Actor attacker) {
