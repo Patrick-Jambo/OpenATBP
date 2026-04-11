@@ -6,8 +6,10 @@ import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 
 import xyz.openatbp.extension.ATBPExtension;
+import xyz.openatbp.extension.GameManager;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.ActorType;
+import xyz.openatbp.extension.game.GameMap;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Base;
 import xyz.openatbp.extension.game.actors.BaseTower;
@@ -37,7 +39,10 @@ public class HitActorHandler extends BaseClientRequestHandler {
                 Base b = (Base) target;
                 if (!b.isUnlocked()) return;
             }
-            if (roomGroup.equalsIgnoreCase("practice")) {
+
+            GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+            if (gameMap == GameMap.CANDY_STREETS) {
                 if (target.getActorType() == ActorType.TOWER
                                 && target.getId().equalsIgnoreCase("purple_tower0")
                         || target.getId().equalsIgnoreCase("blue_tower3")) {

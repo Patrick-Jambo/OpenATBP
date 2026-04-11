@@ -17,6 +17,7 @@ import com.smartfoxserver.v2.extensions.BaseClientRequestHandler;
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.MapData;
+import xyz.openatbp.extension.game.RoomGroup;
 
 public class GotoRoomHandler extends BaseClientRequestHandler {
 
@@ -76,36 +77,35 @@ public class GotoRoomHandler extends BaseClientRequestHandler {
             String roomId = params.getUtfString("room_id");
             Console.debugLog("Room ID: " + roomId);
 
+            if (roomId.contains("custom")) {
+                String lastPart = roomId.split("_")[2];
+                int roomSize = Integer.parseInt(lastPart.replace("p", ""));
+
+                if (roomSize > 4) {
+                    settings.setGroupId(RoomGroup.CUSTOM_BATTLE_LAB.name());
+                } else {
+                    settings.setGroupId(RoomGroup.CUSTOM_CANDY_STREETS.name());
+                }
+            }
+
             if (roomId.contains("tutorial")) {
-                settings.setGroupId("Tutorial");
+                settings.setGroupId(RoomGroup.TUTORIAL.name());
                 settings.setMaxUsers(1);
 
             } else if (roomId.contains("practice")) {
-                settings.setGroupId("Practice");
+                settings.setGroupId(RoomGroup.PRACTICE.name());
                 settings.setMaxUsers(1);
 
             } else if (roomId.contains("3p")) { // 3vs3 Bot game mode
-                settings.setGroupId("PVE");
+                settings.setGroupId(RoomGroup.PVB.name());
                 settings.setMaxUsers(3);
 
-            } else if (roomId.contains("custom")) {
-                String[] roomIDSplit = params.getUtfString("room_id").split("_");
-                String split = (roomIDSplit[roomIDSplit.length - 1]);
-                int roomSize = Integer.parseInt(split.replace("p", ""));
-                settings.setMaxUsers(roomSize);
-                if (roomSize > 4 || roomSize == 1) settings.setGroupId("PVE");
-                else settings.setGroupId("Practice");
-
-            } else if (roomId.contains("aram")) {
-                settings.setGroupId("ARAM");
-                settings.setMaxUsers(6); // TODO: Testing value
-
             } else if (roomId.contains("6p")) {
-                settings.setGroupId("PVP");
+                settings.setGroupId(RoomGroup.RANKED.name());
                 settings.setMaxUsers(6);
 
             } else {
-                settings.setGroupId("PVE");
+                settings.setGroupId(RoomGroup.PVB.name());
                 settings.setMaxUsers(1);
             }
             try {

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -100,9 +101,8 @@ public abstract class Bot extends Actor {
         this.displayName = avatar.toUpperCase() + " BOT";
         this.xpWorth = 25;
 
-        if (GameManager.getMap(mapConfig.gameMode) == GameMap.PRACTICE) {
+        if (GameManager.getMap(mapConfig.roomGroup) == GameMap.CANDY_STREETS) {
             this.lanePath = mapConfig.midLanePath;
-            ;
         }
 
         ExtensionCommands.createActor(parentExt, room, id, avatar, location, 0f, team);
@@ -540,8 +540,8 @@ public abstract class Bot extends Actor {
     }
 
     private void setClosestLanePath(Point2D locationToCheck) {
-        if (GameManager.getMap(mapConfig.gameMode) == GameMap.PRACTICE)
-            return; // PRACTICE MODE HAS ONLY ONE LANE
+        GameMap gameMap = GameManager.getMap(mapConfig.roomGroup);
+        if (gameMap == GameMap.CANDY_STREETS) return; // PRACTICE MODE HAS ONLY ONE LANE
 
         double minDistanceTop = 10000;
         for (Point2D p : mapConfig.topLanePath) {
@@ -733,9 +733,29 @@ public abstract class Bot extends Actor {
             return BotState.JUNGLING;
         }
 
-        // PUSH LANES
-        return BotState.PUSHING;
-        // TODO: Implement defense altars?
+        List<Minion> allyMinions =
+                rh.getMinions().stream()
+                        .filter(m -> m.getTeam() == team)
+                        .collect(Collectors.toList());
+
+        if (!allyMinions.isEmpty()) {
+            // PUSH LANES
+            return BotState.PUSHING;
+        }
+
+        Point2D[] defenseAltars = new Point2D[2];
+        defenseAltars[0] = mapConfig.defenseAltar;
+
+        if (mapConfig.hasDefenseAlter2()) defenseAltars[1] = mapConfig.defenseAltar2;
+
+        for (Point2D defAltars : defenseAltars) {
+            int status = rh.getAltarStatus(defAltars);
+            if (status != 10) {
+                altarToCapture = mapConfig.offenseAltar;
+                return BotState.ALTAR;
+            }
+        }
+        return BotState.FLEEING;
     }
 
     protected void executeBotState(BotState stateToExecute) {
@@ -766,25 +786,25 @@ public abstract class Bot extends Actor {
                     }
                 }
 
-                if (closestPack != null) startMoveTo(closestPack);
-                else startMoveTo(mapConfig.respawnPoint);
+                if (closestPack != null && canMove()) startMoveTo(closestPack);
+                else if (canMove()) startMoveTo(mapConfig.respawnPoint);
 
                 break;
             case FLEEING:
                 handleRetreatAbilities();
                 Point2D fleePoint = getNextFleeWaypoint();
-                if (!isMoving) {
+                if (!isMoving && canMove()) {
                     startMoveTo(fleePoint);
                 }
                 break;
             case ALTAR:
-                if (altarToCapture != null && !isMoving) {
+                if (altarToCapture != null && !isMoving && canMove()) {
                     startMoveTo(altarToCapture);
                 }
                 break;
             case PUSHING:
                 Point2D nextPushPoint = getNextPushWaypoint();
-                if (nextPushPoint != null && !isMoving) {
+                if (nextPushPoint != null && !isMoving && canMove()) {
                     startMoveTo(nextPushPoint);
                 }
                 break;
@@ -935,6 +955,7 @@ public abstract class Bot extends Actor {
         setHealth((int) maxHealth, (int) maxHealth);
         effectManager.removeEffects();
         agressors.clear();
+        setLocation(mapConfig.respawnPoint);
         ExtensionCommands.snapActor(parentExt, room, id, location, location, false);
         ExtensionCommands.playSound(parentExt, room, id, "sfx/sfx_champion_respawn", location);
         ExtensionCommands.createActorFX(

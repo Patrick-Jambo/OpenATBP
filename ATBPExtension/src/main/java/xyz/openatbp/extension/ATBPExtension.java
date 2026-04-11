@@ -27,6 +27,7 @@ import com.smartfoxserver.v2.util.TaskScheduler;
 
 import xyz.openatbp.extension.evthandlers.*;
 import xyz.openatbp.extension.game.GameMap;
+import xyz.openatbp.extension.game.RoomGroup;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.reqhandlers.*;
 
@@ -164,7 +165,7 @@ public class ATBPExtension extends SFSExtension {
         List<Point2D[]> obstacleList = new ArrayList<>();
         String filePath = getCurrentFolder();
 
-        if (map == GameMap.MAIN) {
+        if (map == GameMap.BATTLE_LAB) {
             filePath += "/data/colliders/mainMapObstacles.json";
         } else {
             filePath += "/data/colliders/practiceMapObstacles.json";
@@ -187,7 +188,7 @@ public class ATBPExtension extends SFSExtension {
 
     private Point2D[] getMapBoundariesFromFile(GameMap map) throws IOException {
         String filePath = getCurrentFolder();
-        if (map == GameMap.MAIN) {
+        if (map == GameMap.BATTLE_LAB) {
             filePath += "/data/colliders/mainMapBoundaries.json";
         } else {
             filePath += "/data/colliders/practiceMapBoundaries.json";
@@ -216,11 +217,11 @@ public class ATBPExtension extends SFSExtension {
     }
 
     private void loadColliders() throws IOException {
-        mainMapBoundaries = getMapBoundariesFromFile(GameMap.MAIN);
-        mainMapObstacles = getMapObstaclesFromFile(GameMap.MAIN);
+        mainMapBoundaries = getMapBoundariesFromFile(GameMap.BATTLE_LAB);
+        mainMapObstacles = getMapObstaclesFromFile(GameMap.BATTLE_LAB);
 
-        practiceMapBoundaries = getMapBoundariesFromFile(GameMap.PRACTICE);
-        practiceMapObstacles = getMapObstaclesFromFile(GameMap.PRACTICE);
+        practiceMapBoundaries = getMapBoundariesFromFile(GameMap.CANDY_STREETS);
+        practiceMapObstacles = getMapObstaclesFromFile(GameMap.CANDY_STREETS);
     }
 
     public Point2D[] getMainMapBoundary() {
@@ -290,14 +291,16 @@ public class ATBPExtension extends SFSExtension {
     public void startScripts(Room room) { // Creates a new task scheduler for a room
         if (!this.roomHandlers.containsKey(room.getName())) {
             String groupId = room.getGroupId();
+            RoomGroup roomGroup = GameManager.getRoomGroupEnum(groupId);
+
             int HP_RATE = MapData.NORMAL_HP_SPAWN_RATE;
             String[] pSpawns = GameManager.L1_SPAWNS;
             String rName = room.getName();
 
             RoomHandler rh;
 
-            switch (groupId) {
-                case "Tutorial":
+            switch (roomGroup) {
+                case TUTORIAL:
                     rh =
                             new TutorialRoomHandler(
                                     this, room, practiceMapBoundaries, practiceMapObstacles);
@@ -305,7 +308,8 @@ public class ATBPExtension extends SFSExtension {
                     rh.initPlayers();
                     break;
 
-                case "Practice":
+                case PRACTICE:
+                case CUSTOM_CANDY_STREETS:
                     rh =
                             new PracticeRoomHandler(
                                     this,
@@ -318,19 +322,14 @@ public class ATBPExtension extends SFSExtension {
                     rh.initPlayers();
                     break;
 
-                case "ARAM":
-                    rh = new AramRoomHandler(this, room, mainMapBoundaries, mainMapObstacles);
-                    roomHandlers.put(rName, rh);
-                    rh.initPlayers();
-                    break;
-
-                case "PVE":
+                case PVB:
                     rh = new PvERoomHandler(this, room, mainMapBoundaries, mainMapObstacles);
                     roomHandlers.put(rName, rh);
                     rh.initPlayers();
                     break;
 
-                case "PVP":
+                case RANKED:
+                case CUSTOM_BATTLE_LAB:
                     rh = new MainMapRoomHandler(this, room, mainMapBoundaries, mainMapObstacles);
                     roomHandlers.put(rName, rh);
                     rh.initPlayers();

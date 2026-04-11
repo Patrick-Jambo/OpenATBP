@@ -19,6 +19,7 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Bot;
+import xyz.openatbp.extension.game.actors.Tower;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
@@ -179,6 +180,7 @@ public class IceKingBot extends Bot {
     public boolean canUseQ() {
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
         List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, Q_RANGE);
+        enemies.removeIf(a -> a instanceof Tower);
         if (timeOk(1) && target != null) {
 
             AbilityShape qShape =
@@ -207,6 +209,7 @@ public class IceKingBot extends Bot {
     public boolean canUseE() {
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
         List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, E_RADIUS);
+        enemies.removeIf(a -> a instanceof Tower);
         if (timeOk(3)) {
             if (getPHealth() <= 0.15) {
                 /*Console.debugLog("P health is below 0.15");

@@ -30,7 +30,7 @@ public class MainMapRoomHandler extends RoomHandler {
     public static final int BASE_ACCOUNT_EXP_VALUE = 10;
     public static final int WINNER_ACCOUNT_EXP_INCREASE = 5;
     private HashMap<User, UserActor> dcPlayers = new HashMap<>();
-    private final boolean IS_RANKED_MATCH = this.room.getGroupId().equals("PVP");
+    private final boolean IS_RANKED_MATCH = room.getGroupId().equals("RANKED");
 
     public MainMapRoomHandler(
             ATBPExtension parentExt, Room room, Point2D[] mapBoundary, List<Point2D[]> obstacles) {
@@ -62,16 +62,16 @@ public class MainMapRoomHandler extends RoomHandler {
             int minionNum = secondsRan % 10;
             if (minionNum == 4) this.currentMinionWave = minionWave;
             if (minionNum <= 3) {
-                this.addMinion(GameMap.MAIN, 1, minionNum, minionWave, 0);
-                this.addMinion(GameMap.MAIN, 0, minionNum, minionWave, 0);
-                this.addMinion(GameMap.MAIN, 1, minionNum, minionWave, 1);
-                this.addMinion(GameMap.MAIN, 0, minionNum, minionWave, 1);
+                this.addMinion(GameMap.BATTLE_LAB, 1, minionNum, minionWave, 0);
+                this.addMinion(GameMap.BATTLE_LAB, 0, minionNum, minionWave, 0);
+                this.addMinion(GameMap.BATTLE_LAB, 1, minionNum, minionWave, 1);
+                this.addMinion(GameMap.BATTLE_LAB, 0, minionNum, minionWave, 1);
 
             } else if (minionNum == 4) {
                 for (int i = 0; i < 2; i++) { // i = lane
                     for (int g = 0; g < 2; g++) {
                         if (!this.hasSuperMinion(i, g) && this.canSpawnSupers(g))
-                            this.addMinion(GameMap.MAIN, g, minionNum, minionWave, i);
+                            this.addMinion(GameMap.BATTLE_LAB, g, minionNum, minionWave, i);
                     }
                 }
             }

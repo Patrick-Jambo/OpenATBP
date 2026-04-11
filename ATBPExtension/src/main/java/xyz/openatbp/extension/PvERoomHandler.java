@@ -6,6 +6,8 @@ import java.util.List;
 
 import com.smartfoxserver.v2.entities.Room;
 
+import xyz.openatbp.extension.game.GameMap;
+import xyz.openatbp.extension.game.RoomGroup;
 import xyz.openatbp.extension.game.actors.Bot;
 
 public class PvERoomHandler extends MainMapRoomHandler {
@@ -17,23 +19,20 @@ public class PvERoomHandler extends MainMapRoomHandler {
 
         List<String> botAvatars = new ArrayList<>(3);
 
-        /*Bot b = GameModeSpawns.createRandomBot(botAvatars, false, parentExt, room, 1, GameMode.PVB);
-        if (b != null) {
-            botAvatars.add(b.getAvatar());
-            botList[0] = b;
-            companions.add(b);
-        }*/
+        RoomGroup roomGroup = GameManager.getRoomGroupEnum(room.getGroupId());
 
-        /*for (int i = 0; i < 3; i++) {
-            Bot b =
-                    GameModeSpawns.createRandomBot(
-                            botAvatars, false, parentExt, room, 1, GameMode.PVB);
-            if (b != null) {
-                botAvatars.add(b.getAvatar());
-                botList[i] = b;
-                companions.add(b);
+        if (roomGroup == RoomGroup.PVB) {
+            for (int i = 0; i < 3; i++) {
+                Bot b =
+                        GameModeSpawns.createRandomBot(
+                                botAvatars, false, parentExt, room, 1, GameMap.BATTLE_LAB);
+                if (b != null) {
+                    botAvatars.add(b.getAvatar());
+                    botList[i] = b;
+                    companions.add(b);
+                }
             }
-        }*/
+        }
     }
 
     @Override

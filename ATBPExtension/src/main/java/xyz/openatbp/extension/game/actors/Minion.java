@@ -609,7 +609,7 @@ public class Minion extends Actor {
     private List<Point2D> getLanePoints() {
         List<Point2D> lanePoints;
 
-        if (map == GameMap.MAIN) {
+        if (map == GameMap.BATTLE_LAB) {
             if (lane == 0 && team == 0) lanePoints = purpleTopLanePoints;
             else if (lane == 0 && team == 1) lanePoints = blueTopLanePoints;
             else if (lane == 1 && team == 0) lanePoints = purpleBotLanePoints;
@@ -647,16 +647,4 @@ public class Minion extends Actor {
             }
         }
     }
-
-    /*private Minion isInsideMinion() {
-        for (Minion m :
-                this.parentExt
-                        .getRoomHandler(this.room.getName())
-                        .getMinions(this.team, this.lane)) {
-            if (!m.getId().equalsIgnoreCase(this.id)
-                    && m.getLocation().distance(this.location) <= 0.45d) return m;
-        }
-        return null;
-    }*/
-
 }

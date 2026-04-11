@@ -7,8 +7,8 @@ import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.game.GameMap;
-import xyz.openatbp.extension.game.GameMode;
 import xyz.openatbp.extension.game.Projectile;
+import xyz.openatbp.extension.game.RoomGroup;
 import xyz.openatbp.extension.game.actors.*;
 
 public class PracticeRoomHandler extends RoomHandler {
@@ -36,12 +36,12 @@ public class PracticeRoomHandler extends RoomHandler {
         for (String key : towers1.keySet()) {
             towers.add(new Tower(parentExt, room, key, 1, towers1.get(key)));
         }
-        if (this.players.size() == 1) {
 
+        if (room.getGroupId().equals(RoomGroup.PRACTICE.name())) {
             List<String> bots = new ArrayList<>();
             bot =
                     GameModeSpawns.createRandomBot(
-                            bots, false, parentExt, room, 1, GameMode.PRACTICE);
+                            bots, false, parentExt, room, 1, GameMap.CANDY_STREETS);
             companions.add(bot);
         }
         FOUNTAIN_RADIUS = 6f;
@@ -67,12 +67,12 @@ public class PracticeRoomHandler extends RoomHandler {
             int minionNum = secondsRan % 10;
             if (minionNum == 4) this.currentMinionWave = minionWave;
             if (minionNum <= 3) {
-                this.addMinion(GameMap.PRACTICE, 1, minionNum, minionWave, 0);
-                this.addMinion(GameMap.PRACTICE, 0, minionNum, minionWave, 0);
+                this.addMinion(GameMap.CANDY_STREETS, 1, minionNum, minionWave, 0);
+                this.addMinion(GameMap.CANDY_STREETS, 0, minionNum, minionWave, 0);
             } else if (minionNum == 4) {
                 for (int g = 0; g < 2; g++) {
                     if (!this.hasSuperMinion(0, g) && this.canSpawnSupers(g))
-                        this.addMinion(GameMap.PRACTICE, g, minionNum, minionWave, 0);
+                        this.addMinion(GameMap.CANDY_STREETS, g, minionNum, minionWave, 0);
                 }
             }
         }

@@ -538,7 +538,9 @@ public class PeppermintButler extends UserActor {
         Point2D currentAltar = null;
         Point2D[] altarLocations;
 
-        if (room.getGroupId().equals("Practice") || room.getGroupId().equals("ARAM")) {
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(room.getGroupId()));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             altarLocations = new Point2D[3];
             altarLocations[0] = new Point2D.Float(MapData.L2_TOP_ALTAR[0], MapData.L2_TOP_ALTAR[1]);
             altarLocations[1] = new Point2D.Float(0f, 0f);

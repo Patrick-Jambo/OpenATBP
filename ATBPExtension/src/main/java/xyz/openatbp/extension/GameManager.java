@@ -1,7 +1,6 @@
 package xyz.openatbp.extension;
 
 import java.awt.geom.Point2D;
-import java.io.IOException;
 import java.util.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,7 +15,7 @@ import com.smartfoxserver.v2.entities.variables.*;
 import com.smartfoxserver.v2.exceptions.SFSVariableException;
 
 import xyz.openatbp.extension.game.GameMap;
-import xyz.openatbp.extension.game.GameMode;
+import xyz.openatbp.extension.game.RoomGroup;
 import xyz.openatbp.extension.game.actors.UserActor;
 
 public class GameManager {
@@ -77,7 +76,8 @@ public class GameManager {
     public static String getMapString(Room room, String groupID) {
         String candyStreets = "AT_1L_Arena"; // PRACTICE MAP
         String battleLab = "AT_2L_Arena"; // MAIN MAP
-        if (groupID.contains("Practice") || groupID.contains("Tutorial")) return candyStreets;
+        if (groupID.contains(RoomGroup.PRACTICE.name())
+                || groupID.contains(RoomGroup.TUTORIAL.name())) return candyStreets;
         return battleLab;
     }
 
@@ -109,13 +109,36 @@ public class GameManager {
         return num == gameSize;
     }
 
-    public static GameMap getMap(GameMode gameMode) {
-        switch (gameMode) {
-            case PVP:
+    public static GameMap getMap(RoomGroup roomGroup) {
+        switch (roomGroup) {
+            case RANKED:
             case PVB:
-                return GameMap.MAIN;
+            case CUSTOM_BATTLE_LAB:
+                return GameMap.BATTLE_LAB;
             default:
-                return GameMap.PRACTICE;
+                return GameMap.CANDY_STREETS;
+        }
+    }
+
+    public static RoomGroup getRoomGroupEnum(String roomGroupID) {
+        switch (roomGroupID) {
+            case "CUSTOM_BATTLE_LAB":
+                return RoomGroup.CUSTOM_BATTLE_LAB;
+
+            case "CUSTOM_CANDY_STREETS":
+                return RoomGroup.CUSTOM_CANDY_STREETS;
+
+            case "PVB":
+                return RoomGroup.PVB;
+
+            case "PRACTICE":
+                return RoomGroup.PRACTICE;
+
+            case "TUTORIAL":
+                return RoomGroup.TUTORIAL;
+
+            default:
+                return RoomGroup.RANKED;
         }
     }
 
@@ -146,8 +169,10 @@ public class GameManager {
             int spawnNum,
             boolean createActor)
             throws SFSVariableException {
-        boolean practiceMap =
-                room.getGroupId().equals("Practice") || room.getGroupId().equals("Tutorial");
+
+        GameMap gameMap = getMap(getRoomGroupEnum(room.getGroupId()));
+
+        boolean practiceMap = gameMap == GameMap.CANDY_STREETS;
         int team = playerInfo.getInt("team");
 
         float px = 0f;

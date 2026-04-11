@@ -84,8 +84,8 @@ public class TutorialRoomHandler extends RoomHandler {
     @Override
     public void handleMinionSpawns() {
         if (minionNum < 4) {
-            this.addMinion(GameMap.PRACTICE, 0, minionNum, 1, 0);
-            this.addMinion(GameMap.PRACTICE, 1, minionNum, 1, 0);
+            this.addMinion(GameMap.CANDY_STREETS, 0, minionNum, 1, 0);
+            this.addMinion(GameMap.CANDY_STREETS, 1, minionNum, 1, 0);
             minionNum++;
         }
     }

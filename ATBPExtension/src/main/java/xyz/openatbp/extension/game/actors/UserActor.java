@@ -550,7 +550,9 @@ public class UserActor extends Actor {
         List<Point2D> towerLocations = new ArrayList<>();
         HashMap<String, Point2D> baseTowers;
         String roomGroup = room.getGroupId();
-        if (room.getGroupId().equalsIgnoreCase("practice")) {
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             if (ownTower) {
                 if (a.getTeam() == 1) {
                     towers = MapData.getPTowerActorData(1);

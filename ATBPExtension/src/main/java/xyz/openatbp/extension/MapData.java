@@ -6,6 +6,8 @@ import java.util.HashMap;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 
+import xyz.openatbp.extension.game.GameMap;
+
 // PURPLE NEGATIVE X, BLUE POSITIVE X
 
 public class MapData {
@@ -91,9 +93,10 @@ public class MapData {
     public static ISFSObject getBaseActorData(int team, String roomGroup) {
         float x;
         float z;
-        if (roomGroup.equals("Practice")
-                || roomGroup.equals("Tutorial")
-                || roomGroup.equals("ARAM")) {
+
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             if (team == 0) {
                 x = L1_PURPLE_BASE[0];
                 z = L1_PURPLE_BASE[1];
@@ -138,9 +141,9 @@ public class MapData {
         float z;
         String id;
         String towerID = "tower" + (1 + team);
-        if (roomGroup.equals("Tutorial")
-                || roomGroup.equals("Practice")
-                || roomGroup.equals("ARAM")) {
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             if (team == 0) {
                 x = L1_PURPLE_TOWER_0[0];
                 id = "purple_tower0";
@@ -178,7 +181,7 @@ public class MapData {
         String id;
         float x;
         float z;
-        if (room.equalsIgnoreCase("practice") || room.equalsIgnoreCase("ARAM")) {
+        if (room.equalsIgnoreCase("practice")) {
             if (team == 0) {
                 x = L1_PURPLE_TOWER_0[0];
                 id = "purple_tower0";
@@ -202,12 +205,15 @@ public class MapData {
         return baseTowers;
     }
 
-    public static ISFSObject getTowerActorData(int team, int tower, String roomId) { //
+    public static ISFSObject getTowerActorData(int team, int tower, String roomGroup) { //
         float x = 0;
         float z = 0;
         String id;
         String towerID = "tower" + (1 + team);
-        if (roomId.equals("Practice") || roomId.equals("Tutorial") || roomId.equals("ARAM")) {
+
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             switch (tower) {
                 case 1:
                     x = L1_PURPLE_TOWER_1[0]; //
@@ -310,9 +316,10 @@ public class MapData {
         float x = (float) 0.0;
         float z = (float) 0.0;
         String actorID = "altar_" + type;
-        if (roomGroup.equals("Tutorial")
-                || roomGroup.equals("Practice")
-                || roomGroup.equals("ARAM")) {
+
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             if (type == 0) {
                 z = L1_DALTAR_Z;
                 actorID = "altar_1";
@@ -351,9 +358,10 @@ public class MapData {
     public static ISFSObject getHealthActorData(int team, String roomGroup, int type) {
         float x = 0;
         float z = 0;
-        if (roomGroup.equals("Tutorial")
-                || roomGroup.equals("Practice")
-                || roomGroup.equals("ARAM")) {
+
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             x = L1_BLUE_HEALTH_X;
             z = L1_BLUE_HEALTH_Z;
             if (team == 0) {
@@ -392,7 +400,10 @@ public class MapData {
     public static ISFSObject getGuardianActorData(int team, String roomGroup) {
         float x = 0;
         float z = 0;
-        if (roomGroup.equals("Tutorial") || roomGroup.equals("Practice")) {
+
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             x = L1_GUARDIAN_X;
             z = team == 1 ? L1_BLUE_GUARDIAN_AREA_Z : L1_PURPLE_GUARDIAN_AREA_Z;
         } else {
@@ -417,9 +428,10 @@ public class MapData {
     public static Point2D getGuardianLocationData(int team, String roomGroup) {
         float x = 0;
         float z = 0;
-        if (roomGroup.equals("Tutorial")
-                || roomGroup.equals("Practice")
-                || roomGroup.equals("ARAM")) {
+
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+        if (gameMap == GameMap.CANDY_STREETS) {
             x = L1_GUARDIAN_X;
             z = team == 1 ? L1_BLUE_GUARDIAN_AREA_Z : L1_PURPLE_GUARDIAN_AREA_Z;
         } else {

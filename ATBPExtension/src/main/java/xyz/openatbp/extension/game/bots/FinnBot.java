@@ -17,6 +17,7 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Bot;
+import xyz.openatbp.extension.game.actors.Tower;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
@@ -476,7 +477,9 @@ public class FinnBot extends Bot {
 
     @Override
     public boolean canUseW() {
-        if (target != null && target.getLocation().distance(location) <= 5) {
+        if (target != null
+                && target.getLocation().distance(location) <= 5
+                && !(target instanceof Tower)) {
             return timeOk(2) && !isCastingUlt;
         }
         return false;
@@ -484,7 +487,7 @@ public class FinnBot extends Bot {
 
     @Override
     public boolean canUseE() {
-        if (timeOk(3) && target != null && !isDashing) {
+        if (timeOk(3) && target != null && !isDashing && !(target instanceof Tower)) {
 
             // DEFENSIVE ULT
             if (lastPlayerAttacker != null) {

@@ -30,10 +30,10 @@ public class BotMapConfig {
     public final Point2D[] botLanePath;
     public final Point2D[] midLanePath;
 
-    public final GameMode gameMode;
+    public final RoomGroup roomGroup;
 
     public BotMapConfig(
-            GameMode gameMode,
+            RoomGroup roomGroup,
             Point2D respawnPoint,
             Point2D offenseAltar,
             Point2D defenseAltar,
@@ -52,7 +52,7 @@ public class BotMapConfig {
             Point2D[] topLanePath,
             Point2D[] botLanePath,
             Point2D[] midLanePath) {
-        this.gameMode = gameMode;
+        this.roomGroup = roomGroup;
         this.respawnPoint = respawnPoint;
         this.offenseAltar = offenseAltar;
         this.defenseAltar = defenseAltar;
@@ -74,7 +74,7 @@ public class BotMapConfig {
     }
 
     public static BotMapConfig createMainMap(int team) {
-        GameMode gameMode = GameMode.PVB;
+        RoomGroup roomGroup = RoomGroup.PVB;
         float spawnX1 = (float) MapData.L2_PURPLE_SPAWNS[0].getX();
         float spawnX2 = (float) MapData.L2_PURPLE_SPAWNS[1].getX();
 
@@ -154,7 +154,7 @@ public class BotMapConfig {
         Point2D[] botLanePath = getMainMapTopPath(team);
 
         return new BotMapConfig(
-                gameMode,
+                roomGroup,
                 respawnPoint,
                 offenseAltar,
                 defenseAltar,
@@ -197,7 +197,7 @@ public class BotMapConfig {
     }
 
     public static BotMapConfig createPractice(int team) {
-        GameMode gameMode = GameMode.PRACTICE;
+        RoomGroup roomGroup = RoomGroup.PRACTICE;
         Point2D respawnPoint = MapData.L1_PURPLE_SPAWNS[0];
         if (team == 1) {
             float x = (float) MapData.L1_PURPLE_SPAWNS[0].getX() * -1;
@@ -254,7 +254,7 @@ public class BotMapConfig {
         Point2D[] midLanePath = getPracticeMidLanePath(team);
 
         return new BotMapConfig(
-                gameMode,
+                roomGroup,
                 respawnPoint,
                 offenseAltar,
                 defenseAltar,

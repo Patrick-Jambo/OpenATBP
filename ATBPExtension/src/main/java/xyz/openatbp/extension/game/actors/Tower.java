@@ -13,9 +13,12 @@ import com.smartfoxserver.v2.entities.User;
 
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.ExtensionCommands;
+import xyz.openatbp.extension.GameManager;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.Champion;
+import xyz.openatbp.extension.game.GameMap;
+import xyz.openatbp.extension.game.RoomGroup;
 
 public class Tower extends Actor {
     private static final float DAMAGE_REDUCTION_NO_MINIONS = 0.85f;
@@ -63,7 +66,7 @@ public class Tower extends Actor {
                 this.team,
                 0f);
 
-        if (room.getGroupId().equals("Tutorial")) {
+        if (room.getGroupId().equals(RoomGroup.TUTORIAL.name())) {
             setStat("attackDamage", 50);
             this.currentHealth = 200;
             this.maxHealth = 200;
@@ -469,9 +472,9 @@ public class Tower extends Actor {
         if (!this.id.contains("gumball")) {
             String[] towerIdComponents = this.id.split("_");
             String roomGroup = room.getGroupId();
-            if (!roomGroup.equals("Tutorial")
-                    && !roomGroup.equals("Practice")
-                    && !roomGroup.equals("ARAM")) {
+            GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(roomGroup));
+
+            if (gameMap == GameMap.BATTLE_LAB) {
                 if (towerIdComponents[0].contains("blue")) {
                     return BLUE_TOWER_NUM[
                             (Integer.parseInt(towerIdComponents[1].replace("tower", ""))) - 1];

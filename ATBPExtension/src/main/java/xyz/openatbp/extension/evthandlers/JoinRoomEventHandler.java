@@ -12,6 +12,7 @@ import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.GameManager;
+import xyz.openatbp.extension.game.RoomGroup;
 
 public class JoinRoomEventHandler extends BaseServerEventHandler {
     @Override
@@ -28,7 +29,7 @@ public class JoinRoomEventHandler extends BaseServerEventHandler {
                 && (int) room.getProperty("state")
                         == 0) { // If all players have loaded into the room
             room.setProperty("state", 1);
-            if (room.getGroupId().equals("PVE") && room.getMaxUsers() == 3) {
+            if (room.getGroupId().equals(RoomGroup.PVB.name()) && room.getMaxUsers() == 3) {
                 String[] avatars = {"jake", "iceking", "finn"};
                 String[] names = {"JAKE BOT", "ICE KING BOT", "FINN BOT"};
 
