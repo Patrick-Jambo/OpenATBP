@@ -378,7 +378,7 @@ public class Minion extends Actor {
                     if (dist <= attackRange && attackCooldown == 0) {
                         attack(target);
 
-                    } else if (dist > attackRange) {
+                    } else if (dist > attackRange && canMove()) {
                         startMoveTo(target.getLocation());
                     }
                 }
@@ -391,7 +391,9 @@ public class Minion extends Actor {
                     // isMoving is essentially the answer to "has the client already been given a
                     // movement command that it's still executing?
                     Point2D laneDestination = getLaneDestination();
-                    if (laneDestination != null) startMoveTo(laneDestination);
+                    if (laneDestination != null && canMove()) {
+                        startMoveTo(laneDestination);
+                    }
                 }
                 break;
         }
@@ -442,8 +444,9 @@ public class Minion extends Actor {
                 newY = (float) (newY + pullY * (distToTarget - attackRange + 0.1f));
             }
         }
-
-        startMoveTo(new Point2D.Float(newX, newY));
+        if (canMove()) {
+            startMoveTo(new Point2D.Float(newX, newY));
+        }
     }
 
     private Actor getBestTarget(List<Actor> enemiesInAggro) {
@@ -639,7 +642,7 @@ public class Minion extends Actor {
 
         if (movePointsToDest != null && !movePointsToDest.isEmpty()) {
             Point2D lastMovePoint = movePointsToDest.get(movePointsToDest.size() - 1);
-            if (target.getLocation().distance(lastMovePoint) > attackRange) {
+            if (target.getLocation().distance(lastMovePoint) > attackRange && canMove()) {
                 startMoveTo(target.getLocation());
             }
         }

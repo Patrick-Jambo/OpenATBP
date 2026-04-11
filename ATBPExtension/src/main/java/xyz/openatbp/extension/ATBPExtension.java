@@ -26,6 +26,7 @@ import com.smartfoxserver.v2.extensions.SFSExtension;
 import com.smartfoxserver.v2.util.TaskScheduler;
 
 import xyz.openatbp.extension.evthandlers.*;
+import xyz.openatbp.extension.game.GameMap;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.reqhandlers.*;
 
@@ -35,8 +36,11 @@ public class ATBPExtension extends SFSExtension {
     // TODO: Change Vectors to Point2D
     HashMap<String, JsonNode> itemDefinitions = new HashMap<>();
 
-    Point2D[] mainMapBoundary;
+    Point2D[] mainMapBoundaries;
     List<Point2D[]> mainMapObstacles = new ArrayList<>();
+
+    Point2D[] practiceMapBoundaries;
+    List<Point2D[]> practiceMapObstacles = new ArrayList<>();
 
     Map<String, StressLogger> commandStressLog = new HashMap<>();
     ArrayList<Vector<Float>>[] brushColliders;
@@ -156,63 +160,71 @@ public class ATBPExtension extends SFSExtension {
         }
     }
 
-    private void loadColliders()
-            throws IOException { // Reads json files and turns them into JsonNodes
+    private List<Point2D[]> getMapObstaclesFromFile(GameMap map) throws IOException {
+        List<Point2D[]> obstacleList = new ArrayList<>();
+        String filePath = getCurrentFolder();
 
-        File mainMapBound = new File(getCurrentFolder() + "/data/colliders/mainMapBoundaries.json");
-        File mainMapO = new File(getCurrentFolder() + "/data/colliders/mainMapObstacles.json");
+        if (map == GameMap.MAIN) {
+            filePath += "/data/colliders/mainMapObstacles.json";
+        } else {
+            filePath += "/data/colliders/practiceMapObstacles.json";
+        }
+
+        File mapObstacles = new File(filePath);
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode obstacleNode = mapper.readTree(mapObstacles);
+
+        JsonNode obstacles = obstacleNode.get("obstacles");
+
+        for (JsonNode obstacle : obstacles) {
+            JsonNode vertices = obstacle.get("vertices");
+
+            Point2D[] points = getPoint2DArrFromJson(vertices);
+            obstacleList.add(points);
+        }
+        return obstacleList;
+    }
+
+    private Point2D[] getMapBoundariesFromFile(GameMap map) throws IOException {
+        String filePath = getCurrentFolder();
+        if (map == GameMap.MAIN) {
+            filePath += "/data/colliders/mainMapBoundaries.json";
+        } else {
+            filePath += "/data/colliders/practiceMapBoundaries.json";
+        }
+
+        File mapBoundary = new File(filePath);
 
         ObjectMapper m = new ObjectMapper();
-        JsonNode nod = m.readTree(mainMapBound);
+        JsonNode nod = m.readTree(mapBoundary);
         JsonNode boundaries = nod.get("boundaries");
 
-        mainMapBoundary = new Point2D[boundaries.size()];
+        return getPoint2DArrFromJson(boundaries);
+    }
+
+    private Point2D[] getPoint2DArrFromJson(JsonNode boundaries) {
+        Point2D[] boundariesList = new Point2D[boundaries.size()];
+
         int a = 0;
 
         for (JsonNode pointNode : boundaries) {
             double x = pointNode.get("x").asDouble();
             double y = pointNode.get("z").asDouble();
-            mainMapBoundary[a++] = new Point2D.Double(x, y);
+            boundariesList[a++] = new Point2D.Double(x, y);
         }
+        return boundariesList;
+    }
 
-        JsonNode obstNode = m.readTree(mainMapO);
-        JsonNode obstacles = obstNode.get("obstacles");
+    private void loadColliders() throws IOException {
+        mainMapBoundaries = getMapBoundariesFromFile(GameMap.MAIN);
+        mainMapObstacles = getMapObstaclesFromFile(GameMap.MAIN);
 
-        mainMapObstacles = new ArrayList<>();
-
-        for (JsonNode obstacle : obstacles) {
-            JsonNode vertices = obstacle.get("vertices");
-
-            Point2D[] points = new Point2D[vertices.size()];
-            int j = 0;
-
-            for (JsonNode vertex : vertices) {
-                double x = vertex.get("x").asDouble();
-                double y = vertex.get("z").asDouble();
-                points[j++] = new Point2D.Double(x, y);
-            }
-
-            mainMapObstacles.add(points);
-        }
-
-        /*for (Node[] nodes : mainMapNodes) {
-            for (Node n : nodes) {
-                if (MovementManager.insideAnyObstacle(
-                                this, false, new Point2D.Double(n.getX(), n.getY()))
-                        || MovementManager.nearStructures(false, n.getLocation())) n.setSolid(true);
-            }
-        }*/
-        /*for (Node[] nodes : practiceMapNodes) {
-            for (Node n : nodes) {
-                if (MovementManager.insideAnyObstacle(
-                                this, true, new Point2D.Double(n.getX(), n.getY()))
-                        || MovementManager.nearStructures(true, n.getLocation())) n.setSolid(true);
-            }
-        }*/
+        practiceMapBoundaries = getMapBoundariesFromFile(GameMap.PRACTICE);
+        practiceMapObstacles = getMapObstaclesFromFile(GameMap.PRACTICE);
     }
 
     public Point2D[] getMainMapBoundary() {
-        return this.mainMapBoundary;
+        return this.mainMapBoundaries;
     }
 
     public List<Point2D[]> getMainMapObstacles() {
@@ -286,7 +298,9 @@ public class ATBPExtension extends SFSExtension {
 
             switch (groupId) {
                 case "Tutorial":
-                    rh = new TutorialRoomHandler(this, room, mainMapBoundary, mainMapObstacles);
+                    rh =
+                            new TutorialRoomHandler(
+                                    this, room, practiceMapBoundaries, practiceMapObstacles);
                     roomHandlers.put(rName, rh);
                     rh.initPlayers();
                     break;
@@ -298,26 +312,26 @@ public class ATBPExtension extends SFSExtension {
                                     room,
                                     pSpawns,
                                     HP_RATE,
-                                    mainMapBoundary,
-                                    mainMapObstacles);
+                                    practiceMapBoundaries,
+                                    practiceMapObstacles);
                     roomHandlers.put(rName, rh);
                     rh.initPlayers();
                     break;
 
                 case "ARAM":
-                    rh = new AramRoomHandler(this, room, mainMapBoundary, mainMapObstacles);
+                    rh = new AramRoomHandler(this, room, mainMapBoundaries, mainMapObstacles);
                     roomHandlers.put(rName, rh);
                     rh.initPlayers();
                     break;
 
                 case "PVE":
-                    rh = new PvERoomHandler(this, room, mainMapBoundary, mainMapObstacles);
+                    rh = new PvERoomHandler(this, room, mainMapBoundaries, mainMapObstacles);
                     roomHandlers.put(rName, rh);
                     rh.initPlayers();
                     break;
 
                 case "PVP":
-                    rh = new MainMapRoomHandler(this, room, mainMapBoundary, mainMapObstacles);
+                    rh = new MainMapRoomHandler(this, room, mainMapBoundaries, mainMapObstacles);
                     roomHandlers.put(rName, rh);
                     rh.initPlayers();
                     break;

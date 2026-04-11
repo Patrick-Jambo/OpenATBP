@@ -17,8 +17,6 @@ import xyz.openatbp.extension.game.bots.LemongrabBot;
 
 public class GameModeSpawns {
 
-    public static final float MINI_GUARDIAN_ACTOR_OFFSET = 2.5f;
-
     public static void spawnTowersForMode(Room room, ATBPExtension parentExt) {
         String groupId = room.getGroupId();
 

@@ -214,8 +214,9 @@ public abstract class Actor {
         double currentStat = this.stats.get(stat);
         if (effectManager.isActorIgnored(this)) return currentStat;
 
-        if (currentStat + effectManager.getTempStat(stat) < 0)
+        if (effectManager.getTempStat(stat) < 0) {
             return 0; // Stat will never drop below 0
+        }
 
         if (stat.equals("attackSpeed")) {
             if (effectManager.getTempStat(stat) < BASIC_ATTACK_DELAY) return BASIC_ATTACK_DELAY;
@@ -366,6 +367,10 @@ public abstract class Actor {
     }
 
     public void handleKnockback(Point2D source, float distance) {
+        if (effectManager.hasState(ActorState.IMMUNITY)) {
+            return;
+        }
+
         double distToAttacker = location.distance(source);
         float dist = (float) (distance + distToAttacker);
         Point2D knockbackDest = Champion.getAbilityLine(source, location, dist).getP2();
@@ -384,6 +389,9 @@ public abstract class Actor {
     }
 
     public void handlePull(Point2D source, float distance) {
+        if (effectManager.hasState(ActorState.IMMUNITY)) {
+            return;
+        }
         // opposite of knockback — line goes FROM actor TOWARD source
         Point2D pullDest = Champion.getAbilityLine(location, source, distance).getP2();
 

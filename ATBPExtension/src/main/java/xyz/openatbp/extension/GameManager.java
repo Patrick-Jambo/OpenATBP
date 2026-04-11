@@ -1,6 +1,7 @@
 package xyz.openatbp.extension;
 
 import java.awt.geom.Point2D;
+import java.io.IOException;
 import java.util.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -305,6 +306,7 @@ public class GameManager {
 
     private static void initializeMap(Room room, ATBPExtension parentExt) {
         String groupId = room.getGroupId();
+        // NEXUS SPAWNS
         ExtensionCommands.createActor(parentExt, room, MapData.getBaseActorData(0, groupId));
         ExtensionCommands.createActor(parentExt, room, MapData.getBaseActorData(1, groupId));
 

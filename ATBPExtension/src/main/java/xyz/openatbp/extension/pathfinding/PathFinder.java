@@ -86,16 +86,25 @@ public class PathFinder {
         return edges;
     }
 
-    public Path2D getMapShape() {
+    public Path2D getMapArea() {
         return this.mapArea;
     }
 
     public Point2D getNonObstaclePointOrIntersection(Point2D startPoint, Point2D dest) {
+
+        if (!isPointInsideMap(dest)) {
+            return getMapEdgeIntersectionPoint(startPoint, dest);
+        }
+
         if (isPointInsideObstacle(dest)) {
             return getIntersectionPoint(startPoint, dest);
         } else {
             return dest;
         }
+    }
+
+    public boolean isPointInsideMap(Point2D point) {
+        return mapArea.contains(point);
     }
 
     public boolean lineIntersectsObstacle(Point2D start, Point2D dest) {
@@ -130,6 +139,23 @@ public class PathFinder {
             }
         }
         return new Point2D.Double(end.getX(), end.getY());
+    }
+
+    public Point2D getMapEdgeIntersectionPoint(Point2D start, Point2D end) {
+        Point2D mapIntersection = null;
+        Line2D movementLine = new Line2D.Float(start, end);
+
+        for (Line2D edge : mapEdges) {
+            if (edge.intersectsLine(movementLine)) {
+                mapIntersection = getIntersectionPoint(movementLine, edge);
+                break;
+            }
+        }
+
+        if (mapIntersection != null) {
+            return getValidMovePointToIntersection(start, mapIntersection);
+        }
+        return start;
     }
 
     public List<Point2D> getMovePointsToDest(Point2D start, Point2D end) {
@@ -170,22 +196,9 @@ public class PathFinder {
             movePointsToDest.add(validPoint);
         }
 
-        if (!insideObstacle && !obstacleIntersection) {
+        if (!isPointInsideMap(end)) {
             // move point outside the map, move to the edge
-
-            Point2D mapIntersection = null;
-
-            for (Line2D edge : mapEdges) {
-                if (edge.intersectsLine(movementLine)) {
-                    mapIntersection = getIntersectionPoint(movementLine, edge);
-                    break;
-                }
-            }
-
-            if (mapIntersection != null) {
-                Point2D validPoint = getValidMovePointToIntersection(start, mapIntersection);
-                movePointsToDest.add(validPoint);
-            }
+            movePointsToDest.add(getMapEdgeIntersectionPoint(start, end));
         }
 
         if (!insideObstacle
@@ -268,7 +281,7 @@ public class PathFinder {
         }
     }
 
-    public void displayObstacles(ATBPExtension parentExt, Room room, String id, int team) {
+    public void displayMapObstacles(ATBPExtension parentExt, Room room, String id, int team) {
         for (Point2D[] obstacle : obstacles) {
             for (Point2D p : obstacle) {
                 ExtensionCommands.createWorldFX(
