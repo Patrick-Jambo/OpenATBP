@@ -8,13 +8,6 @@ public class ActorStateEffect {
     private double modifier;
     private String fxId = null;
 
-    public ActorStateEffect(ActorState state, double modifier, int durationMs) {
-        this.state = state;
-        this.durationMs = durationMs;
-        this.modifier = modifier;
-        this.startTime = System.currentTimeMillis();
-    }
-
     public ActorStateEffect(ActorState state, String stateId, double modifier, int durationMs) {
         this.state = state;
         this.stateId = stateId;

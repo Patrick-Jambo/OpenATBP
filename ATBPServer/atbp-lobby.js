@@ -979,7 +979,7 @@ function acceptInvite(sender, recipient, custom) {
       var team = teams.find((t) => t.team == sender);
       if (team != undefined) {
         pendingInvites = pendingInvites.filter(
-          (i) => i.recipient != recipient && i.sender != sender
+          (i) => !(i.sender == sender && i.recipient == recipient)
         );
         declineAllInvites(recipient);
         if (!custom) {
