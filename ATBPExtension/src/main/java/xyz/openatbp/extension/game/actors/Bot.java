@@ -69,8 +69,11 @@ public abstract class Bot extends Actor {
         PUSHING, // push lane
     }
 
-    protected BotState botState;
-    protected Point2D towerPoint;
+    protected enum BotRole {
+        FIGHTER,
+        LANE_PUSHER,
+        JUNGLER,
+    }
 
     protected Point2D altarToCapture;
     protected Point2D[] lanePath;
@@ -108,6 +111,10 @@ public abstract class Bot extends Actor {
         }
         levelUpStats();
         simulateBackpackLevelUp("belt_champions");
+    }
+
+    protected BotRole getBotRole() {
+        return BotRole.FIGHTER; // default
     }
 
     @Override
@@ -568,6 +575,64 @@ public abstract class Bot extends Actor {
                 .anyMatch(t -> t.getLocation().distance(a.getLocation()) <= TOWER_RANGE);
     }
 
+    boolean tryJungle(RoomHandler rh) {
+        // ATTACK JUNGLE CAMPS
+        // TODO: Add Keeoth and Goomonster attack action, change keeoth and goo to be able to apply
+        // TODO: buff to bot
+        List<Actor> allies = rh.getActorsInRadius(location, 4f);
+        allies.removeIf(a -> !(a instanceof Bot) || a == this || a.getTeam() != team);
+
+        if ((level >= 3 && getPHealth() >= 0.4)
+                || (level == 2 && allies.size() == 1 && getPLevel() >= 0.4)
+                || (allies.size() == 2 && getPLevel() >= 0.4)) {
+            List<Monster> jungleMonsters = rh.getCampMonsters();
+            jungleMonsters.removeIf(jm -> jm instanceof Keeoth || jm instanceof GooMonster);
+
+            this.target = getClosestMonster(jungleMonsters);
+            return true;
+        }
+        return false;
+    }
+
+    boolean tryClosestEnemy(RoomHandler rh) {
+        // ATTACK NEARBY ENEMIES (NON MONSTERS)
+        List<Actor> nearbyEnemies =
+                Champion.getEnemyActorsInRadius(rh, team, location, TOWER_RANGE);
+
+        nearbyEnemies.removeIf(a -> a instanceof Monster);
+        nearbyEnemies.removeIf(a -> isEnemyProtectedByTower(a) && a instanceof UserActor);
+        nearbyEnemies.removeIf(Actor::isInvisible);
+
+        if (!nearbyEnemies.isEmpty()) {
+            this.target = getClosestActor(nearbyEnemies, true);
+            return true;
+        }
+        return false;
+    }
+
+    boolean tryPushLanes(RoomHandler rh) {
+        List<Minion> allyMinions =
+                rh.getMinions().stream()
+                        .filter(m -> m.getTeam() == team)
+                        .collect(Collectors.toList());
+
+        if (!allyMinions.isEmpty()) {
+            // PUSH LANES
+            return true;
+        }
+        return false;
+    }
+
+    boolean tryMidAltar(RoomHandler rh) {
+        // CAPTURE MID ALTAR
+        int midAltarStatus = rh.getAltarStatus(mapConfig.offenseAltar);
+        if (midAltarStatus != 10) { // mid altar can be captured
+            altarToCapture = mapConfig.offenseAltar;
+            return true;
+        }
+        return false;
+    }
+
     protected BotState evaluateBotState() {
         if (getHealth() <= 0 || isDead()) return null;
 
@@ -652,50 +717,27 @@ public abstract class Bot extends Actor {
             }
         }
 
-        // ATTACK NEARBY ENEMIES (NON MONSTERS)
-        List<Actor> nearbyEnemies =
-                Champion.getEnemyActorsInRadius(rh, team, location, TOWER_RANGE);
+        BotRole role = getBotRole();
 
-        nearbyEnemies.removeIf(a -> a instanceof Monster);
-        nearbyEnemies.removeIf(a -> isEnemyProtectedByTower(a) && a instanceof UserActor);
-        nearbyEnemies.removeIf(Actor::isInvisible);
-
-        if (!nearbyEnemies.isEmpty()) {
-            this.target = getClosestActor(nearbyEnemies, true);
-            return BotState.FIGHTING;
+        if (role == BotRole.FIGHTER) {
+            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
+            if (tryMidAltar(rh)) return BotState.ALTAR;
+            if (tryJungle(rh)) return BotState.JUNGLING;
+            if (tryPushLanes(rh)) return BotState.PUSHING;
         }
 
-        // CAPTURE MID ALTAR
-        int midAltarStatus = rh.getAltarStatus(mapConfig.offenseAltar);
-        if (midAltarStatus != 10) { // mid altar can be captured
-            altarToCapture = mapConfig.offenseAltar;
-            return BotState.ALTAR;
+        if (role == BotRole.LANE_PUSHER) {
+            if (tryMidAltar(rh)) return BotState.ALTAR;
+            if (tryPushLanes(rh)) return BotState.PUSHING;
+            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
+            if (tryJungle(rh)) return BotState.JUNGLING;
         }
 
-        // ATTACK JUNGLE CAMPS
-        // TODO: Add Keeoth and Goomonster attack action, change keeoth and goo to be able to apply
-        // TODO: buff to bot
-        List<Actor> allies = rh.getActorsInRadius(location, 4f);
-        allies.removeIf(a -> !(a instanceof Bot) || a == this || a.getTeam() != team);
-
-        if ((level >= 3 && getPHealth() >= 0.4)
-                || (level == 2 && allies.size() == 1 && getPLevel() >= 0.4)
-                || (allies.size() == 2 && getPLevel() >= 0.4)) {
-            List<Monster> jungleMonsters = rh.getCampMonsters();
-            jungleMonsters.removeIf(jm -> jm instanceof Keeoth || jm instanceof GooMonster);
-
-            this.target = getClosestMonster(jungleMonsters);
-            return BotState.JUNGLING;
-        }
-
-        List<Minion> allyMinions =
-                rh.getMinions().stream()
-                        .filter(m -> m.getTeam() == team)
-                        .collect(Collectors.toList());
-
-        if (!allyMinions.isEmpty()) {
-            // PUSH LANES
-            return BotState.PUSHING;
+        if (role == BotRole.JUNGLER) {
+            if (tryJungle(rh)) return BotState.JUNGLING;
+            if (tryMidAltar(rh)) return BotState.ALTAR;
+            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
+            if (tryPushLanes(rh)) return BotState.PUSHING;
         }
 
         // CAPTURE DEFENSE ALTARS

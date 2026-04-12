@@ -74,6 +74,11 @@ public class IceKingBot extends Bot {
     }
 
     @Override
+    protected BotRole getBotRole() {
+        return BotRole.LANE_PUSHER;
+    }
+
+    @Override
     public void update(int msRan) {
         super.update(msRan);
         handleUlt();

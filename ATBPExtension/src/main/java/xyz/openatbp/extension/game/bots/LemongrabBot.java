@@ -25,7 +25,6 @@ public class LemongrabBot extends Bot {
     private boolean juice = false;
     private int ultDelay;
 
-    // TODO: CHECK THIS VALUE;
     private float W_MAX_CAST_RANGE = 7f;
     private float E_MAX_CAST_RANGE = 6f;
     private float Q_MAX_CAST_RANGE = 6f;
@@ -50,6 +49,11 @@ public class LemongrabBot extends Bot {
         this.qCastDelayMS = 500;
         this.wCastDelayMS = 1250;
         this.eCastDelayMS = 1500;
+    }
+
+    @Override
+    protected BotRole getBotRole() {
+        return BotRole.LANE_PUSHER;
     }
 
     @Override

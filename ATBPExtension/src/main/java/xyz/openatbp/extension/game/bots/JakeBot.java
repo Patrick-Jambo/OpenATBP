@@ -137,7 +137,10 @@ public class JakeBot extends Bot {
                 PathFinder pf = handler.getPathFinder();
                 if (!pf.lineIntersectsObstacle(location, victim.getLocation())) {
                     float pullDist =
-                            (float) location.distance(victim.getLocation()) - Q_VICTIM_SEPARATION;
+                            Math.max(
+                                    0,
+                                    (float) location.distance(victim.getLocation())
+                                            - Q_VICTIM_SEPARATION);
 
                     victim.handlePull(location, pullDist);
 
