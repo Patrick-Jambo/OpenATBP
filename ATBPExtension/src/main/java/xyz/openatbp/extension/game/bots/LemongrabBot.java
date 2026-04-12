@@ -206,13 +206,15 @@ public class LemongrabBot extends Bot {
         if (!nearbyEnemies.isEmpty()) {
             for (Actor a : nearbyEnemies) {
                 if (isNonStructureEnemy(a)
-                        && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())) {
+                        && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
+                        && a.isNotLeaping()) {
                     a.getEffectManager()
                             .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
                 }
 
                 if (a.getActorType() != ActorType.TOWER
-                        && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())) {
+                        && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
+                        && a.isNotLeaping()) {
                     double dmg = getSpellDamage(spellData);
                     a.addToDamageQueue(this, dmg, spellData, false);
                 }
@@ -365,11 +367,11 @@ public class LemongrabBot extends Bot {
                     double distance = a.getLocation().distance(dest);
                     double damage = getSpellDamage(spellData);
 
-                    if (distance <= 1 && isNonStructureEnemy(a)) {
+                    if (distance <= 1 && isNonStructureEnemy(a) && a.isNotLeaping()) {
                         a.getEffectManager().addState(ActorState.SILENCED, 0d, W_SILENCE_DURATION);
                     }
 
-                    if (isNonStructureEnemy(a)) {
+                    if (isNonStructureEnemy(a) && a.isNotLeaping()) {
                         a.getEffectManager().addState(ActorState.BLINDED, 0d, W_BLIND_DURATION);
                     }
 
@@ -379,7 +381,9 @@ public class LemongrabBot extends Bot {
                         damage *= W_CENTER_DMG_MULTIPLIER;
                     }
 
-                    if (a.getTeam() != team && a.getActorType() != ActorType.TOWER) {
+                    if (a.getTeam() != team
+                            && a.getActorType() != ActorType.TOWER
+                            && a.isNotLeaping()) {
                         a.addToDamageQueue(LemongrabBot.this, damage, spellData, false);
                     }
                 }
@@ -410,11 +414,13 @@ public class LemongrabBot extends Bot {
                 RoomHandler handler = parentExt.getRoomHandler(room.getName());
                 for (Actor a : Champion.getActorsInRadius(handler, dest, 2.5f)) {
 
-                    if (a.getTeam() != team && a.getActorType() != ActorType.TOWER) {
+                    if (a.getTeam() != team
+                            && a.getActorType() != ActorType.TOWER
+                            && a.isNotLeaping()) {
                         a.addToDamageQueue(LemongrabBot.this, damage, spellData, false);
                     }
 
-                    if ((a instanceof UserActor) && a.getTeam() != team) {
+                    if ((a instanceof UserActor) && a.getTeam() != team && a.isNotLeaping()) {
                         a.getEffectManager().addState(ActorState.STUNNED, 0d, (int) duration);
 
                         if (!effectManager.hasState(ActorState.IMMUNITY)) {

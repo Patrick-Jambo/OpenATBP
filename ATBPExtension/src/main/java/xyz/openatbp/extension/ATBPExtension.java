@@ -47,8 +47,8 @@ public class ATBPExtension extends SFSExtension {
     ArrayList<Vector<Float>>[] brushColliders;
     ArrayList<Vector<Float>>[] practiceBrushColliders;
 
-    ArrayList<Path2D> brushPaths;
-    ArrayList<Path2D> practiceBrushPaths;
+    ArrayList<Path2D> battleLabBrushPaths;
+    ArrayList<Path2D> candyStreetsBrushPaths;
     HashMap<String, List<String>> tips = new HashMap<>();
 
     HashMap<String, RoomHandler> roomHandlers = new HashMap<>();
@@ -362,7 +362,7 @@ public class ATBPExtension extends SFSExtension {
         JsonNode node = mapper.readTree(mainMap);
         ArrayNode colliders = (ArrayNode) node.get("BrushAreas").get("brush");
         brushColliders = new ArrayList[colliders.size()];
-        brushPaths = new ArrayList<>(colliders.size());
+        battleLabBrushPaths = new ArrayList<>(colliders.size());
         for (int i = 0;
                 i < colliders.size();
                 i++) { // Reads all colliders and makes a list of their vertices
@@ -385,7 +385,7 @@ public class ATBPExtension extends SFSExtension {
                 vecs.add(vertex);
             }
             path.closePath();
-            brushPaths.add(path);
+            battleLabBrushPaths.add(path);
             brushColliders[i] = vecs;
         }
 
@@ -393,7 +393,7 @@ public class ATBPExtension extends SFSExtension {
         JsonNode node2 = mapper.readTree(practiceMap);
         ArrayNode colliders2 = (ArrayNode) node2.get("BrushAreas").get("brush");
         practiceBrushColliders = new ArrayList[colliders2.size()];
-        practiceBrushPaths = new ArrayList<>(colliders2.size());
+        candyStreetsBrushPaths = new ArrayList<>(colliders2.size());
         for (int i = 0;
                 i < colliders2.size();
                 i++) { // Reads all colliders and makes a list of their vertices
@@ -416,14 +416,14 @@ public class ATBPExtension extends SFSExtension {
                 vecs.add(vertex);
             }
             path.closePath();
-            practiceBrushPaths.add(path);
+            candyStreetsBrushPaths.add(path);
             practiceBrushColliders[i] = vecs;
         }
     }
 
-    public ArrayList<Path2D> getBrushPaths(boolean practice) {
-        if (!practice) return this.brushPaths;
-        else return this.practiceBrushPaths;
+    public ArrayList<Path2D> getBrushPaths(GameMap gameMap) {
+        if (gameMap == GameMap.BATTLE_LAB) return battleLabBrushPaths;
+        else return candyStreetsBrushPaths;
     }
 
     public Path2D getBrush(int num, ArrayList<Path2D> brushPaths) {

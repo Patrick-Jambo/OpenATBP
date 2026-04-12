@@ -30,7 +30,6 @@ public class Base extends Actor {
         this.actorType = ActorType.BASE;
         this.room = room;
         this.stats = this.initializeStats();
-        ExtensionCommands.updateActorState(parentExt, room, this.id, ActorState.INVINCIBLE, true);
         ExtensionCommands.updateActorState(parentExt, room, this.id, ActorState.IMMUNITY, true);
 
         if (room.getGroupId().equals(RoomGroup.TUTORIAL.name())) {
@@ -103,7 +102,6 @@ public class Base extends Actor {
 
     public void unlock() {
         unlocked = true;
-        ExtensionCommands.updateActorState(parentExt, room, this.id, ActorState.INVINCIBLE, false);
         ExtensionCommands.updateActorState(parentExt, room, this.id, ActorState.IMMUNITY, false);
     }
 

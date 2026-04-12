@@ -53,7 +53,7 @@ public class LSP extends UserActor {
             JsonNode spellData = this.parentExt.getAttackData(this.avatar, "spell2");
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.location, 3f)) {
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     double dmg = getSpellDamage(spellData, false) / 10d;
                     a.addToDamageQueue(this, dmg, spellData, true);
                 }
@@ -243,13 +243,15 @@ public class LSP extends UserActor {
                 if (!nearbyEnemies.isEmpty()) {
                     for (Actor a : nearbyEnemies) {
                         if (isNeitherStructureNorAlly(a)
-                                && qRect.contains(a.getLocation(), a.getCollisionRadius())) {
+                                && qRect.contains(a.getLocation(), a.getCollisionRadius())
+                                && a.isNotLeaping()) {
                             a.setFearer(LSP.this);
                             a.getEffectManager().addState(ActorState.FEARED, 0, Q_FEAR_DURATION);
                         }
 
                         if (isNeitherTowerNorAlly(a)
-                                && qRect.contains(a.getLocation(), a.getCollisionRadius())) {
+                                && qRect.contains(a.getLocation(), a.getCollisionRadius())
+                                && a.isNotLeaping()) {
                             double damage = getSpellDamage(spellData, true);
                             a.addToDamageQueue(LSP.this, damage, spellData, false);
                             affectedActors.add(a);

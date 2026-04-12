@@ -102,13 +102,15 @@ public class CinnamonBun extends UserActor {
             if (!nearbyEnemies.isEmpty()) {
                 for (Actor a : nearbyEnemies) {
                     if (isNeitherTowerNorAlly(a)
-                            && wPolygon.contains(a.getLocation(), a.getCollisionRadius())) {
+                            && wPolygon.contains(a.getLocation(), a.getCollisionRadius())
+                            && a.isNotLeaping()) {
                         int damage = (int) (getSpellDamage(spellData, false) / 10d);
                         a.addToDamageQueue(this, damage, spellData, true);
                     }
 
                     if (isNeitherStructureNorAlly(a)
-                            && wPolygon.contains(a.getLocation(), a.getCollisionRadius())) {
+                            && wPolygon.contains(a.getLocation(), a.getCollisionRadius())
+                            && a.isNotLeaping()) {
                         long lastProc = actorsWithWSlow.getOrDefault(a, -1L);
 
                         if (lastProc == -1
@@ -276,7 +278,8 @@ public class CinnamonBun extends UserActor {
                     if (!nearbyEnemies.isEmpty()) {
                         for (Actor a : nearbyEnemies) {
                             if (isNeitherTowerNorAlly(a)
-                                    && qRect.contains(a.getLocation(), a.getCollisionRadius())) {
+                                    && qRect.contains(a.getLocation(), a.getCollisionRadius())
+                                    && a.isNotLeaping()) {
                                 double damage = getSpellDamage(spellData, true);
                                 a.addToDamageQueue(this, damage, spellData, false);
                             }

@@ -64,8 +64,6 @@ public class MagicMan extends UserActor {
             this.wDest = null;
             this.canCast[1] = true;
 
-            effectManager.setState(ActorState.REVEALED, true);
-
             int wCooldown = ChampionData.getBaseAbilityCooldown(this, 2);
             ExtensionCommands.actorAbilityResponse(
                     this.parentExt, this.player, "w", true, getReducedCooldown(wCooldown), 250);
@@ -89,15 +87,6 @@ public class MagicMan extends UserActor {
             MagicManPassive passiveAttack = new MagicManPassive(a, handleAttack(a));
             RangedAttack rangedAttack = new RangedAttack(a, passiveAttack, projectile);
             scheduleTask(rangedAttack, BASIC_ATTACK_DELAY);
-        }
-    }
-
-    @Override
-    public void onStateChange(ActorState state, boolean enabled) {
-        if (state == ActorState.REVEALED && enabled) {
-            if (this.wDest == null) effectManager.setState(ActorState.REVEALED, true);
-        } else {
-            effectManager.setState(state, enabled);
         }
     }
 
@@ -193,7 +182,9 @@ public class MagicMan extends UserActor {
                         RoomHandler handler = parentExt.getRoomHandler(room.getName());
                         PathFinder pf = handler.getPathFinder();
 
+                        effectManager.addState(ActorState.STEALTH, 0, W_STEALTH_DURATION);
                         effectManager.addState(ActorState.INVISIBLE, 0d, W_STEALTH_DURATION);
+
                         wLocation = new Point2D.Double(this.location.getX(), this.location.getY());
                         Point2D endLocation =
                                 Champion.getAbilityLine(this.wLocation, dest, 100f).getP2();
@@ -312,7 +303,7 @@ public class MagicMan extends UserActor {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
 
             for (Actor a : Champion.getActorsInRadius(handler, location, E_RADIUS)) {
-                if (isNeitherStructureNorAlly(a)) {
+                if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                     String stat1 = "armor";
                     String stat2 = "spellResist";
 
@@ -337,7 +328,7 @@ public class MagicMan extends UserActor {
                             .addState(ActorState.SLOWED, E_SLOW_PERCENT, E_SLOW_DURATION);
                 }
 
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     double damage = getSpellDamage(spellData, false);
                     a.addToDamageQueue(MagicMan.this, damage, spellData, false);
                 }
@@ -496,7 +487,7 @@ public class MagicMan extends UserActor {
             JsonNode spellData = parentExt.getAttackData(AVATAR, "spell2");
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor actor : Champion.getActorsInRadius(handler, location, 2.5f)) {
-                if (isNeitherTowerNorAlly(actor)) {
+                if (isNeitherTowerNorAlly(actor) && a.isNotLeaping()) {
                     double dmg = getSpellDamage(spellData, false);
                     actor.addToDamageQueue(MagicMan.this, dmg, spellData, false);
                 }

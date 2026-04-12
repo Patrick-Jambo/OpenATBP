@@ -206,13 +206,13 @@ public class Fionna extends UserActor {
                 }
                 RoomHandler handler = parentExt.getRoomHandler(room.getName());
                 for (Actor a : Champion.getActorsInRadius(handler, location, range)) {
-                    if (isNeitherTowerNorAlly(a)) {
+                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                         actorsHitWithQ.add(a);
                         double damage = getSpellDamage(spellData, true);
                         a.addToDamageQueue(Fionna.this, damage, spellData, false);
                     }
 
-                    if (isNeitherStructureNorAlly(a) && dashInt == 1) {
+                    if (isNeitherStructureNorAlly(a) && dashInt == 1 && a.isNotLeaping()) {
                         a.getEffectManager()
                                 .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
                     }

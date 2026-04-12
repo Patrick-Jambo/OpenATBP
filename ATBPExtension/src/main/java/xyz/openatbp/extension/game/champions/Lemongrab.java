@@ -158,16 +158,16 @@ public class Lemongrab extends UserActor {
                     if (!nearbyEnemies.isEmpty()) {
                         for (Actor a : nearbyEnemies) {
                             if (isNeitherStructureNorAlly(a)
-                                    && qTrapezoid.contains(
-                                            a.getLocation(), a.getCollisionRadius())) {
+                                    && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
+                                    && a.isNotLeaping()) {
                                 a.getEffectManager()
                                         .addState(
                                                 ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
                             }
 
                             if (isNeitherTowerNorAlly(a)
-                                    && qTrapezoid.contains(
-                                            a.getLocation(), a.getCollisionRadius())) {
+                                    && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
+                                    && a.isNotLeaping()) {
                                 double dmg = getSpellDamage(spellData, true);
                                 a.addToDamageQueue(this, dmg, spellData, false);
                             }
@@ -357,11 +357,11 @@ public class Lemongrab extends UserActor {
                     double distance = a.getLocation().distance(dest);
                     double damage = getSpellDamage(spellData, false);
 
-                    if (distance <= 1 && isNeitherStructureNorAlly(a)) {
+                    if (distance <= 1 && isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                         a.getEffectManager().addState(ActorState.SILENCED, 0d, W_SILENCE_DURATION);
                     }
 
-                    if (isNeitherStructureNorAlly(a)) {
+                    if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                         a.getEffectManager().addState(ActorState.BLINDED, 0d, W_BLIND_DURATION);
                     }
 
@@ -369,7 +369,7 @@ public class Lemongrab extends UserActor {
                         damage *= W_CENTER_DMG_MULTIPLIER;
                     }
 
-                    if (isNeitherTowerNorAlly(a)) {
+                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                         hitAnything = true;
                         if (a.getActorType() == ActorType.PLAYER) hitPlayer = true;
                         a.addToDamageQueue(Lemongrab.this, damage, spellData, false);
@@ -415,11 +415,13 @@ public class Lemongrab extends UserActor {
                 RoomHandler handler = parentExt.getRoomHandler(room.getName());
                 for (Actor a : Champion.getActorsInRadius(handler, dest, E_RADIUS)) {
 
-                    if (isNeitherTowerNorAlly(a)) {
+                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                         a.addToDamageQueue(Lemongrab.this, damage, spellData, false);
                     }
 
-                    if ((a instanceof UserActor || a instanceof Bot) && a.getTeam() != team) {
+                    if ((a instanceof UserActor || a instanceof Bot)
+                            && a.getTeam() != team
+                            && a.isNotLeaping()) {
                         a.getEffectManager().addState(ActorState.STUNNED, 0d, (int) duration);
 
                         if (!effectManager.hasState(ActorState.IMMUNITY)) {

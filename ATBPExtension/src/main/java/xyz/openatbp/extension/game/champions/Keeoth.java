@@ -205,8 +205,8 @@ public class Keeoth extends Monster {
                                                 Champion.getActorsInRadius(
                                                         handler, playerLoc, 2.5f)) {
                                             if (actor.getActorType() == ActorType.PLAYER
-                                                    || actor.getActorType()
-                                                            == ActorType.COMPANION) {
+                                                    || actor.getActorType() == ActorType.COMPANION
+                                                            && actor.isNotLeaping()) {
                                                 double dist =
                                                         actor.getLocation().distance(playerLoc);
                                                 if (dist > 1)

@@ -75,6 +75,7 @@ public class Jake extends UserActor {
                     Champion.getEnemyActorsInRadius(handler, team, location, MAX_Q_RANGE);
             foes.removeIf(f -> f.getActorType() == ActorType.TOWER);
             foes.removeIf(f -> !(qRect.contains(f.getLocation(), f.getCollisionRadius())));
+            foes.removeIf(f -> f.getMovementState() == MovementState.LEAPING);
 
             if (!foes.isEmpty()) {
                 resetGrab();
@@ -166,7 +167,7 @@ public class Jake extends UserActor {
                 this.lastStomped = System.currentTimeMillis();
                 RoomHandler handler = parentExt.getRoomHandler(room.getName());
                 for (Actor a : Champion.getActorsInRadius(handler, this.location, 2f)) {
-                    if (isNeitherTowerNorAlly(a)) {
+                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                         JsonNode spellData = this.parentExt.getAttackData(this.avatar, "spell3");
                         double damage = (double) (getSpellDamage(spellData, false)) / 2d;
                         a.addToDamageQueue(this, (int) damage, spellData, true);
@@ -348,7 +349,7 @@ public class Jake extends UserActor {
                                 a.handleKnockback(location, W_KNOCKBACK_DIST);
                             }
 
-                            if (isNeitherTowerNorAlly(a)) {
+                            if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                                 double dmg = getSpellDamage(spellData, false);
                                 a.addToDamageQueue(this, dmg, spellData, false);
                             }

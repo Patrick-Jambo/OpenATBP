@@ -75,12 +75,10 @@ public class GameManager {
         }
     }
 
-    public static String getMapString(Room room, String groupID) {
-        String candyStreets = "AT_1L_Arena"; // PRACTICE MAP
-        String battleLab = "AT_2L_Arena"; // MAIN MAP
-        if (groupID.contains(RoomGroup.PRACTICE.name())
-                || groupID.contains(RoomGroup.TUTORIAL.name())) return candyStreets;
-        return battleLab;
+    public static String getMapAssetBundleName(String groupID) {
+        GameMap gameMap = getMap(getRoomGroupEnum(groupID));
+        if (gameMap == GameMap.CANDY_STREETS) return "AT_1L_Arena";
+        else return "AT_2L_Arena";
     }
 
     public static void loadPlayers(
@@ -89,7 +87,7 @@ public class GameManager {
         for (User u : room.getUserList()) {
             ISFSObject data = new SFSObject();
 
-            String s1 = getMapString(room, groupID);
+            String s1 = getMapAssetBundleName(groupID);
             data.putUtfString("set", s1);
 
             int maxUsers = room.getMaxUsers();
@@ -275,13 +273,8 @@ public class GameManager {
             parentExt.send("cmd_match_starting", data, u); // Starts the game for everyone
         }
 
-        String sound;
-        if (room.getGroupId().equals("Tutorial")) {
-            sound = "announcer/tut_intro";
-        } else {
-            sound = "announcer/welcome";
-        }
-        ExtensionCommands.playSound(parentExt, room, "global", sound, new Point2D.Float(0, 0));
+        ExtensionCommands.playSound(
+                parentExt, room, "global", "announcer/welcome", new Point2D.Float(0, 0));
         ExtensionCommands.playSound(
                 parentExt,
                 room,

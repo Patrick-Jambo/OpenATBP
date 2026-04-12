@@ -427,11 +427,13 @@ public class ChooseGoose extends UserActor {
             double damage = getSpellDamage(spellData, false);
 
             for (Actor a : handler.getActorsInRadius(location, W_IMPACT_RADIUS)) {
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     a.addToDamageQueue(ChooseGoose.this, damage, spellData, false);
                 }
 
-                if (isNeitherStructureNorAlly(a) && a.getLocation().distance(location) <= 1) {
+                if (isNeitherStructureNorAlly(a)
+                        && a.getLocation().distance(location) <= 1
+                        && a.isNotLeaping()) {
                     a.getEffectManager().addState(ActorState.SILENCED, 0, W_SILENCE_DURATION);
                 }
             }

@@ -107,7 +107,8 @@ public abstract class Projectile {
         return !avatar.equals("neptr_mine")
                 && !avatar.equals("choosegoose_chest")
                 && a.getActorType() != ActorType.TOWER
-                && a.getTeam() != owner.getTeam();
+                && a.getTeam() != owner.getTeam()
+                && a.isNotLeaping();
     }
 
     protected abstract void hit(Actor victim);

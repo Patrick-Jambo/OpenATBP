@@ -93,7 +93,7 @@ public abstract class RoomHandler implements Runnable {
             String[] spawns,
             int HP_SPAWN_RATE,
             Point2D[] mapBoundary,
-            List<Point2D[]> mapHoles) {
+            List<Point2D[]> obstacles) {
         this.parentExt = parentExt;
         this.room = room;
         this.minions = new ArrayList<>();
@@ -115,7 +115,7 @@ public abstract class RoomHandler implements Runnable {
         TaskScheduler scheduler = parentExt.getTaskScheduler();
         scriptHandler = scheduler.scheduleAtFixedRate(this, 100, 100, TimeUnit.MILLISECONDS);
 
-        pathFinder = new PathFinder(mapBoundary, mapHoles);
+        pathFinder = new PathFinder(mapBoundary, obstacles);
     }
 
     public void initPlayers() {
@@ -1587,7 +1587,8 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public boolean isPracticeMap() {
-        return room.getGroupId().equals("Practice") || room.getGroupId().equals("Tutorial");
+        RoomGroup roomGroup = GameManager.getRoomGroupEnum(room.getGroupId());
+        return GameManager.getMap(roomGroup) == GameMap.CANDY_STREETS;
     }
 
     public List<Projectile> getActiveProjectiles() {

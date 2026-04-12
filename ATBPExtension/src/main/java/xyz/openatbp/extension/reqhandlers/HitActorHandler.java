@@ -10,11 +10,11 @@ import xyz.openatbp.extension.GameManager;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.ActorType;
 import xyz.openatbp.extension.game.GameMap;
+import xyz.openatbp.extension.game.MovementState;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.Base;
 import xyz.openatbp.extension.game.actors.BaseTower;
 import xyz.openatbp.extension.game.actors.UserActor;
-import xyz.openatbp.extension.game.effects.ActorState;
 
 @MultiHandler
 public class HitActorHandler extends BaseClientRequestHandler {
@@ -25,7 +25,7 @@ public class HitActorHandler extends BaseClientRequestHandler {
         UserActor actor = handler.getPlayer(String.valueOf(sender.getId()));
         String roomGroup = sender.getLastJoinedRoom().getGroupId();
 
-        if (actor != null && !actor.getIsDashing()) {
+        if (actor != null && actor.getMovementState() == MovementState.IDLE) {
             String targetId = params.getUtfString("target_id");
             Actor target = handler.getActor(targetId);
             if (target == null) {
@@ -57,11 +57,7 @@ public class HitActorHandler extends BaseClientRequestHandler {
                     if (!bt.isUnlocked()) return;
                 }
             }
-            if (target.getActorType() == ActorType.PLAYER) {
-                UserActor ua = (UserActor) target;
-                if (ua.getEffectManager().hasState(ActorState.INVISIBLE)
-                        && !ua.getEffectManager().hasState(ActorState.REVEALED)) return;
-            }
+
             actor.resetIdleTime();
             actor.setTarget(target);
             if (actor.withinRange(target) && actor.canAttack()) {

@@ -33,6 +33,7 @@ public class PeppermintButler extends UserActor {
     private static final double E_ATTACK_DAMAGE_PERCENT = 0.3d;
     private static final double E_SPEED_PERCENT = 0.25;
     private static final double E_RANGE_VALUE = 0.5d;
+    public static final int PASSIVE_ACTIVATION_DELAY = 500;
 
     private int timeStopped = 0;
     private boolean qActive = false;
@@ -47,8 +48,8 @@ public class PeppermintButler extends UserActor {
     int dashDurationMs = 0;
     private Long wStartTime;
     private Point2D dashDestination;
-    private Long dashStartTime;
     private boolean dashStarted = false;
+    private boolean passiveRunnableActive = false;
 
     private enum Form {
         NORMAL,
@@ -70,32 +71,38 @@ public class PeppermintButler extends UserActor {
     @Override
     public void update(int msRan) {
         super.update(msRan);
-        if (this.passiveLocation != null && this.location.distance(this.passiveLocation) > 0.001d) {
-            this.stopPassive = true;
-            this.timeStopped = 0;
+        if (passiveLocation != null && location.distance(passiveLocation) > 0.001) {
+            stopPassive = true;
+            passiveRunnableActive = false;
+            timeStopped = 0;
         }
-        if (this.ultActive && System.currentTimeMillis() - this.ultStartTime >= E_DURATION) {
+        if (ultActive && System.currentTimeMillis() - ultStartTime >= E_DURATION) {
             endUlt();
         }
-        if (this.qActive && System.currentTimeMillis() - this.qStartTime >= Q_DURATION) {
-            this.qActive = false;
+        if (qActive && System.currentTimeMillis() - qStartTime >= Q_DURATION) {
+            qActive = false;
         }
-        if (this.isStopped()
+
+        Console.debugLog(isStopped());
+
+        if (isStopped()
                 && !qActive
                 && !stopPassive
-                && this.form != Form.FERAL
+                && form != Form.FERAL
                 && !isCapturingAltar()
                 && !dead) {
-            this.passiveLocation = this.location;
+            passiveLocation = location;
             timeStopped += 100;
-            if (this.timeStopped >= PASSIVE_TIME && !effectManager.hasState(ActorState.STEALTH)) {
-                effectManager.setState(ActorState.STEALTH, true);
-                // this.setState(ActorState.STEALTH, true);
+
+            if (timeStopped >= PASSIVE_TIME
+                    && !effectManager.hasState(ActorState.STEALTH)
+                    && !passiveRunnableActive) {
+                passiveRunnableActive = true;
                 ExtensionCommands.actorAnimate(
                         this.parentExt, this.room, this.id, "passive", 500, false);
-                Runnable delayAnimation =
+                Runnable activatePassive =
                         () -> {
-                            if (this.timeStopped >= PASSIVE_TIME) {
+                            if (timeStopped >= PASSIVE_TIME) {
                                 ExtensionCommands.actorAnimate(
                                         this.parentExt,
                                         this.room,
@@ -109,40 +116,31 @@ public class PeppermintButler extends UserActor {
                                         this.id,
                                         "sfx_pepbut_invis_hide",
                                         this.location);
-                                effectManager.setState(ActorState.REVEALED, false);
+                                effectManager.setState(ActorState.STEALTH, true);
                                 effectManager.setState(ActorState.INVISIBLE, true);
-                                // this.setState(ActorState.REVEALED, false);
-                                // this.setState(ActorState.INVISIBLE, true);
                             }
                         };
-                int delay = 500;
-                scheduleTask(delayAnimation, delay);
-                this.updateStatMenu("healthRegen");
+                scheduleTask(activatePassive, PASSIVE_ACTIVATION_DELAY);
             }
         } else {
-            this.timeStopped = 0;
-            if (this.stopPassive) this.stopPassive = false;
-            this.passiveLocation = null;
+            timeStopped = 0;
+            if (stopPassive) stopPassive = false;
+            if (passiveRunnableActive) passiveRunnableActive = false;
+            passiveLocation = null;
             if (effectManager.hasState(ActorState.STEALTH)) {
                 String animation = "idle";
                 if (isMoving) animation = "run";
                 ExtensionCommands.actorAnimate(
                         this.parentExt, this.room, this.id, animation, 1, false);
                 effectManager.setState(ActorState.STEALTH, false);
-                effectManager.setState(ActorState.INVISIBLE, false);
-                // this.setState(ActorState.STEALTH, false);
-                // this.setState(ActorState.INVISIBLE, false);
-                if (!effectManager.hasState(ActorState.BRUSH)) {
-                    effectManager.setState(ActorState.REVEALED, true);
-                    // this.setState(ActorState.REVEALED, true);
-                }
-                this.updateStatMenu("healthRegen");
+
                 ExtensionCommands.playSound(
                         this.parentExt,
                         this.room,
                         this.id,
                         "sfx_pepbut_invis_reveal",
                         this.location);
+
                 ExtensionCommands.createActorFX(
                         parentExt,
                         room,
@@ -166,11 +164,11 @@ public class PeppermintButler extends UserActor {
         if (this.qActive) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.location, 3f)) {
-                if (isNeitherStructureNorAlly(a)) {
+                if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                     a.getEffectManager().addState(ActorState.BLINDED, 0d, Q_BLIND_DURATION);
                 }
 
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     JsonNode spellData = this.parentExt.getAttackData(this.avatar, "spell1");
                     double damage = this.getSpellDamage(spellData, false) / 10d;
                     a.addToDamageQueue(this, damage, spellData, true);
@@ -225,7 +223,7 @@ public class PeppermintButler extends UserActor {
 
     @Override
     public double getPlayerStat(String stat) {
-        if (stat.equalsIgnoreCase("healthRegen") && effectManager.hasState(ActorState.STEALTH))
+        if (stat.equalsIgnoreCase("healthRegen"))
             return super.getPlayerStat("healthRegen") + (this.maxHealth * PASSIVE_HP_REG_PERCENT);
         else if (stat.equalsIgnoreCase("attackSpeed") && this.form == Form.FERAL) {
             double currentAttackSpeed = super.getPlayerStat("attackSpeed");
@@ -620,12 +618,12 @@ public class PeppermintButler extends UserActor {
         JsonNode spellData = parentExt.getAttackData(avatar, "spell2");
 
         for (Actor a : Champion.getActorsInRadius(handler, location, 2.5f)) {
-            if (isNeitherStructureNorAlly(a)) {
+            if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                 int STUN_DUR = form == Form.FERAL ? Q_STUN_DURATION_FERAL : Q_STUN_DURATION;
                 a.getEffectManager().addState(ActorState.STUNNED, 0d, STUN_DUR);
             }
 
-            if (isNeitherTowerNorAlly(a)) {
+            if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                 double dmg = getSpellDamage(spellData, true);
                 Actor attacker = PeppermintButler.this;
 

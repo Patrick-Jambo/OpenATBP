@@ -30,8 +30,6 @@ public abstract class Bot extends Actor {
     protected int deathTime = testing ? 1 : 10;
     protected int level = 1;
     protected int xp = 0;
-    protected boolean isAutoAttacking = false;
-    protected boolean isDashing = false;
 
     protected UserActor enemy;
     protected Long enemyDmgTime = 0L;
@@ -113,6 +111,7 @@ public abstract class Bot extends Actor {
         dead = true;
         currentHealth = 0;
         setCanMove(false);
+        setInsideBrush(false);
 
         Actor realKiller = a;
 
@@ -347,6 +346,10 @@ public abstract class Bot extends Actor {
         agressors.put(a, System.currentTimeMillis());
 
         handleElectrodeGun(a, attackData);
+        if (a instanceof UserActor) {
+            UserActor ua = (UserActor) a;
+            ua.preventStealth();
+        }
 
         if (a.getActorType() == ActorType.PLAYER && getAttackType(attackData) == AttackType.SPELL) {
             handleMagicCube((UserActor) a);
@@ -468,6 +471,7 @@ public abstract class Bot extends Actor {
 
             RoomHandler rh = parentExt.getRoomHandler(room.getName());
             List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, 6f);
+            enemies.removeIf(Actor::isInvisible);
             enemies.removeIf(a -> !(a instanceof UserActor));
             if (System.currentTimeMillis() - lastQUse >= qCooldownMs
                     && System.currentTimeMillis() - lastWUse >= wCooldownMs
@@ -567,7 +571,7 @@ public abstract class Bot extends Actor {
 
         // LOW HP
         if (getPHealth() <= LOW_HP_PERCENTAGE_ACTION) {
-            if (canWinFight() && lastPlayerAttacker != null) {
+            if (canWinFight() && lastPlayerAttacker != null && !lastPlayerAttacker.isInvisible()) {
                 this.target = lastPlayerAttacker;
                 return BotState.FIGHTING;
             }
@@ -585,8 +589,10 @@ public abstract class Bot extends Actor {
         // PLAYER ATTACKED THE BOT
         if (lastPlayerAttacker != null) {
             boolean wasAttackedRecently = System.currentTimeMillis() - lastPlayerAttackTime <= 2000;
-            if (wasAttackedRecently && !isEnemyProtectedByTower(lastPlayerAttacker)) {
-                this.target = lastPlayerAttacker;
+            if (wasAttackedRecently
+                    && !isEnemyProtectedByTower(lastPlayerAttacker)
+                    && !lastPlayerAttacker.isInvisible()) {
+                target = lastPlayerAttacker;
                 return BotState.FIGHTING;
             }
         }
@@ -596,6 +602,8 @@ public abstract class Bot extends Actor {
 
         List<Actor> enemies =
                 Champion.getEnemyActorsInRadius(rh, team, mapConfig.allyNexus, TOWER_RANGE);
+        enemies.removeIf(Actor::isInvisible);
+
         if (!enemies.isEmpty()) {
             List<BaseTower> baseTowers = rh.getBaseTowers();
             baseTowers.removeIf(bT -> bT.getTeam() != team);
@@ -620,6 +628,8 @@ public abstract class Bot extends Actor {
                 List<Actor> enemiesBaseTower =
                         Champion.getEnemyActorsInRadius(rh, team, bT.location, TOWER_RANGE);
 
+                enemiesBaseTower.removeIf(Actor::isInvisible);
+
                 if (!enemiesBaseTower.isEmpty()) { // someone is attacking the base tower, defend it
                     this.target = getClosestActor(enemiesBaseTower, true);
                     return BotState.FIGHTING;
@@ -632,6 +642,7 @@ public abstract class Bot extends Actor {
             for (Tower t : towers) {
                 List<Actor> enemiesUnderTower =
                         Champion.getEnemyActorsInRadius(rh, team, t.location, TOWER_RANGE);
+                enemiesUnderTower.removeIf(Actor::isInvisible);
                 if (!enemiesUnderTower.isEmpty()) {
                     this.target = getClosestActor(enemiesUnderTower, true);
                     return BotState.FIGHTING;
@@ -645,6 +656,7 @@ public abstract class Bot extends Actor {
 
         nearbyEnemies.removeIf(a -> a instanceof Monster);
         nearbyEnemies.removeIf(a -> isEnemyProtectedByTower(a) && a instanceof UserActor);
+        nearbyEnemies.removeIf(Actor::isInvisible);
 
         if (!nearbyEnemies.isEmpty()) {
             this.target = getClosestActor(nearbyEnemies, true);
@@ -767,6 +779,7 @@ public abstract class Bot extends Actor {
         effectManager.handleEffectsUpdate();
         handleMovementUpdate();
         handleCharmMovement();
+        handleBrush();
 
         if (MOVEMENT_DEBUG)
             ExtensionCommands.moveActor(
@@ -871,6 +884,11 @@ public abstract class Bot extends Actor {
 
     protected void attemptAttack(Actor target) {
         if (target != null) {
+            if (target.isInvisible()) {
+                this.target = null;
+                return;
+            }
+
             this.target = target;
             if (!withinRange(target) && canMove()) {
                 startMoveTo(target.getLocation());

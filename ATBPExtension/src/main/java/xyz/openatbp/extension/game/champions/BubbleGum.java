@@ -632,9 +632,11 @@ public class BubbleGum extends UserActor {
         }
 
         private boolean turretInBrush() {
-            for (Path2D brush :
-                    this.parentExt.getBrushPaths(
-                            this.parentExt.getRoomHandler(this.room.getName()).isPracticeMap())) {
+            RoomGroup roomGroup = GameManager.getRoomGroupEnum(room.getName());
+            GameMap gameMap = GameManager.getMap(roomGroup);
+            List<Path2D> brushList = parentExt.getBrushPaths(gameMap);
+
+            for (Path2D brush : brushList) {
                 if (brush.contains(this.location)) {
                     return true;
                 }
@@ -652,18 +654,16 @@ public class BubbleGum extends UserActor {
 
             for (UserActor ua : playersInRange) {
                 if (ua.getTeam() != this.team && ua.getHealth() > 0) {
-                    if (ua.getEffectManager().hasState(ActorState.BRUSH) && turretInBrush())
-                        this.target = ua;
-                    if (!ua.getEffectManager().hasState(ActorState.BRUSH)) this.target = ua;
+                    if (ua.isInsideBrush() && turretInBrush()) this.target = ua;
+                    if (!ua.isInsideBrush()) this.target = ua;
                     break;
                 }
             }
             if (this.target == null) {
                 for (Actor a : actorsInRange) {
                     if (a.getHealth() > 0) {
-                        if (effectManager.hasState(ActorState.BRUSH) && turretInBrush())
-                            this.target = a;
-                        if (!effectManager.hasState(ActorState.BRUSH)) this.target = a;
+                        if (a.isInsideBrush() && turretInBrush()) this.target = a;
+                        if (!a.isInsideBrush()) this.target = a;
                         break;
                     }
                 }

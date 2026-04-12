@@ -31,8 +31,8 @@ public class DoActorAbilityHandler extends BaseClientRequestHandler {
         int spellNum = getAbilityNum(params.getUtfString("id"));
         boolean playSound = false;
         if (player.canUseAbility(spellNum)) {
-            if (player.isCastingDashAbility(player.getAvatar(), spellNum)) {
-                if (player.canDash()) {
+            if (player.movementAbility(player.getAvatar(), spellNum)) {
+                if (player.canUseMovementAbility()) {
                     doAbility(parentExt, player, sender, params, spellNum);
                 } else {
                     playSound = true;

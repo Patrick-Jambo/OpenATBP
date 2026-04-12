@@ -81,12 +81,12 @@ public class Finn extends UserActor {
                     List<Actor> aInRadius = handler.getActorsInRadius(wallLines[0].getP1(), 10f);
                     for (Actor a : aInRadius) {
                         if (this.wallLines[i].ptSegDist(a.getLocation()) <= 0.5f) {
-                            if (isNeitherStructureNorAlly(a)) {
+                            if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                                 a.getEffectManager()
                                         .addState(ActorState.ROOTED, 0d, E_ROOT_DURATION);
                             }
 
-                            if (isNeitherTowerNorAlly(a)) {
+                            if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                                 this.wallsActivated[i] = false;
                                 JsonNode spellData = this.parentExt.getAttackData("finn", "spell3");
                                 double damage = handlePassive(a, getSpellDamage(spellData, true));
@@ -209,7 +209,7 @@ public class Finn extends UserActor {
         if (qActive) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor actor : Champion.getActorsInRadius(handler, this.location, 2f)) {
-                if (isNeitherTowerNorAlly(actor)) {
+                if (isNeitherTowerNorAlly(actor) && actor.isNotLeaping()) {
                     JsonNode spellData = parentExt.getAttackData("finn", "spell1");
                     double damage = getSpellDamage(spellData, true);
                     actor.addToDamageQueue(Finn.this, damage, spellData, false);
@@ -322,7 +322,8 @@ public class Finn extends UserActor {
                 RoomHandler handler = parentExt.getRoomHandler(room.getName());
                 for (Actor a : Champion.getActorsInRadius(handler, location, distance)) {
                     if (isNeitherTowerNorAlly(a)
-                            && wRect.contains(a.getLocation(), a.getCollisionRadius())) {
+                            && wRect.contains(a.getLocation(), a.getCollisionRadius())
+                            && a.isNotLeaping()) {
                         double damage = handlePassive(a, getSpellDamage(spellData, true));
                         a.addToDamageQueue(Finn.this, damage, spellData, false);
                         passiveStart = System.currentTimeMillis();
@@ -549,7 +550,7 @@ public class Finn extends UserActor {
                     if (this.qActive) {
                         RoomHandler handler = parentExt.getRoomHandler(room.getName());
                         for (Actor actor : Champion.getActorsInRadius(handler, this.location, 2f)) {
-                            if (isNeitherStructureNorAlly(actor)) {
+                            if (isNeitherStructureNorAlly(actor) && actor.isNotLeaping()) {
                                 JsonNode spellData = parentExt.getAttackData("finn", "spell1");
 
                                 double dmg = getSpellDamage(spellData, true);

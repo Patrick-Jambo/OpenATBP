@@ -583,7 +583,7 @@ public class IceKingBot extends Bot {
                                 ModifierIntent.BUFF,
                                 E_DURATION);
 
-                    } else if (isNonStructureEnemy(a)) {
+                    } else if (isNonStructureEnemy(a) && a.isNotLeaping()) {
                         JsonNode spellData = this.parentExt.getAttackData("iceking", "spell3");
                         double dmg = getSpellDamage(spellData) / 10d;
                         a.addToDamageQueue(this, dmg, spellData, true);
@@ -630,7 +630,7 @@ public class IceKingBot extends Bot {
     }
 
     void handleUpdateQ() {
-        if (this.qVictim != null) {
+        if (this.qVictim != null && qVictim.isNotLeaping()) {
             if (System.currentTimeMillis() < qHitTime) {
                 JsonNode spellData = parentExt.getAttackData("iceking", "spell1");
                 double dmg = getSpellDamage(spellData) / 10d;
@@ -646,7 +646,7 @@ public class IceKingBot extends Bot {
         if (this.wLocation != null) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.wLocation, W_RADIUS)) {
-                if (isNonStructureEnemy(a)) {
+                if (isNonStructureEnemy(a) && a.isNotLeaping()) {
                     if (this.lastWHit != null && this.lastWHit.containsKey(a.getId())) {
                         if (System.currentTimeMillis() >= this.lastWHit.get(a.getId()) + 500) {
                             JsonNode spellData = this.parentExt.getAttackData("iceking", "spell2");
@@ -666,7 +666,9 @@ public class IceKingBot extends Bot {
                                     this.team);
                             this.lastWHit.put(a.getId(), System.currentTimeMillis());
                         }
-                    } else if (this.lastWHit != null && !this.lastWHit.containsKey(a.getId())) {
+                    } else if (this.lastWHit != null
+                            && !this.lastWHit.containsKey(a.getId())
+                            && a.isNotLeaping()) {
                         JsonNode spellData = this.parentExt.getAttackData("iceking", "spell2");
                         a.addToDamageQueue(this, getSpellDamage(spellData) / 2f, spellData, true);
                         ExtensionCommands.createActorFX(

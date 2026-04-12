@@ -26,7 +26,6 @@ public class ActorStateEffect {
         switch (this.state) {
             case INVINCIBLE:
             case INVISIBLE:
-            case STEALTH:
             case IMMUNITY:
             case CLEANSED:
                 return ModifierIntent.BUFF;

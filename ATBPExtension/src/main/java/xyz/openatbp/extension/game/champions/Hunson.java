@@ -63,7 +63,7 @@ public class Hunson extends UserActor {
         if (wLocation != null) {
             RoomHandler rh = parentExt.getRoomHandler(room.getName());
             for (Actor a : rh.getActorsInRadius(wLocation, 2.5f)) {
-                if (isNeitherStructureNorAlly(a) && !dotActors.containsKey(a)) {
+                if (isNeitherStructureNorAlly(a) && !dotActors.containsKey(a) && a.isNotLeaping()) {
                     a.setFearer(this);
                     a.getEffectManager().addState(ActorState.FEARED, 0, W_FEAR_DURATION);
                 }
@@ -107,7 +107,7 @@ public class Hunson extends UserActor {
             JsonNode spellData = this.parentExt.getAttackData(this.avatar, "spell3");
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.location, 4f)) {
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     double dmg = getSpellDamage(spellData, false) / 10d;
                     a.addToDamageQueue(this, dmg, spellData, true);
                 }
@@ -375,10 +375,7 @@ public class Hunson extends UserActor {
     private boolean hasStatusEffect(Actor a) {
         ActorState[] states = ActorState.values();
         for (ActorState s : states) {
-            if (a.getEffectManager().hasState(s)
-                    && s != ActorState.BRUSH
-                    && s != ActorState.TRANSFORMED
-                    && s != ActorState.REVEALED) return true;
+            if (a.getEffectManager().hasState(s) && s != ActorState.TRANSFORMED) return true;
         }
         return false;
     }

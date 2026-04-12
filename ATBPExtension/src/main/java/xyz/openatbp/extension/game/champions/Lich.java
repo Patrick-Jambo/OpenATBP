@@ -73,7 +73,7 @@ public class Lich extends UserActor {
                         Champion.getEnemyActorsInRadius(handler, team, entry.getKey(), 1.5f);
                 for (Actor a : enemiesInRadius) {
                     if (!qVictimsThisLoop.contains(a)) {
-                        if (isNeitherTowerNorAlly(a)) {
+                        if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                             qVictimsThisLoop.add(a);
                             JsonNode spelldata = getSpellData(1);
                             double damage = (double) getSpellDamage(spelldata, false) / 10;
@@ -101,7 +101,7 @@ public class Lich extends UserActor {
                 boolean hit = false;
 
                 for (Actor a : actors) {
-                    if (isNeitherTowerNorAlly(a)) {
+                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                         hit = true;
                         a.addToDamageQueue(this, damage / 2, spellData, true);
                     }
@@ -372,7 +372,8 @@ public class Lich extends UserActor {
     private void applySlow(Actor a) {
         long lastProc = actorsWithQSlow.getOrDefault(a, -1L);
 
-        if (lastProc == -1 || System.currentTimeMillis() - lastProc > Q_SLOW_DURATION) {
+        if (lastProc == -1
+                || System.currentTimeMillis() - lastProc > Q_SLOW_DURATION && a.isNotLeaping()) {
             a.getEffectManager().addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
             actorsWithQSlow.put(a, System.currentTimeMillis());
         }

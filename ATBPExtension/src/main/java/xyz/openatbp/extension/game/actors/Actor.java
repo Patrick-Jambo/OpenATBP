@@ -4,6 +4,7 @@ import static xyz.openatbp.extension.game.actors.UserActor.*;
 import static xyz.openatbp.extension.game.effects.EffectManager.FEAR_MOVING_DISTANCE;
 import static xyz.openatbp.extension.game.effects.EffectManager.KNOCKBACK_SPEED;
 
+import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -55,7 +56,6 @@ public abstract class Actor {
     protected int xpWorth;
     protected String bundle;
     protected boolean towerAggroCompanion = false;
-    protected boolean isDashing = false;
     protected Actor charmer;
     protected Point2D fearMovePoint = null;
     protected Actor fearer;
@@ -89,6 +89,20 @@ public abstract class Actor {
     protected MovementState movementState = MovementState.IDLE;
 
     protected int dashGeneration = 0;
+
+    protected long brushPenaltyTime = 0L;
+
+    public final int BRUSH_PENALTY_DUR = 3000;
+
+    protected boolean isInsideBrush = false;
+
+    public boolean isInsideBrush() {
+        return isInsideBrush;
+    }
+
+    public void setInsideBrush(boolean isInsideBrush) {
+        this.isInsideBrush = isInsideBrush;
+    }
 
     public MovementState getMovementState() {
         return movementState;
@@ -267,6 +281,10 @@ public abstract class Actor {
         return this.attackCooldown == 0;
     }
 
+    public boolean isNotLeaping() {
+        return !(movementState == MovementState.LEAPING);
+    }
+
     // MOVEMENT
     public boolean canMove() {
         for (ActorState s : effectManager.getStates().keySet()) {
@@ -303,7 +321,7 @@ public abstract class Actor {
     }
 
     protected boolean isStopped() {
-        return !isMoving && movePointsToDest != null && movePointsToDest.isEmpty();
+        return !isMoving;
     }
 
     public void startDash(DashContext ctx) {
@@ -971,6 +989,64 @@ public abstract class Actor {
 
     public Room getRoom() {
         return this.room;
+    }
+
+    public void preventStealth() {
+        Console.debugLog("Prevent stealth");
+        brushPenaltyTime = System.currentTimeMillis();
+        if (effectManager.hasState(ActorState.INVISIBLE)) {
+            effectManager.setState(ActorState.INVISIBLE, false);
+        }
+    }
+
+    public boolean canApplyBrushInvis() {
+        return System.currentTimeMillis() - brushPenaltyTime >= BRUSH_PENALTY_DUR;
+    }
+
+    public boolean canRemoveBrushInvis() {
+        return !effectManager.hasState(ActorState.STEALTH);
+    }
+
+    public void handleBrush() {
+        // Console.debugLog("IS INVISIBLE: " + effectManager.hasState(ActorState.INVISIBLE));
+        RoomGroup roomGroup = GameManager.getRoomGroupEnum(room.getGroupId());
+        GameMap gameMap = GameManager.getMap(roomGroup);
+
+        ArrayList<Path2D> brushPaths = parentExt.getBrushPaths(gameMap);
+        boolean insideBrush = false;
+
+        for (Path2D path : brushPaths) {
+            if (path.contains(location)) {
+                insideBrush = true;
+                break;
+            }
+        }
+
+        // Console.debugLog("Brush: " + insideBrush);
+
+        if (!isInsideBrush && insideBrush) {
+            setInsideBrush(true);
+
+            if (!effectManager.hasState(ActorState.INVISIBLE) && canApplyBrushInvis()) {
+                effectManager.setState(ActorState.INVISIBLE, true);
+            }
+
+            int brushId = parentExt.getBrushNum(location, brushPaths);
+            ExtensionCommands.changeBrush(parentExt, room, id, brushId);
+        }
+
+        if (isInsideBrush && !insideBrush) {
+            setInsideBrush(false);
+            ExtensionCommands.changeBrush(parentExt, room, id, -1);
+
+            if (canRemoveBrushInvis()) {
+                effectManager.setState(ActorState.INVISIBLE, false);
+            }
+        }
+    }
+
+    public boolean isInvisible() {
+        return effectManager.hasState(ActorState.INVISIBLE);
     }
 
     public void changeHealth(int delta) {

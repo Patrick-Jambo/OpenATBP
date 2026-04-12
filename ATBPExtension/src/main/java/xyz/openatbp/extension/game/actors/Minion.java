@@ -455,7 +455,7 @@ public class Minion extends Actor {
 
         for (Actor e : enemiesInAggro) {
             if (e instanceof UserActor || e instanceof Bot) {
-                if (!isInvisOrInBrush(e)) {
+                if (!isInvisible(e)) {
                     double distance = e.getLocation().distance(location);
                     if (distance < distanceChampion) {
                         distanceChampion = distance;
@@ -572,11 +572,7 @@ public class Minion extends Actor {
     }
 
     public boolean isInvisible(Actor a) {
-        ActorState[] states = {ActorState.INVISIBLE, ActorState.BRUSH};
-        for (ActorState state : states) {
-            if (effectManager.hasState(state)) return true;
-        }
-        return false;
+        return a.getEffectManager().hasState(ActorState.INVISIBLE);
     }
 
     public int getLane() {
@@ -618,14 +614,6 @@ public class Minion extends Actor {
             lanePoints = team == 0 ? practicePurpleLanePoints : practiceBlueLanePoints;
         }
         return lanePoints;
-    }
-
-    public boolean isInvisOrInBrush(Actor a) {
-        ActorState[] states = {ActorState.INVISIBLE, ActorState.BRUSH};
-        for (ActorState state : states) {
-            if (effectManager.hasState(state)) return true;
-        }
-        return false;
     }
 
     private boolean actorsToIgnore(String avatar, String id) {

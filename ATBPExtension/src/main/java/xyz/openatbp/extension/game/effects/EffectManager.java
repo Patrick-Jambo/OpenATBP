@@ -112,10 +112,7 @@ public class EffectManager {
         switch (state) {
             case INVINCIBLE:
             case INVISIBLE:
-            case STEALTH:
             case IMMUNITY:
-            case BRUSH:
-            case REVEALED:
             case TRANSFORMED:
             case CLEANSED:
                 return ModifierIntent.BUFF;
@@ -211,6 +208,12 @@ public class EffectManager {
     }
 
     public void handleSwapFromPoly() {
+        ExtensionCommands.removeFx(
+                actor.getParentExt(), actor.getRoom(), actor.getId() + "_statusEffect_polymorph");
+        ExtensionCommands.removeFx(
+                actor.getParentExt(), actor.getRoom(), actor.getId() + "_flambit_aoe");
+        ExtensionCommands.removeFx(
+                actor.getParentExt(), actor.getRoom(), actor.getId() + "_flambit_ring_");
         String bundle = actor.getSkinAssetBundle();
         ExtensionCommands.swapActorAsset(
                 actor.getParentExt(), actor.getRoom(), actor.getId(), bundle);
@@ -298,18 +301,6 @@ public class EffectManager {
         }
 
         stateEffects.clear();
-    }
-
-    public void removeState(ActorState state) {
-        Iterator<ActorStateEffect> it = stateEffects.iterator();
-
-        while (it.hasNext()) { // keep iterator cause it's safe and prevents
-            // ConcurrentModificationException
-            ActorStateEffect e = it.next();
-            if (e.getState() == state) {
-                it.remove();
-            }
-        }
     }
 
     public void cleanseDebuffs() {

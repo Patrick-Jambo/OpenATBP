@@ -43,7 +43,8 @@ public class Gunter extends UserActor {
             if (!nearbyEnemies.isEmpty()) {
                 for (Actor a : nearbyEnemies) {
                     if (isNeitherTowerNorAlly(a)
-                            && eTrapezoid.contains(a.getLocation(), a.getCollisionRadius())) {
+                            && eTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
+                            && a.isNotLeaping()) {
                         double damage = getSpellDamage(spellData, false) / 10d;
                         a.addToDamageQueue(this, damage, spellData, true);
                     }
@@ -152,7 +153,7 @@ public class Gunter extends UserActor {
                                 List<Actor> affectedActors =
                                         Champion.getActorsInRadius(handler, location, 2f);
                                 for (Actor a : affectedActors) {
-                                    if (isNeitherTowerNorAlly(a)) {
+                                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                                         double dmg = getSpellDamage(spellData, true);
                                         a.addToDamageQueue(Gunter.this, dmg, spellData, false);
                                     }
@@ -307,7 +308,7 @@ public class Gunter extends UserActor {
                 Champion.getEnemyActorsInRadius(
                         handler, this.team, a.getLocation(), PASSIVE_RADIUS);
         for (Actor actor : enemyActorsInRadius) {
-            if (isNeitherTowerNorAlly(actor)) {
+            if (isNeitherTowerNorAlly(actor) && actor.isNotLeaping()) {
                 JsonNode spellData = this.parentExt.getAttackData(this.getAvatar(), "spell4");
                 double dmg = getSpellDamage(spellData, true);
                 actor.addToDamageQueue(this, dmg, spellData, false);

@@ -34,6 +34,7 @@ public class Marceline extends UserActor {
     private static final int E_CHARM_DURATION = 2000;
     private static final int E_FEAR_DURATION = 2000;
     public static final int E_AS_PERCENT = 1;
+    public static final int ULT_RADIUS = 3;
 
     private int passiveHits = 0;
     private boolean hpRegenActive = false;
@@ -100,7 +101,7 @@ public class Marceline extends UserActor {
         if (this.vampireWActive) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.location, 2f)) {
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     JsonNode spellData = this.parentExt.getAttackData(this.avatar, "spell2");
                     double damage = getSpellDamage(spellData, false) / 10d;
                     a.addToDamageQueue(this, damage, spellData, true);
@@ -617,8 +618,8 @@ public class Marceline extends UserActor {
 
                     RoomHandler handler = parentExt.getRoomHandler(room.getName());
                     Point2D loc = Marceline.this.location;
-                    for (Actor a : Champion.getActorsInRadius(handler, loc, 3)) {
-                        if (isNeitherTowerNorAlly(a)) {
+                    for (Actor a : Champion.getActorsInRadius(handler, loc, ULT_RADIUS)) {
+                        if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
 
                             double damage = getSpellDamage(spellData, true);
                             a.addToDamageQueue(Marceline.this, damage, spellData, false);

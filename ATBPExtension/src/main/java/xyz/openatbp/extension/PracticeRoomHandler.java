@@ -23,8 +23,8 @@ public class PracticeRoomHandler extends RoomHandler {
             String[] SPAWNS,
             int HP_SPAWN_RATE,
             Point2D[] mapBoundary,
-            List<Point2D[]> mapHoles) {
-        super(parentExt, room, SPAWNS, HP_SPAWN_RATE, mapBoundary, mapHoles);
+            List<Point2D[]> obstacles) {
+        super(parentExt, room, SPAWNS, HP_SPAWN_RATE, mapBoundary, obstacles);
         HashMap<String, Point2D> towers0 = MapData.getPTowerActorData(0);
         HashMap<String, Point2D> towers1 = MapData.getPTowerActorData(1);
         baseTowers.add(new BaseTower(parentExt, room, "purple_tower0", 0));

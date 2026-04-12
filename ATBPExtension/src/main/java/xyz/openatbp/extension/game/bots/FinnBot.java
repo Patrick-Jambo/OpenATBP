@@ -102,7 +102,7 @@ public class FinnBot extends Bot {
         if (qActive) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor actor : Champion.getActorsInRadius(handler, this.location, 2f)) {
-                if (isNonStructureEnemy(actor)) {
+                if (isNonStructureEnemy(actor) && actor.isNotLeaping()) {
                     JsonNode spellData = parentExt.getAttackData("finn", "spell1");
                     double damage = getSpellDamage(spellData);
                     actor.addToDamageQueue(this, damage, spellData, false);
@@ -259,7 +259,8 @@ public class FinnBot extends Bot {
         for (Actor a : Champion.getActorsInRadius(handler, location, distance)) {
             if (a.getTeam() != this.team
                     && a.getActorType() != ActorType.TOWER
-                    && wRect.contains(a.getLocation(), a.getCollisionRadius())) {
+                    && wRect.contains(a.getLocation(), a.getCollisionRadius())
+                    && a.isNotLeaping()) {
                 double damage = handlePassive(a, getSpellDamage(spellData));
                 a.addToDamageQueue(this, damage, spellData, false);
                 passiveStart = System.currentTimeMillis();
@@ -406,7 +407,7 @@ public class FinnBot extends Bot {
                     if (this.qActive) {
                         RoomHandler handler = parentExt.getRoomHandler(room.getName());
                         for (Actor actor : Champion.getActorsInRadius(handler, this.location, 2f)) {
-                            if (isNonStructureEnemy(actor)) {
+                            if (isNonStructureEnemy(actor) && actor.isNotLeaping()) {
                                 JsonNode spellData = parentExt.getAttackData("finn", "spell1");
 
                                 double dmg = getSpellDamage(spellData);
@@ -474,14 +475,15 @@ public class FinnBot extends Bot {
 
     @Override
     public boolean canUseQ() {
-        return timeOk(1) && (!isCastingUlt && !isDashing);
+        return timeOk(1) && (!isCastingUlt && movementState != MovementState.DASHING);
     }
 
     @Override
     public boolean canUseW() {
         if (target != null
                 && target.getLocation().distance(location) <= 5
-                && !(target instanceof Tower)) {
+                && !(target instanceof Tower)
+                && !isAutoAttacking) {
             return timeOk(2) && !isCastingUlt;
         }
         return false;
@@ -489,7 +491,10 @@ public class FinnBot extends Bot {
 
     @Override
     public boolean canUseE() {
-        if (timeOk(3) && target != null && !isDashing && !(target instanceof Tower)) {
+        if (timeOk(3)
+                && target != null
+                && movementState != MovementState.DASHING
+                && !(target instanceof Tower)) {
 
             // DEFENSIVE ULT
             if (lastPlayerAttacker != null) {
@@ -628,12 +633,12 @@ public class FinnBot extends Bot {
                     List<Actor> aInRadius = handler.getActorsInRadius(wallLines[0].getP1(), 10f);
                     for (Actor a : aInRadius) {
                         if (this.wallLines[i].ptSegDist(a.getLocation()) <= 0.5f) {
-                            if (isNonStructureEnemy(a)) {
+                            if (isNonStructureEnemy(a) && a.isNotLeaping()) {
                                 a.getEffectManager()
                                         .addState(ActorState.ROOTED, 0d, E_ROOT_DURATION);
                             }
 
-                            if (isNonStructureEnemy(a)) {
+                            if (isNonStructureEnemy(a) && a.isNotLeaping()) {
                                 this.wallsActivated[i] = false;
                                 JsonNode spellData = this.parentExt.getAttackData("finn", "spell3");
                                 double damage = handlePassive(a, getSpellDamage(spellData));

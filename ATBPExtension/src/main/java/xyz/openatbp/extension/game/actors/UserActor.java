@@ -3,7 +3,6 @@ package xyz.openatbp.extension.game.actors;
 import static xyz.openatbp.extension.game.champions.GooMonster.GOO_BUFF_DURATION;
 import static xyz.openatbp.extension.game.champions.Keeoth.KEEOTH_BUFF_DURATION;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
@@ -58,6 +57,7 @@ public class UserActor extends Actor {
     public static final int MAGIC_CUBE_DEBUFF_DURATION = 5000;
     public static final int E_GUN_STACK_CD = 3000;
     public static final int GROB_DEVICE_SHIELD_CD = 90000;
+    public static final int NIGHT_SWORD_INVIS_DUR = 2000;
 
     protected User player;
     protected boolean autoAttackEnabled = false;
@@ -92,7 +92,6 @@ public class UserActor extends Actor {
     protected long gooBuffStartTime = 0;
     protected List<UserActor> killedPlayers = new ArrayList<>();
     protected long lastAutoTargetTime = 0;
-    protected long stealthEmbargo = -1;
     private boolean moonVfxActivated = false;
     protected double glassesBuff = 0;
     protected String numbChuckVictim;
@@ -281,10 +280,6 @@ public class UserActor extends Actor {
         return this.player;
     }
 
-    public boolean getIsDashing() {
-        return this.isDashing;
-    }
-
     public boolean getIsAutoAttacking() {
         return this.isAutoAttacking;
     }
@@ -305,12 +300,10 @@ public class UserActor extends Actor {
         preventStealth();
     }
 
+    @Override
     public void preventStealth() {
-        Console.debugLog("Prevent stealth");
-        effectManager.addState(ActorState.REVEALED, 0d, 3000);
-        effectManager.setState(ActorState.INVISIBLE, false);
-        this.stealthEmbargo = System.currentTimeMillis() + 3000;
-        if (this.roboStacks > 0) this.roboStacks = 0;
+        super.preventStealth();
+        if (roboStacks > 0) roboStacks = 0;
     }
 
     public void resetFightKingStacks() {
@@ -365,9 +358,10 @@ public class UserActor extends Actor {
             }
 
             handleElectrodeGun(a, attackData);
+            preventStealth();
 
             AttackType type = this.getAttackType(attackData);
-            this.preventStealth();
+
             double moonChance = ChampionData.getCustomJunkStat(this, "junk_3_battle_moon");
             if (moonChance > 0) {
                 if (Math.random() < moonChance) {
@@ -681,6 +675,7 @@ public class UserActor extends Actor {
             // this.updateXPWorth("death");
             this.timeKilled = System.currentTimeMillis();
             this.canMove = false;
+            setInsideBrush(false);
             if (!effectManager.hasState(ActorState.AIRBORNE)) this.stopMoving();
             if (this.hasKeeothBuff) disableKeeothBuff();
             if (this.hasGooBuff) disableGooBuff();
@@ -690,20 +685,6 @@ public class UserActor extends Actor {
                         parentExt, this.getUser(), "global", "announcer/you_are_defeated");
             }
 
-            if (effectManager.hasState(ActorState.POLYMORPH)) {
-                boolean swapAsset = true;
-                if (this.getChampionName(this.getAvatar()).equalsIgnoreCase("marceline")
-                        && effectManager.hasState(ActorState.TRANSFORMED)) swapAsset = false;
-                if (swapAsset) {
-                    ExtensionCommands.swapActorAsset(
-                            this.parentExt, this.room, this.getId(), getSkinAssetBundle());
-                }
-                ExtensionCommands.removeFx(
-                        this.parentExt, this.room, this.id + "_statusEffect_polymorph");
-                ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flambit_aoe");
-                ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flambit_ring_");
-                effectManager.setState(ActorState.POLYMORPH, false);
-            }
             this.setHealth(0, (int) this.maxHealth);
             this.target = null;
             this.killingSpree = 0;
@@ -856,6 +837,7 @@ public class UserActor extends Actor {
         handleMovementUpdate();
         handleCharmMovement();
         handleGrobDevice();
+        handleBrush();
 
         if (this.dead) {
             if (this.currentHealth > 0
@@ -974,7 +956,7 @@ public class UserActor extends Actor {
         if (!isMoving && movePointsToDest != null && movePointsToDest.isEmpty()) {
             this.idleTime += 100;
         }
-        boolean insideBrush = false;
+        /*boolean insideBrush = false;
         boolean isPracticeMap = rh.isPracticeMap();
         ArrayList<Path2D> brushPaths = parentExt.getBrushPaths(isPracticeMap);
 
@@ -1010,17 +992,16 @@ public class UserActor extends Actor {
                 }
                 ExtensionCommands.changeBrush(parentExt, room, this.id, -1);
             } else if (!effectManager.hasState(ActorState.REVEALED)
-                    && !effectManager.hasState(ActorState.INVISIBLE)
-                    && !effectManager.hasState(ActorState.STEALTH)) {
+                    && !effectManager.hasState(ActorState.INVISIBLE)) {
                 effectManager.setState(ActorState.REVEALED, true);
             }
-        }
-        if (this.attackCooldown > 0) this.reduceAttackCooldown();
-        if (this.target != null && invisOrInBrush(target)) this.target = null;
-        if (this.target != null && this.target.getHealth() > 0) {
-            if (this.withinRange(target) && this.canAttack()) {
-                this.autoAttack(target);
-            } else if (!this.withinRange(target) && this.canMove() && !this.isAutoAttacking) {
+        }*/
+        if (attackCooldown > 0) reduceAttackCooldown();
+        if (target != null && target.isInvisible()) target = null;
+        if (target != null && target.getHealth() > 0) {
+            if (withinRange(target) && canAttack()) {
+                autoAttack(target);
+            } else if (!withinRange(target) && canMove() && !isAutoAttacking) {
                 if (movePointsToDest != null && !movePointsToDest.isEmpty()) {
                     Point2D tLoc = target.getLocation();
                     Point2D lastMovePoint = movePointsToDest.get(movePointsToDest.size() - 1);
@@ -1163,14 +1144,6 @@ public class UserActor extends Actor {
         this.idleTime = 0;
     }
 
-    public boolean invisOrInBrush(Actor a) {
-        ActorState[] states = {ActorState.INVISIBLE, ActorState.BRUSH};
-        for (ActorState state : states) {
-            if (effectManager.hasState(state)) return true;
-        }
-        return false;
-    }
-
     public void useAbility(
             int ability,
             JsonNode spellData,
@@ -1214,8 +1187,8 @@ public class UserActor extends Actor {
         }
     }
 
-    public boolean canDash() {
-        return !effectManager.hasState(ActorState.ROOTED);
+    public boolean canUseMovementAbility() {
+        return !isAutoAttacking && !hasMovementCC() && movementState == MovementState.IDLE;
     }
 
     public boolean hasInterrupingCC() {
@@ -1272,7 +1245,7 @@ public class UserActor extends Actor {
         return this.canCast[ability - 1];
     }
 
-    public boolean isCastingDashAbility(String avatar, int ability) { // all chars except fp
+    public boolean movementAbility(String avatar, int ability) { // all chars except fp
         String defaultAvatar = getChampionName(avatar);
         switch (defaultAvatar) {
             case "billy":
@@ -1332,7 +1305,7 @@ public class UserActor extends Actor {
                 ModifierType.ADDITIVE,
                 ModifierIntent.BUFF,
                 RESPAWN_SPEED_BOOST_MS,
-                "_statusEffect_speed",
+                "statusEffect_speed",
                 id + "statusEffect_speed",
                 "targetNode");
 
@@ -1665,16 +1638,8 @@ public class UserActor extends Actor {
                 this.changeHealth((int) Math.round(this.maxHealth * 0.15d));
             }
             if (ChampionData.getJunkLevel(this, "junk_1_night_sword") > 0) {
-                effectManager.setState(ActorState.REVEALED, false);
-                effectManager.addState(ActorState.INVISIBLE, 0d, 2000);
-                Runnable reveal =
-                        () -> {
-                            if (!effectManager.hasState(ActorState.BRUSH))
-                                effectManager.setState(ActorState.REVEALED, true);
-                        };
-                SmartFoxServer.getInstance()
-                        .getTaskScheduler()
-                        .schedule(reveal, 2000, TimeUnit.MILLISECONDS);
+                effectManager.addState(ActorState.STEALTH, 0, NIGHT_SWORD_INVIS_DUR);
+                effectManager.addState(ActorState.INVISIBLE, 0d, NIGHT_SWORD_INVIS_DUR);
             }
         }
         if (ChampionData.getJunkLevel(this, "junk_1_magic_nail") > 0) addMagicNailStacks(a);

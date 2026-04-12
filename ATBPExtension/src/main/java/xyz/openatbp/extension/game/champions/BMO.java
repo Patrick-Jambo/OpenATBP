@@ -177,16 +177,16 @@ public class BMO extends UserActor {
                     if (!nearbyEnemies.isEmpty() && getHealth() > 0) {
                         for (Actor a : nearbyEnemies) {
                             if (isNeitherStructureNorAlly(a)
-                                    && qTrapezoid.contains(
-                                            a.getLocation(), a.getCollisionRadius())) {
+                                    && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
+                                    && a.isNotLeaping()) {
                                 a.getEffectManager()
                                         .addState(ActorState.BLINDED, 0d, Q_BLIND_DURATION);
                                 if (this.passiveStacks == 3) applySlow(a);
                             }
 
                             if (isNeitherTowerNorAlly(a)
-                                    && qTrapezoid.contains(
-                                            a.getLocation(), a.getCollisionRadius())) {
+                                    && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
+                                    && a.isNotLeaping()) {
                                 double damage = getSpellDamage(spellData, false);
                                 a.addToDamageQueue(this, damage, spellData, false);
                             }

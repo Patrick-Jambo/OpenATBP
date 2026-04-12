@@ -120,7 +120,7 @@ public class IceKing extends UserActor {
             }
             if (!actorsInUlt.isEmpty()) {
                 for (Actor a : actorsInUlt) {
-                    if (isNeitherTowerNorAlly(a)) {
+                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                         JsonNode spellData = this.parentExt.getAttackData("iceking", "spell3");
                         double dmg = getSpellDamage(spellData, false) / 10d;
                         a.addToDamageQueue(this, dmg, spellData, true);

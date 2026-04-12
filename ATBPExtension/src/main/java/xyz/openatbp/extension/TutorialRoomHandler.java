@@ -121,7 +121,7 @@ public class TutorialRoomHandler extends RoomHandler {
 
                 Console.debugLog("Seconds Ran: " + secondsRan);
 
-                if (secondsRan == 8) {
+                if (secondsRan == 3) {
                     ExtensionCommands.playSound(
                             parentExt,
                             room,
@@ -196,11 +196,11 @@ public class TutorialRoomHandler extends RoomHandler {
                     parentExt,
                     room,
                     "global",
-                    "announcer/tut_attack_basic",
+                    "announcer/tut_attack_basic_short",
                     new Point2D.Float(0f, 0f));
 
             Runnable allowMoving = () -> tutorialPlayer.setCanMove(true);
-            parentExt.getTaskScheduler().schedule(allowMoving, 7000, TimeUnit.MILLISECONDS);
+            parentExt.getTaskScheduler().schedule(allowMoving, 2800, TimeUnit.MILLISECONDS);
         }
 
         if (superMinion != null
@@ -215,7 +215,7 @@ public class TutorialRoomHandler extends RoomHandler {
                     parentExt,
                     room,
                     "global",
-                    "announcer/tut_attack_spell",
+                    "announcer/tut_attack_spell_short",
                     new Point2D.Float(0, 0));
 
             tutorialPlayer.setCanMove(false);
@@ -224,7 +224,7 @@ public class TutorialRoomHandler extends RoomHandler {
                         tutorialPlayer.setCanMove(true);
                         tutorialPlayer.setCanCast(false, true, false);
                     };
-            parentExt.getTaskScheduler().schedule(enableMoving, 7000, TimeUnit.MILLISECONDS);
+            parentExt.getTaskScheduler().schedule(enableMoving, 3700, TimeUnit.MILLISECONDS);
         }
 
         if (superMinion != null

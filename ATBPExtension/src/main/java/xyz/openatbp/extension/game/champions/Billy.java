@@ -172,7 +172,7 @@ public class Billy extends UserActor {
                         if (!nearbyEnemyActors.isEmpty()) {
                             for (Actor a : nearbyEnemyActors) {
                                 if (rect.contains(a.getLocation(), a.getCollisionRadius())) {
-                                    if (isNeitherStructureNorAlly(a)) {
+                                    if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                                         if (passiveUses == 3) {
                                             a.getEffectManager()
                                                     .addState(
@@ -182,7 +182,7 @@ public class Billy extends UserActor {
                                         }
                                         a.handleKnockback(location, Q_KNOCKBACK_DIST);
                                     }
-                                    if (isNeitherTowerNorAlly(a)) {
+                                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                                         double damage = getSpellDamage(spellData, true);
                                         a.addToDamageQueue(this, damage, spellData, false);
                                     }
@@ -373,7 +373,7 @@ public class Billy extends UserActor {
                             0f);
                     RoomHandler handler = parentExt.getRoomHandler(room.getName());
                     for (Actor a : Champion.getActorsInRadius(handler, location, 2f)) {
-                        if (isNeitherTowerNorAlly(a)) {
+                        if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                             a.addToDamageQueue(
                                     Billy.this, getSpellDamage(spellData, true), spellData, false);
                         }

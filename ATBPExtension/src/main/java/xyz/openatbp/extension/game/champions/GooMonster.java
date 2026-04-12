@@ -95,7 +95,7 @@ public class GooMonster extends Monster {
                     data.putUtfString("attackType", "spell");
                     JsonNode newAttackData = mapper.readTree(data.toJson());
                     for (Actor a : damagedActors) {
-                        if (!a.getId().equalsIgnoreCase(this.id)) {
+                        if (!a.getId().equalsIgnoreCase(this.id) && a.isNotLeaping()) {
                             a.getEffectManager()
                                     .addState(
                                             ActorState.SLOWED, GOO_SLOW_PERCENT, GOO_SLOW_DURATION);

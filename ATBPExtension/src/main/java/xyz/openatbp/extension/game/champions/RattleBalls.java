@@ -84,7 +84,7 @@ public class RattleBalls extends UserActor {
             }
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, location, 2f)) {
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     JsonNode spellData = parentExt.getAttackData(avatar, "spell3");
                     double dmg = getSpellDamage(spellData, false) / 10d;
                     a.addToDamageQueue(this, dmg, spellData, true);
@@ -280,7 +280,8 @@ public class RattleBalls extends UserActor {
                         for (Actor a : nearbyEnemies) {
                             if (isNeitherTowerNorAlly(a)
                                     && qThrustRectangle.contains(
-                                            a.getLocation(), a.getCollisionRadius())) {
+                                            a.getLocation(), a.getCollisionRadius())
+                                    && a.isNotLeaping()) {
                                 double dmg = getSpellDamage(spellData, true);
                                 a.addToDamageQueue(this, dmg, spellData, false);
                             }
@@ -482,7 +483,7 @@ public class RattleBalls extends UserActor {
         RoomHandler handler = parentExt.getRoomHandler(room.getName());
         List<Actor> affectedActors = Champion.getActorsInRadius(handler, location, 2f);
         for (Actor a : affectedActors) {
-            if (isNeitherTowerNorAlly(a)) {
+            if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                 JsonNode spellData = parentExt.getAttackData(avatar, "spell1");
                 double dmg = getSpellDamage(spellData, true) + Q_SPIN_ATTACK_BONUS_BASE_DMG;
                 a.addToDamageQueue(this, dmg, spellData, false);
@@ -627,7 +628,7 @@ public class RattleBalls extends UserActor {
                         a.handlePull(location, (float) W_PULL_DISTANCE);
                     }
 
-                    if (isNeitherTowerNorAlly(a)) {
+                    if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                         double dmg = getSpellDamage(spellData, true);
                         Actor attacker = RattleBalls.this;
 

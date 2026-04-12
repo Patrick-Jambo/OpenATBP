@@ -80,18 +80,19 @@ public class GotoRoomHandler extends BaseClientRequestHandler {
             if (roomId.contains("custom")) {
                 String lastPart = roomId.split("_")[2];
                 int roomSize = Integer.parseInt(lastPart.replace("p", ""));
+                Console.debugLog("Room size: " + roomSize);
+                settings.setMaxUsers(roomSize);
 
                 if (roomSize > 4) {
+                    Console.debugLog("Room is a battle lab");
                     settings.setGroupId(RoomGroup.CUSTOM_BATTLE_LAB.name());
                 } else {
+                    Console.debugLog("Room is a candy streets");
                     settings.setGroupId(RoomGroup.CUSTOM_CANDY_STREETS.name());
                 }
-            }
-
-            if (roomId.contains("tutorial")) {
+            } else if (roomId.contains("tutorial")) {
                 settings.setGroupId(RoomGroup.TUTORIAL.name());
                 settings.setMaxUsers(1);
-
             } else if (roomId.contains("practice")) {
                 settings.setGroupId(RoomGroup.PRACTICE.name());
                 settings.setMaxUsers(1);
