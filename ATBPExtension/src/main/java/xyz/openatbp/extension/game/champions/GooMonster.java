@@ -96,10 +96,16 @@ public class GooMonster extends Monster {
                     JsonNode newAttackData = mapper.readTree(data.toJson());
                     for (Actor a : damagedActors) {
                         if (!a.getId().equalsIgnoreCase(this.id) && a.isNotLeaping()) {
-                            a.getEffectManager()
-                                    .addState(
-                                            ActorState.SLOWED, GOO_SLOW_PERCENT, GOO_SLOW_DURATION);
-                            a.addToDamageQueue(this, 4, newAttackData, true);
+
+                            if (!a.getEffectManager().hasState(id + "_goo_slow")) {
+                                a.getEffectManager()
+                                        .addState(
+                                                ActorState.SLOWED,
+                                                id + "_goo_slow",
+                                                GOO_SLOW_PERCENT,
+                                                GOO_SLOW_DURATION);
+                            }
+                            a.addToDamageQueue(this, 5, newAttackData, true);
                         }
                     }
                 } catch (IOException e) {
@@ -125,7 +131,6 @@ public class GooMonster extends Monster {
                     if (ChampionData.getCustomJunkStat(ua, "junk_1_demon_blood_sword") > 0)
                         delta += 0.15;
                     ua.setHasGooBuff(true);
-                    ua.setGooBuffStartTime(System.currentTimeMillis());
                     ua.getEffectManager()
                             .addEffect(
                                     ua.getId() + "_goo_buff",
@@ -138,12 +143,11 @@ public class GooMonster extends Monster {
                                     ua.getId() + "_jungle_buff_goo",
                                     "");
 
-                    ExtensionCommands.addStatusIcon(
-                            this.parentExt,
-                            ua.getUser(),
-                            "goomonster_buff",
-                            "goomonster_buff_desc",
+                    Champion.handleStatusIcon(
+                            parentExt,
+                            ua,
                             "icon_buff_goomonster",
+                            "goomonster_buff_desc",
                             GOO_BUFF_DURATION);
                 }
             }

@@ -2,6 +2,7 @@ package xyz.openatbp.extension.game.effects;
 
 public class ActorStateEffect {
     private ActorState state;
+    private String stateId;
     private int durationMs;
     private long startTime;
     private double modifier;
@@ -14,8 +15,20 @@ public class ActorStateEffect {
         this.startTime = System.currentTimeMillis();
     }
 
+    public ActorStateEffect(ActorState state, String stateId, double modifier, int durationMs) {
+        this.state = state;
+        this.stateId = stateId;
+        this.durationMs = durationMs;
+        this.modifier = modifier;
+        this.startTime = System.currentTimeMillis();
+    }
+
     public ActorState getState() {
         return this.state;
+    }
+
+    public String getStateId() {
+        return this.stateId;
     }
 
     public double getModifier() {

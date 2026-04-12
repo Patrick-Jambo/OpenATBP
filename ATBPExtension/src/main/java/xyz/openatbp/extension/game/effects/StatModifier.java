@@ -23,7 +23,8 @@ public class StatModifier {
         this.durationMs = durationMs;
         this.startTime = System.currentTimeMillis();
 
-        if (intent == ModifierIntent.BUFF) this.modifier = 1 + modifier;
+        if (intent == ModifierIntent.BUFF && !statName.equals("attackSpeed"))
+            this.modifier = 1 + modifier;
         else this.modifier = 1 - modifier;
     }
 

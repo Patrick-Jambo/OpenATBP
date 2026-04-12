@@ -61,12 +61,10 @@ public class Finn extends UserActor {
                     && finnUltRing.contains(this.getLocation())
                     && !ringBoostApplied) {
                 ringBoostApplied = true;
-                updateStatMenu("attackSpeed");
             } else if (finnUltRing != null
                     && !finnUltRing.contains(this.getLocation())
                     && ringBoostApplied) {
                 ringBoostApplied = false;
-                updateStatMenu("attackSpeed");
             }
         }
 
@@ -83,7 +81,11 @@ public class Finn extends UserActor {
                         if (this.wallLines[i].ptSegDist(a.getLocation()) <= 0.5f) {
                             if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                                 a.getEffectManager()
-                                        .addState(ActorState.ROOTED, 0d, E_ROOT_DURATION);
+                                        .addState(
+                                                ActorState.ROOTED,
+                                                id + "_finn_e_root",
+                                                0d,
+                                                E_ROOT_DURATION);
                             }
 
                             if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
@@ -133,7 +135,6 @@ public class Finn extends UserActor {
             this.wallsActivated = new boolean[] {false, false, false, false};
             this.ultActivated = false;
             this.finnUltRing = null;
-            this.updateStatMenu("attackSpeed");
         }
 
         if (furyStacks > 0) {
@@ -251,7 +252,6 @@ public class Finn extends UserActor {
                     basicAttackReset();
                     this.qStartTime = System.currentTimeMillis();
                     this.qActive = true;
-                    this.updateStatMenu("speed");
                     String shieldFX = SkinData.getFinnQFX(avatar);
                     String shieldSFX = SkinData.getFinnQSFX(avatar);
                     ExtensionCommands.playSound(
@@ -477,8 +477,6 @@ public class Finn extends UserActor {
                                 this.wallLines =
                                         new Line2D[] {northWall, eastWall, southWall, westWall};
                                 this.wallsActivated = new boolean[] {true, true, true, true};
-
-                                updateStatMenu("attackSpeed");
                             };
 
                     scheduleTask(cast, castDelay);

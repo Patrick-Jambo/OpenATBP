@@ -67,12 +67,10 @@ public class Marceline extends UserActor {
         if (this.vampireWActive
                 && System.currentTimeMillis() - this.vampireWStartTime >= W_DURATION) {
             this.vampireWActive = false;
-            updateStatMenu("speed");
             ExtensionCommands.removeStatusIcon(parentExt, player, W_VAMP_ICON);
         }
         if (this.beastWActive && System.currentTimeMillis() - this.bestWStartTime >= W_DURATION) {
             this.beastWActive = false;
-            updateStatMenu("speed");
             ExtensionCommands.removeStatusIcon(parentExt, player, W_BEAST_ICON);
         }
         if (this.currentHealth < this.maxHealth
@@ -384,7 +382,6 @@ public class Marceline extends UserActor {
                     logExceptionMessage(avatar, ability);
                     exception.printStackTrace();
                 }
-                updateStatMenu("speed");
                 ExtensionCommands.actorAbilityResponse(
                         this.parentExt,
                         this.player,
@@ -587,11 +584,10 @@ public class Marceline extends UserActor {
                         ExtensionCommands.swapActorAsset(parentExt, room, id, "marceline_bat");
                     }
                 }
-                updateStatMenu("healthRegen");
 
                 if (canDoUltAttack && !dead) {
                     Marceline.this.effectManager.addState(
-                            ActorState.IMMUNITY, 0d, E_IMMUNITY_DURATION);
+                            ActorState.IMMUNITY, id + "_marcy_e_immunity", 0d, E_IMMUNITY_DURATION);
                     effectManager.setState(ActorState.CLEANSED, true);
                     // setState(ActorState.CLEANSED, true);
                     Marceline.this.effectManager.cleanseDebuffs();
@@ -628,11 +624,19 @@ public class Marceline extends UserActor {
                                 if (form == Form.VAMPIRE) {
                                     a.setCharmer(Marceline.this);
                                     a.getEffectManager()
-                                            .addState(ActorState.CHARMED, 0d, E_CHARM_DURATION);
+                                            .addState(
+                                                    ActorState.CHARMED,
+                                                    id + "_marcy_e_charm",
+                                                    0d,
+                                                    E_CHARM_DURATION);
                                 } else {
                                     a.setFearer(Marceline.this);
                                     a.getEffectManager()
-                                            .addState(ActorState.FEARED, 0d, E_FEAR_DURATION);
+                                            .addState(
+                                                    ActorState.FEARED,
+                                                    id + "_marcy_e_fear",
+                                                    0d,
+                                                    E_FEAR_DURATION);
                                 }
                             }
                         }
@@ -684,7 +688,8 @@ public class Marceline extends UserActor {
                     team);
             if (transformed) {
                 if (isNeitherStructureNorAlly(victim)) {
-                    victim.getEffectManager().addState(ActorState.ROOTED, 0d, Q_ROOT_DURATION);
+                    victim.getEffectManager()
+                            .addState(ActorState.ROOTED, id + "_marcy_q_root", 0d, Q_ROOT_DURATION);
                 }
             } else {
                 qVictim = victim;
@@ -698,7 +703,11 @@ public class Marceline extends UserActor {
 
                 if (isNeitherStructureNorAlly(victim)) {
                     victim.getEffectManager()
-                            .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
+                            .addState(
+                                    ActorState.SLOWED,
+                                    id + "_marcy_q_slow",
+                                    Q_SLOW_PERCENT,
+                                    Q_SLOW_DURATION);
                 }
             }
             JsonNode spellData = parentExt.getAttackData(avatar, "spell1");

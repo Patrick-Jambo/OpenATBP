@@ -374,7 +374,12 @@ public class Lich extends UserActor {
 
         if (lastProc == -1
                 || System.currentTimeMillis() - lastProc > Q_SLOW_DURATION && a.isNotLeaping()) {
-            a.getEffectManager().addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
+            a.getEffectManager()
+                    .addState(
+                            ActorState.SLOWED,
+                            id + "_lich_q_slow",
+                            Q_SLOW_PERCENT,
+                            Q_SLOW_DURATION);
             actorsWithQSlow.put(a, System.currentTimeMillis());
         }
     }
@@ -675,7 +680,8 @@ public class Lich extends UserActor {
 
             victim.addToDamageQueue(Lich.this, dmg, spellData, false);
             victim.setCharmer(Lich.this);
-            victim.getEffectManager().addState(ActorState.CHARMED, 0, W_CHARM_DURATION);
+            victim.getEffectManager()
+                    .addState(ActorState.CHARMED, id + "_lich_w_charm", 0, W_CHARM_DURATION);
             destroy();
         }
     }

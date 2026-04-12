@@ -73,8 +73,6 @@ public class Fionna extends UserActor {
                 this.team);
         ExtensionCommands.addStatusIcon(
                 parentExt, player, "fionna_fearless", "FEARLESS", "icon_fionna_s2b", 0f);
-        String[] statsToUpdate = {"healthRegen", "armor", "spellResist", "attackSpeed", "speed"};
-        this.updateStatMenu(statsToUpdate);
         this.previousAttackDamage = this.getPlayerStat("attackDamage");
         this.previousSpellDamage = this.getPlayerStat("spellDamage");
     }
@@ -95,11 +93,9 @@ public class Fionna extends UserActor {
             ExtensionCommands.actorAbilityResponse(parentExt, player, "q", true, (int) cooldown, 0);
         }
         if (this.getPlayerStat("attackDamage") != this.previousAttackDamage) {
-            this.updateStatMenu("attackDamage");
             this.previousAttackDamage = this.getPlayerStat("attackDamage");
         }
         if (this.getPlayerStat("spellDamage") != this.previousSpellDamage) {
-            this.updateStatMenu("spellDamage");
             this.previousSpellDamage = this.getPlayerStat("spellDamage");
         }
     }
@@ -214,7 +210,11 @@ public class Fionna extends UserActor {
 
                     if (isNeitherStructureNorAlly(a) && dashInt == 1 && a.isNotLeaping()) {
                         a.getEffectManager()
-                                .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
+                                .addState(
+                                        ActorState.SLOWED,
+                                        id + "_fionna_q_slow",
+                                        Q_SLOW_PERCENT,
+                                        Q_SLOW_DURATION);
                     }
                 }
             }
@@ -439,8 +439,6 @@ public class Fionna extends UserActor {
             ExtensionCommands.playSound(
                     parentExt, player, this.id, "sfx_fionna_attack_up", this.location);
         }
-        String[] statsToUpdate = {"healthRegen", "armor", "spellResist", "attackSpeed", "speed"};
-        this.updateStatMenu(statsToUpdate);
     }
 
     public boolean ultActivated() {

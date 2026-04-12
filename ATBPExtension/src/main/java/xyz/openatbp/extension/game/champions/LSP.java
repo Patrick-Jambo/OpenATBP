@@ -246,7 +246,12 @@ public class LSP extends UserActor {
                                 && qRect.contains(a.getLocation(), a.getCollisionRadius())
                                 && a.isNotLeaping()) {
                             a.setFearer(LSP.this);
-                            a.getEffectManager().addState(ActorState.FEARED, 0, Q_FEAR_DURATION);
+                            a.getEffectManager()
+                                    .addState(
+                                            ActorState.FEARED,
+                                            id + "_lsp_q_fear",
+                                            0,
+                                            Q_FEAR_DURATION);
                         }
 
                         if (isNeitherTowerNorAlly(a)

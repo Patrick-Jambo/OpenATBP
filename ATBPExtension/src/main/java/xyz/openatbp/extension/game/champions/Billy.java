@@ -20,14 +20,14 @@ import xyz.openatbp.extension.game.effects.ModifierType;
 import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class Billy extends UserActor {
-    private static final int FINAL_PASSIVE_DURATION = 6000;
+    private static final int FINAL_PASSIVE_DURATION = 5000;
     private static final int Q_SELF_CRIPPLE_DURATION = 500;
     private static final float Q_OFFSET_DISTANCE = 1.5f;
     private static final float Q_SPELL_RANGE = 4.5f;
     public static final int Q_STUN_DURATION = 1500;
-    private static final int W_ATTACKSPEED_DURATION = 4000;
+    private static final int W_ATTACKSPEED_DURATION = 5000;
     private static final float W_ATTACK_SPEED_PERCENT = 0.7f;
-    private static final int W_SPEED_DURATION = 6000;
+    private static final int W_SPEED_DURATION = 5000;
     private static final float W_SPEED_PERCENT = 0.5f;
     private static final int W_CRATER_OFFSET = 1;
     public static final float W_LEAP_SPEED = 14f;
@@ -177,6 +177,7 @@ public class Billy extends UserActor {
                                             a.getEffectManager()
                                                     .addState(
                                                             ActorState.STUNNED,
+                                                            id + "_billy_q_stun",
                                                             0d,
                                                             Q_STUN_DURATION);
                                         }

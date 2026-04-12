@@ -346,7 +346,12 @@ public class Neptr extends UserActor {
                 if (a.getActorType() != ActorType.BASE && a.isNotLeaping()) {
                     if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                         a.handleKnockback(Neptr.this.location, E_KNOCKBACK_DIST);
-                        a.getEffectManager().addState(ActorState.SILENCED, 0d, E_SILENCE_DURATION);
+                        a.getEffectManager()
+                                .addState(
+                                        ActorState.SILENCED,
+                                        id + "_neptr_e_silence",
+                                        0d,
+                                        E_SILENCE_DURATION);
                     }
                     if (isNeitherTowerNorAlly(a)) {
                         ExtensionCommands.createActorFX(
@@ -612,6 +617,7 @@ public class Neptr extends UserActor {
                                     t.getEffectManager()
                                             .addState(
                                                     ActorState.SLOWED,
+                                                    id + "_neptr_w_slow",
                                                     W_SLOW_PERCENT,
                                                     W_SLOW_DURATION);
                                 }

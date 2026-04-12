@@ -118,7 +118,11 @@ public class IceKingBot extends Bot {
                 && this.iceShield) {
             damage /= 2;
             a.getEffectManager()
-                    .addState(ActorState.SLOWED, PASSIVE_SLOW_PERCENT, PASSIVE_SLOW_DURAITON);
+                    .addState(
+                            ActorState.SLOWED,
+                            id + "_ice_king_passive_slow",
+                            PASSIVE_SLOW_PERCENT,
+                            PASSIVE_SLOW_DURAITON);
 
             a.getEffectManager()
                     .addEffect(
@@ -391,7 +395,14 @@ public class IceKingBot extends Bot {
 
             String id = victim.getId() + "_iceKing_freeze";
             victim.getEffectManager()
-                    .addState(ActorState.ROOTED, 0, "iceKing_snare", Q_ROOT_DURATION, id, "");
+                    .addState(
+                            ActorState.ROOTED,
+                            id + "_ice_king_q_root",
+                            0,
+                            "iceKing_snare",
+                            Q_ROOT_DURATION,
+                            id,
+                            "");
             ExtensionCommands.playSound(
                     this.parentExt,
                     victim.getRoom(),

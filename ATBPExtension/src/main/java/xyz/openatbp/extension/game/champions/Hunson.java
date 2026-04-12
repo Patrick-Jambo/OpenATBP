@@ -65,7 +65,8 @@ public class Hunson extends UserActor {
             for (Actor a : rh.getActorsInRadius(wLocation, 2.5f)) {
                 if (isNeitherStructureNorAlly(a) && !dotActors.containsKey(a) && a.isNotLeaping()) {
                     a.setFearer(this);
-                    a.getEffectManager().addState(ActorState.FEARED, 0, W_FEAR_DURATION);
+                    a.getEffectManager()
+                            .addState(ActorState.FEARED, id + "_hunson_w_fear", 0, W_FEAR_DURATION);
                 }
 
                 if (!dotActors.containsKey(a) && isNeitherTowerNorAlly(a)) {
@@ -494,7 +495,11 @@ public class Hunson extends UserActor {
             if (isNeitherStructureNorAlly(victim)) {
                 victim.handlePull(location, (float) Q_PULL_DISTANCE);
                 victim.getEffectManager()
-                        .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
+                        .addState(
+                                ActorState.SLOWED,
+                                id + "_hunson_q_slow",
+                                Q_SLOW_PERCENT,
+                                Q_SLOW_DURATION);
             }
 
             victim.addToDamageQueue(Hunson.this, damage, spellData, false);

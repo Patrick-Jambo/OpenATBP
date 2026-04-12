@@ -66,8 +66,6 @@ public class BMO extends UserActor {
             this.canCast[0] = true;
             this.canCast[2] = true;
             this.wActive = false;
-            String[] statsToUpdate = {"armor", "spellResist"};
-            this.updateStatMenu(statsToUpdate);
         }
         if (wActive) {
             RoomHandler handler = this.parentExt.getRoomHandler(this.room.getName());
@@ -180,7 +178,11 @@ public class BMO extends UserActor {
                                     && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
                                     && a.isNotLeaping()) {
                                 a.getEffectManager()
-                                        .addState(ActorState.BLINDED, 0d, Q_BLIND_DURATION);
+                                        .addState(
+                                                ActorState.BLINDED,
+                                                id + "_bmo_q_blind",
+                                                0d,
+                                                Q_BLIND_DURATION);
                                 if (this.passiveStacks == 3) applySlow(a);
                             }
 
@@ -232,8 +234,6 @@ public class BMO extends UserActor {
                     this.canCast[2] = false;
                     this.wActive = true;
                     wStartTime = System.currentTimeMillis();
-                    String[] statsToUpdate = {"armor", "spellResist"};
-                    this.updateStatMenu(statsToUpdate);
                     String pixelsAoeFx = SkinData.getBMOWPixelsFX(avatar);
                     String remoteSpinFx = SkinData.getBMOWRemoteFX(avatar);
                     ExtensionCommands.playSound(
@@ -290,8 +290,6 @@ public class BMO extends UserActor {
                     this.canCast[2] = true;
                     this.wActive = false;
                     this.wEnd(cooldown, gCooldown);
-                    String[] statsToUpdate = {"armor", "spellResist"};
-                    this.updateStatMenu(statsToUpdate);
                     int delay1 = getReducedCooldown(cooldown);
                     scheduleTask(
                             abilityRunnable(ability, spellData, cooldown, gCooldown, dest), delay1);
@@ -338,7 +336,11 @@ public class BMO extends UserActor {
         if (lastProc == -1 || System.currentTimeMillis() - lastProc > PASSIVE_SLOW_DURATION) {
             actorsWithPassiveSlow.put(a, System.currentTimeMillis());
             a.getEffectManager()
-                    .addState(ActorState.SLOWED, PASSIVE_SLOW_PERCENT, PASSIVE_SLOW_DURATION);
+                    .addState(
+                            ActorState.SLOWED,
+                            id + "_bmo_passive_slow",
+                            PASSIVE_SLOW_PERCENT,
+                            PASSIVE_SLOW_DURATION);
         }
     }
 
@@ -405,7 +407,8 @@ public class BMO extends UserActor {
         RoomHandler handler = parentExt.getRoomHandler(room.getName());
         for (Actor a : Champion.getActorsInRadius(handler, this.location, 4f)) {
             if (isNeitherStructureNorAlly(a)) {
-                a.getEffectManager().addState(ActorState.STUNNED, 0d, W_STUN_DURATION);
+                a.getEffectManager()
+                        .addState(ActorState.STUNNED, id + "_bmo_w_stun", 0d, W_STUN_DURATION);
             }
 
             if (isNeitherTowerNorAlly(a)) {

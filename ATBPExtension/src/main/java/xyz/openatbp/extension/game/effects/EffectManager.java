@@ -4,11 +4,9 @@ import static xyz.openatbp.extension.game.champions.FlamePrincess.W_POLY_DURATIO
 
 import java.util.*;
 
+import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
-import xyz.openatbp.extension.game.actors.Actor;
-import xyz.openatbp.extension.game.actors.Base;
-import xyz.openatbp.extension.game.actors.BaseTower;
-import xyz.openatbp.extension.game.actors.Tower;
+import xyz.openatbp.extension.game.actors.*;
 import xyz.openatbp.extension.game.champions.BubbleGum;
 
 public class EffectManager {
@@ -16,6 +14,8 @@ public class EffectManager {
     private final List<StatModifier> modifiers;
     private final List<ActorStateEffect> stateEffects;
     private final Map<ActorState, Boolean> states = new HashMap<>();
+
+    private Map<String, Double> tempStatsLastTick = new HashMap<>();
 
     private Map<String, Double> tempStats;
 
@@ -121,22 +121,24 @@ public class EffectManager {
         }
     }
 
-    public void addState(ActorState state, double percent, int durationMs) {
+    public void addState(ActorState state, String stateId, double modifier, int durationMs) {
         if (isActorIgnored(actor)) return;
 
         ModifierIntent intent = evaluateState(state);
         if (canApplyStateOrEffect(intent)) {
-            ActorStateEffect stateEffect = new ActorStateEffect(state, percent, durationMs);
+            ActorStateEffect stateEffect =
+                    new ActorStateEffect(state, stateId, modifier, durationMs);
             stateEffects.add(stateEffect);
 
-            handleStateEffect(state, percent, durationMs);
+            handleStateEffect(state, modifier, durationMs);
             setState(state, true);
         }
     }
 
     public void addState(
             ActorState state,
-            double percent,
+            String stateId,
+            double modifier,
             String bundle,
             int durationMs,
             String fxId,
@@ -146,9 +148,10 @@ public class EffectManager {
         ModifierIntent intent = evaluateState(state);
 
         if (canApplyStateOrEffect(intent)) {
-            ActorStateEffect stateEffect = new ActorStateEffect(state, percent, durationMs);
+            ActorStateEffect stateEffect =
+                    new ActorStateEffect(state, stateId, modifier, durationMs);
             stateEffects.add(stateEffect);
-            handleStateEffect(state, percent, durationMs);
+            handleStateEffect(state, modifier, durationMs);
             setState(state, true);
 
             ExtensionCommands.createActorFX(
@@ -226,14 +229,15 @@ public class EffectManager {
     public void addEffect(
             String effectId,
             String stat,
-            double percent,
+            double modifierValue,
             ModifierType type,
             ModifierIntent intent,
             int durationMs) {
         if (isActorIgnored(actor)) return;
 
         if (canApplyStateOrEffect(intent)) {
-            StatModifier m = new StatModifier(effectId, stat, percent, type, intent, durationMs);
+            StatModifier m =
+                    new StatModifier(effectId, stat, modifierValue, type, intent, durationMs);
             modifiers.add(m);
         }
     }
@@ -241,7 +245,7 @@ public class EffectManager {
     public void addEffect(
             String effectId,
             String stat,
-            double percent,
+            double modifierValue,
             ModifierType type,
             ModifierIntent intent,
             int durationMs,
@@ -251,7 +255,8 @@ public class EffectManager {
         if (isActorIgnored(actor)) return;
 
         if (canApplyStateOrEffect(intent)) {
-            StatModifier m = new StatModifier(effectId, stat, percent, type, intent, durationMs);
+            StatModifier m =
+                    new StatModifier(effectId, stat, modifierValue, type, intent, durationMs);
             modifiers.add(m);
 
             ExtensionCommands.createActorFX(
@@ -279,6 +284,10 @@ public class EffectManager {
 
     public void removeAllStatEffects(String stat) {
         modifiers.removeIf(m -> m.getStatName().equals(stat));
+    }
+
+    public boolean hasState(String stateId) {
+        return stateEffects.stream().anyMatch(state -> state.getStateId().equals(stateId));
     }
 
     public double getTempStat(String stat) {
@@ -400,5 +409,31 @@ public class EffectManager {
                 }
             }
         }
+
+        // THIS PROBABLY HANDLES ALL STAT MENU UPDATES EVEN LEVEL UP AND JUNK UPGRADE
+        if (actor instanceof UserActor) {
+            UserActor ua = (UserActor) actor;
+            for (Map.Entry<String, Double> entry : tempStats.entrySet()) {
+                String stat = entry.getKey();
+
+                // These are managed manually and shouldn't be auto-updated
+                if (stat.startsWith("sp_") || stat.equals("availableSpellPoints")) continue;
+
+                double newVal = entry.getValue();
+                Double lastVal = tempStatsLastTick.get(stat);
+                if (lastVal == null || Math.abs(newVal - lastVal) > 0.001) {
+                    Console.debugLog(
+                            "Updating stat menu for stat: "
+                                    + stat
+                                    + " to value: "
+                                    + getTempStat(stat));
+                    ua.updateStatMenu(stat);
+                }
+            }
+            tempStatsLastTick = new HashMap<>(tempStats);
+        }
+
+        // SYNC ACTOR SPEED TO HANDLE SPEED CHANGES
+        actor.resyncMovementSpeed();
     }
 }

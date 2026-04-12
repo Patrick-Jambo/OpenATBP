@@ -439,7 +439,8 @@ public class FlamePrincess extends UserActor {
 
             for (Actor a : affectedUsers) {
                 if (a instanceof UserActor || a instanceof Bot && a.isNotLeaping()) {
-                    a.getEffectManager().addState(ActorState.POLYMORPH, 0d, W_POLY_DURATION);
+                    a.getEffectManager()
+                            .addState(ActorState.POLYMORPH, id + "_fp_poly", 0d, W_POLY_DURATION);
 
                     lastPolymorphTime = System.currentTimeMillis();
                 }

@@ -182,8 +182,10 @@ public class MagicMan extends UserActor {
                         RoomHandler handler = parentExt.getRoomHandler(room.getName());
                         PathFinder pf = handler.getPathFinder();
 
-                        effectManager.addState(ActorState.STEALTH, 0, W_STEALTH_DURATION);
-                        effectManager.addState(ActorState.INVISIBLE, 0d, W_STEALTH_DURATION);
+                        effectManager.addState(
+                                ActorState.STEALTH, id + "_mm_w_stealth", 0, W_STEALTH_DURATION);
+                        effectManager.addState(
+                                ActorState.INVISIBLE, id + "_mm_w_invis", 0d, W_STEALTH_DURATION);
 
                         wLocation = new Point2D.Double(this.location.getX(), this.location.getY());
                         Point2D endLocation =
@@ -325,7 +327,11 @@ public class MagicMan extends UserActor {
                                     E_DEBUFF_DURATION);
 
                     a.getEffectManager()
-                            .addState(ActorState.SLOWED, E_SLOW_PERCENT, E_SLOW_DURATION);
+                            .addState(
+                                    ActorState.SLOWED,
+                                    id + "_mm_e_slow",
+                                    E_SLOW_PERCENT,
+                                    E_SLOW_DURATION);
                 }
 
                 if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
@@ -383,7 +389,9 @@ public class MagicMan extends UserActor {
         @Override
         protected void hit(Actor victim) {
             if (isNeitherStructureNorAlly(victim)) {
-                victim.getEffectManager().addState(ActorState.SILENCED, 0d, Q_SILENCE_DURATION);
+                victim.getEffectManager()
+                        .addState(
+                                ActorState.SILENCED, id + "_mm_q_silence", 0d, Q_SILENCE_DURATION);
             }
 
             ExtensionCommands.createWorldFX(

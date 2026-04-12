@@ -95,6 +95,7 @@ public class BubbleGum extends UserActor {
                             a.getEffectManager()
                                     .addState(
                                             ActorState.SLOWED,
+                                            id + "_pb_q_slow",
                                             Q_SLOW_VALUE_PERCENT,
                                             Q_SLOW_DURATION);
                         }
@@ -184,6 +185,7 @@ public class BubbleGum extends UserActor {
                     victim.getEffectManager()
                             .addState(
                                     ActorState.SLOWED,
+                                    id + "_pb_passive_slow",
                                     PASSIVE_SLOW_PERCENT,
                                     PASSIVE_EFFECT_DURATION);
                     playersWithPassiveSlow.put(victim, System.currentTimeMillis());
@@ -563,7 +565,7 @@ public class BubbleGum extends UserActor {
                     };
             int delay = 150;
             scheduleTask(creationDelay, delay);
-            effectManager.addState(ActorState.IMMUNITY, 0d, 1000 * 60 * 15);
+            effectManager.addState(ActorState.IMMUNITY, id + "_immunity", 0d, 1000 * 60 * 15);
         }
 
         @Override

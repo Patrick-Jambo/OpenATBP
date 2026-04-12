@@ -209,7 +209,11 @@ public class LemongrabBot extends Bot {
                         && qTrapezoid.contains(a.getLocation(), a.getCollisionRadius())
                         && a.isNotLeaping()) {
                     a.getEffectManager()
-                            .addState(ActorState.SLOWED, Q_SLOW_PERCENT, Q_SLOW_DURATION);
+                            .addState(
+                                    ActorState.SLOWED,
+                                    id + "_lemon_q_slow",
+                                    Q_SLOW_PERCENT,
+                                    Q_SLOW_DURATION);
                 }
 
                 if (a.getActorType() != ActorType.TOWER
@@ -368,11 +372,21 @@ public class LemongrabBot extends Bot {
                     double damage = getSpellDamage(spellData);
 
                     if (distance <= 1 && isNonStructureEnemy(a) && a.isNotLeaping()) {
-                        a.getEffectManager().addState(ActorState.SILENCED, 0d, W_SILENCE_DURATION);
+                        a.getEffectManager()
+                                .addState(
+                                        ActorState.SILENCED,
+                                        id + "_lemon_w_silence",
+                                        0d,
+                                        W_SILENCE_DURATION);
                     }
 
                     if (isNonStructureEnemy(a) && a.isNotLeaping()) {
-                        a.getEffectManager().addState(ActorState.BLINDED, 0d, W_BLIND_DURATION);
+                        a.getEffectManager()
+                                .addState(
+                                        ActorState.BLINDED,
+                                        id + "_lemon_w_blind",
+                                        0d,
+                                        W_BLIND_DURATION);
                     }
 
                     if (distance <= 1
@@ -421,7 +435,12 @@ public class LemongrabBot extends Bot {
                     }
 
                     if ((a instanceof UserActor) && a.getTeam() != team && a.isNotLeaping()) {
-                        a.getEffectManager().addState(ActorState.STUNNED, 0d, (int) duration);
+                        a.getEffectManager()
+                                .addState(
+                                        ActorState.STUNNED,
+                                        id + "_lemon_e_stun",
+                                        0d,
+                                        (int) duration);
 
                         if (!effectManager.hasState(ActorState.IMMUNITY)) {
                             ExtensionCommands.createActorFX(

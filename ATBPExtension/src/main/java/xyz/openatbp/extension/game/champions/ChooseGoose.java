@@ -434,7 +434,12 @@ public class ChooseGoose extends UserActor {
                 if (isNeitherStructureNorAlly(a)
                         && a.getLocation().distance(location) <= 1
                         && a.isNotLeaping()) {
-                    a.getEffectManager().addState(ActorState.SILENCED, 0, W_SILENCE_DURATION);
+                    a.getEffectManager()
+                            .addState(
+                                    ActorState.SILENCED,
+                                    id + "_goose_w_silence",
+                                    0,
+                                    W_SILENCE_DURATION);
                 }
             }
 
@@ -458,7 +463,7 @@ public class ChooseGoose extends UserActor {
                     ModifierType.MULTIPLICATIVE,
                     ModifierIntent.BUFF,
                     W_BUFF_DURATION);
-            effectManager.addState(ActorState.IMMUNITY, 0, W_BUFF_DURATION);
+            effectManager.addState(ActorState.IMMUNITY, id + "_immunity", 0, W_BUFF_DURATION);
 
             ExtensionCommands.createActorFX(
                     parentExt,
@@ -782,7 +787,8 @@ public class ChooseGoose extends UserActor {
                     "sfx_choosegoose_e_explosion",
                     victim.getLocation());
 
-            victim.getEffectManager().addState(ActorState.ROOTED, 0, E_ROOT_DURATION);
+            victim.getEffectManager()
+                    .addState(ActorState.ROOTED, id + "_goose_e_root", 0, E_ROOT_DURATION);
             destroy();
         }
     }

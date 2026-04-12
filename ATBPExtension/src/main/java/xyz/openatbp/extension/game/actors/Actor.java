@@ -28,6 +28,7 @@ public abstract class Actor {
 
     public static final float CHARM_MIN_DISTANCE = 2f;
     public static final int TELEPORT_SPEED = 100;
+    public static final int CYCLOPS_REGEN_DURATION = 60000;
 
     public enum AttackType {
         PHYSICAL,
@@ -70,10 +71,13 @@ public abstract class Actor {
 
     protected boolean isAutoAttacking = false;
     protected boolean isMoving = false;
-    protected float moveSpeed = 3;
+    protected float forcedMoveSpeed = 3;
 
     protected boolean pickedUpHealthPack = false;
-    protected Long healthPackPickUpTime;
+    protected Long healthPackRegenStart;
+
+    protected boolean hasKeeothBuff = false;
+    protected boolean hasGooBuff = false;
 
     protected static final int BASIC_ATTACK_DELAY = 500;
 
@@ -96,12 +100,26 @@ public abstract class Actor {
 
     protected boolean isInsideBrush = false;
 
+    protected float lastSyncedMoveSpeed = -1;
+
     public boolean isInsideBrush() {
         return isInsideBrush;
     }
 
     public void setInsideBrush(boolean isInsideBrush) {
         this.isInsideBrush = isInsideBrush;
+    }
+
+    public float getEffectiveMoveSpeed() {
+        switch (movementState) {
+            case DASHING:
+            case LEAPING:
+            case KNOCKBACK:
+            case PULLED:
+                return forcedMoveSpeed;
+            default:
+                return (float) getPlayerStat("speed");
+        }
     }
 
     public MovementState getMovementState() {
@@ -118,6 +136,14 @@ public abstract class Actor {
 
     public Actor getCharmer() {
         return this.charmer;
+    }
+
+    public void setHasKeeothBuff(boolean hasBuff) {
+        this.hasKeeothBuff = hasBuff;
+    }
+
+    public void setHasGooBuff(boolean hasBuff) {
+        this.hasGooBuff = hasBuff;
     }
 
     public void setFearer(Actor fearer) {
@@ -316,8 +342,10 @@ public abstract class Actor {
         elapsedMoveTimeMs = 0;
         totalMoveTimeMs = 0;
         visualTargetIndex = 0;
+        lastSyncedMoveSpeed = -1f;
 
-        ExtensionCommands.moveActor(parentExt, room, id, location, location, moveSpeed, false);
+        ExtensionCommands.moveActor(
+                parentExt, room, id, location, location, getEffectiveMoveSpeed(), false);
     }
 
     protected boolean isStopped() {
@@ -346,7 +374,7 @@ public abstract class Actor {
         activeDash.setDest(dashEndPoint);
 
         int timeMs = (int) ((location.distance(dashEndPoint) / ctx.getSpeed()) * 1000);
-        moveSpeed = ctx.getSpeed();
+        forcedMoveSpeed = ctx.getSpeed();
 
         final int generation = ++dashGeneration;
         scheduleTask(
@@ -363,7 +391,6 @@ public abstract class Actor {
         DashContext ctx = activeDash;
         activeDash = null;
         movementState = MovementState.IDLE;
-        moveSpeed = (float) getPlayerStat("speed");
         if (ctx.getOnEnd() != null) ctx.getOnEnd().run();
     }
 
@@ -373,7 +400,6 @@ public abstract class Actor {
         DashContext ctx = activeDash;
         activeDash = null;
         movementState = MovementState.IDLE;
-        moveSpeed = (float) getPlayerStat("speed");
         stopMoving();
 
         if (triggeredByRoot && ctx.getTriggerEndEffectOnRoot()) {
@@ -432,11 +458,10 @@ public abstract class Actor {
 
         if (movementState == MovementState.IDLE) {
             movementState = state;
-            moveSpeed = KNOCKBACK_SPEED;
+            forcedMoveSpeed = KNOCKBACK_SPEED;
             scheduleTask(
                     () -> {
                         movementState = MovementState.IDLE;
-                        moveSpeed = (float) getPlayerStat("speed");
                     },
                     time);
         }
@@ -482,6 +507,35 @@ public abstract class Actor {
                     .getTaskScheduler()
                     .schedule(new MovementStopper(true), delay, TimeUnit.MILLISECONDS);
         } else this.canMove = true;
+    }
+
+    public void resyncMovementSpeed() {
+        if (!isMoving || movementState != MovementState.IDLE) return;
+
+        float speed = getEffectiveMoveSpeed();
+
+        if (Math.abs(speed - lastSyncedMoveSpeed) < 0.001f) return;
+        lastSyncedMoveSpeed = speed;
+
+        double remainingDist = location.distance(moveDestination);
+        double totalDist = moveStartPoint.distance(moveDestination);
+
+        if (totalDist <= 0.001) return;
+
+        double progress = 1.0 - (remainingDist / totalDist);
+        totalMoveTimeMs = Math.max(1, (long) ((totalDist / speed) * 1000.0));
+        elapsedMoveTimeMs = (long) (progress * totalMoveTimeMs);
+
+        lastSyncedMoveSpeed = getEffectiveMoveSpeed();
+
+        ExtensionCommands.moveActor(
+                parentExt,
+                room,
+                id,
+                location,
+                movePointsToDest.get(visualTargetIndex),
+                speed,
+                true);
     }
 
     public void startMoveTo(Point2D endPoint) {
@@ -551,8 +605,9 @@ public abstract class Actor {
         moveStartPoint = location;
         moveDestination = movePointsToDest.get(movePointsIndex);
 
+        float speed = getEffectiveMoveSpeed();
         double distance = location.distance(moveDestination);
-        totalMoveTimeMs = Math.max(1, (long) ((distance / moveSpeed) * 1000.0));
+        totalMoveTimeMs = Math.max(1, (long) ((distance / speed) * 1000.0));
         isMoving = true;
 
         // tell the client to go to roughly collinear point
@@ -564,7 +619,7 @@ public abstract class Actor {
                 id,
                 location,
                 movePointsToDest.get(visualTargetIndex),
-                moveSpeed,
+                speed,
                 true);
     }
 
@@ -604,7 +659,8 @@ public abstract class Actor {
                 return;
             }
 
-            totalMoveTimeMs = Math.max(1, (long) ((dist / moveSpeed) * 1000.0));
+            float speed = getEffectiveMoveSpeed();
+            totalMoveTimeMs = Math.max(1, (long) ((dist / speed) * 1000.0));
             elapsedMoveTimeMs = overflow;
 
             // moved past the point the client was aiming at
@@ -617,7 +673,7 @@ public abstract class Actor {
                         id,
                         location,
                         movePointsToDest.get(visualTargetIndex),
-                        moveSpeed,
+                        speed,
                         true);
             }
         }
@@ -693,7 +749,8 @@ public abstract class Actor {
                 if (ua.eGunStacks == 3) {
                     int stunDuration = 500 * gunLevel;
 
-                    effectManager.addState(ActorState.STUNNED, 0, stunDuration);
+                    String stateId = attacker.getId() + "electrode_gun_stun";
+                    effectManager.addState(ActorState.STUNNED, stateId, 0, stunDuration);
                     ExtensionCommands.createActorFX(
                             parentExt,
                             room,
@@ -798,6 +855,23 @@ public abstract class Actor {
             Champion.handleStatusIcon(
                     parentExt, ua, "junk_4_antimagic_cube", desc, MAGIC_CUBE_DEBUFF_DURATION);
         }
+    }
+
+    public void disableKeeothBuff() {
+        setHasKeeothBuff(false);
+        effectManager.removeAllEffectsById(id + "_keeoth_buff_ad_vamp");
+        effectManager.removeAllEffectsById(id + "_keeoth_buff_ap_vamp");
+
+        ExtensionCommands.removeFx(
+                this.parentExt, this.room, this.getId() + "_" + "jungle_buff_keeoth");
+    }
+
+    public void disableGooBuff() {
+        setHasGooBuff(false);
+        effectManager.removeAllEffectsById(id + "_goo_buff");
+
+        ExtensionCommands.removeFx(
+                this.parentExt, this.room, this.getId() + "_" + "jungle_buff_goo");
     }
 
     public boolean damaged(Actor a, int damage, JsonNode attackData) {
@@ -1233,24 +1307,47 @@ public abstract class Actor {
         attackCooldown = 500;
     }
 
+    public void removeCyclopsHealing() {
+        pickedUpHealthPack = false;
+        effectManager.removeAllEffectsById(id + "_CYCLOPS_REGEN");
+        ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "healthPackFX");
+    }
+
     public void handleCyclopsHealing() {
-        if (this.getHealth() != this.maxHealth && !this.pickedUpHealthPack) {
+        if (this.getHealth() != this.maxHealth) {
             this.heal((int) (this.getMaxHealth() * 0.15d));
+
+            if (!effectManager.hasEffect(id + "_CYCLOPS_REGEN")) {
+                effectManager.addEffect(
+                        id + "_CYCLOPS_REGEN",
+                        "healthRegen",
+                        HEALTH_PACK_REGEN,
+                        ModifierType.ADDITIVE,
+                        ModifierIntent.BUFF,
+                        CYCLOPS_REGEN_DURATION);
+
+                ExtensionCommands.createActorFX(
+                        this.parentExt,
+                        this.room,
+                        this.getId(),
+                        "fx_health_regen",
+                        CYCLOPS_REGEN_DURATION,
+                        this.id + "healthPackFX",
+                        true,
+                        "",
+                        false,
+                        false,
+                        this.getTeam());
+                this.pickedUpHealthPack = true;
+                this.healthPackRegenStart = System.currentTimeMillis();
+            }
+
+            if (pickedUpHealthPack
+                    && System.currentTimeMillis() - healthPackRegenStart
+                            >= CYCLOPS_REGEN_DURATION) {
+                removeCyclopsHealing();
+            }
         }
-        ExtensionCommands.createActorFX(
-                this.parentExt,
-                this.room,
-                this.getId(),
-                "fx_health_regen",
-                60000,
-                this.id + "healthPackFX",
-                true,
-                "",
-                false,
-                false,
-                this.getTeam());
-        this.pickedUpHealthPack = true;
-        this.healthPackPickUpTime = System.currentTimeMillis();
     }
 
     public void scheduleTask(Runnable task, int timeMs) {

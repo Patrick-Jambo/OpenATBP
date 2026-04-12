@@ -76,7 +76,6 @@ public class Keeoth extends Monster {
 
                 if (ua.getTeam() == killerTeam && ua.getHealth() > 0 && !ua.isDead()) {
                     ua.setHasKeeothBuff(true);
-                    ua.setKeeothBuffStartTime(System.currentTimeMillis());
 
                     ua.getEffectManager()
                             .addEffect(
@@ -114,12 +113,12 @@ public class Keeoth extends Monster {
 
                     double healthChange = (double) ua.getHealth() * 0.3d;
                     ua.heal((int) healthChange); // TODO: Maybe change?
-                    ExtensionCommands.addStatusIcon(
-                            this.parentExt,
-                            ua.getUser(),
-                            "keeoth_buff",
-                            "keeoth_buff_desc",
+
+                    Champion.handleStatusIcon(
+                            parentExt,
+                            ua,
                             "icon_buff_keeoth",
+                            "keeoth_buff_desc",
                             KEEOTH_BUFF_DURATION);
                 }
             }

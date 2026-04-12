@@ -153,7 +153,11 @@ public class PeppermintButler extends UserActor {
                         false,
                         false,
                         team);
-                effectManager.addState(ActorState.IMMUNITY, 0d, PASSIVE_IMMUNITY_DURATION);
+                effectManager.addState(
+                        ActorState.IMMUNITY,
+                        id + "_pep_passive_immunity",
+                        0d,
+                        PASSIVE_IMMUNITY_DURATION);
             }
         }
         if (this.qActive && this.currentHealth <= 0) {
@@ -165,7 +169,9 @@ public class PeppermintButler extends UserActor {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.location, 3f)) {
                 if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
-                    a.getEffectManager().addState(ActorState.BLINDED, 0d, Q_BLIND_DURATION);
+                    a.getEffectManager()
+                            .addState(
+                                    ActorState.BLINDED, id + "_pep_w_blind", 0d, Q_BLIND_DURATION);
                 }
 
                 if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
@@ -429,7 +435,6 @@ public class PeppermintButler extends UserActor {
                                 String[] statsToUpdate = {
                                     "speed", "attackSpeed", "attackDamage", "attackRange"
                                 };
-                                this.updateStatMenu(statsToUpdate);
                                 String eVO = SkinData.getPeppermintButlerEVO(avatar);
                                 ExtensionCommands.playSound(
                                         this.parentExt, this.room, this.id, eVO, this.location);
@@ -509,8 +514,6 @@ public class PeppermintButler extends UserActor {
         if (!effectManager.hasState(ActorState.POLYMORPH)) { // poly asset swap handled elsewhere
             swapAsset(false);
         }
-        String[] statsToUpdate = {"speed", "attackSpeed", "attackDamage", "attackRange"};
-        updateStatMenu(statsToUpdate);
     }
 
     private void createWRing(Point2D p) {
@@ -620,7 +623,7 @@ public class PeppermintButler extends UserActor {
         for (Actor a : Champion.getActorsInRadius(handler, location, 2.5f)) {
             if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
                 int STUN_DUR = form == Form.FERAL ? Q_STUN_DURATION_FERAL : Q_STUN_DURATION;
-                a.getEffectManager().addState(ActorState.STUNNED, 0d, STUN_DUR);
+                a.getEffectManager().addState(ActorState.STUNNED, id + "_pep_q_stun", 0d, STUN_DUR);
             }
 
             if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {

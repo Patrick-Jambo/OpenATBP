@@ -69,7 +69,9 @@ public class CinnamonBun extends UserActor {
                 && location.distance(ultPoint) <= 4
                 && !effectManager.hasEffect(id + "_cb_e_speed")) {
             addESpeed();
-        } else if (effectManager.hasEffect(id + "_cb_e_speed") && location.distance(ultPoint) > 4) {
+        } else if (effectManager.hasEffect(id + "_cb_e_speed")
+                && ultPoint != null
+                && location.distance(ultPoint) > 4) {
             effectManager.removeAllEffectsById(id + "_cb_e_speed");
         }
 
@@ -117,7 +119,11 @@ public class CinnamonBun extends UserActor {
                                 || System.currentTimeMillis() - lastProc > W_SLOW_DURATION) {
                             actorsWithWSlow.put(a, System.currentTimeMillis());
                             a.getEffectManager()
-                                    .addState(ActorState.SLOWED, W_SLOW_PERCENT, W_SLOW_DURATION);
+                                    .addState(
+                                            ActorState.SLOWED,
+                                            id + "_cb_w_slow",
+                                            W_SLOW_PERCENT,
+                                            W_SLOW_DURATION);
                         }
                     }
                 }

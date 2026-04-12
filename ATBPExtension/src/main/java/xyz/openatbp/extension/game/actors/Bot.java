@@ -375,9 +375,7 @@ public abstract class Bot extends Actor {
         }
 
         if (pickedUpHealthPack) {
-            pickedUpHealthPack = false;
-            setStat("healthRegen", getStat("healthRegen") - HP_PACK_REGEN);
-            ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
+            removeCyclopsHealing();
         }
         return super.damaged(a, damage, attackData);
     }
@@ -671,7 +669,8 @@ public abstract class Bot extends Actor {
         }
 
         // ATTACK JUNGLE CAMPS
-        // TODO: Add Keeoth and Goomonster attack action
+        // TODO: Add Keeoth and Goomonster attack action, change keeoth and goo to be able to apply
+        // TODO: buff to bot
         List<Actor> allies = rh.getActorsInRadius(location, 4f);
         allies.removeIf(a -> !(a instanceof Bot) || a == this || a.getTeam() != team);
 
@@ -781,6 +780,10 @@ public abstract class Bot extends Actor {
         handleCharmMovement();
         handleBrush();
 
+        if (pickedUpHealthPack && getHealth() == getMaxHealth()) {
+            removeCyclopsHealing();
+        }
+
         if (MOVEMENT_DEBUG)
             ExtensionCommands.moveActor(
                     parentExt,
@@ -793,7 +796,6 @@ public abstract class Bot extends Actor {
 
         handleRespawnTimer(msRan);
         handleFountainRegen(msRan);
-        handleHpPackEnd();
 
         if (msRan % 5000 == 0) {
             handlePassiveXP();
@@ -839,14 +841,6 @@ public abstract class Bot extends Actor {
         }
     }
 
-    public void handleHpPackEnd() {
-        if (pickedUpHealthPack
-                && System.currentTimeMillis() - healthPackPickUpTime >= CYCLOPS_DURATION) {
-            pickedUpHealthPack = false;
-            ExtensionCommands.removeFx(parentExt, room, id + "healthPackFX");
-        }
-    }
-
     protected void faceTarget(Actor target) {
         if (target != null) {
             Point2D rotationPoint =
@@ -867,13 +861,6 @@ public abstract class Bot extends Actor {
     public boolean canMove() {
         if (isAutoAttacking || isDead()) return false;
         return super.canMove();
-    }
-
-    @Override
-    public double getPlayerStat(String stat) {
-        if (stat.equals("healthRegen") && pickedUpHealthPack)
-            return super.getPlayerStat(stat) + HP_PACK_REGEN;
-        return super.getPlayerStat(stat);
     }
 
     protected void regenHealth() {

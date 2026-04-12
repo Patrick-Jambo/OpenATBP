@@ -1,8 +1,5 @@
 package xyz.openatbp.extension.game.actors;
 
-import static xyz.openatbp.extension.game.champions.GooMonster.GOO_BUFF_DURATION;
-import static xyz.openatbp.extension.game.champions.Keeoth.KEEOTH_BUFF_DURATION;
-
 import java.awt.geom.Point2D;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
@@ -46,11 +43,13 @@ public class UserActor extends Actor {
 
     public static final double DEFAULT_DASH_SPEED = 20d;
     public static final int HEALTH_PACK_REGEN = 15;
-    public static final float DC_AD_BUFF = 1.2f;
-    public static final float DC_ARMOR_BUFF = 1.2f;
-    public static final float DC_SPELL_RESIST_BUFF = 1.2f;
-    public static final float DC_SPEED_BUFF = 1.15f;
-    public static final float DC_PD_BUFF = 1.2f;
+
+    public static final float DC_AD_BUFF = 0.2f;
+    public static final float DC_ARMOR_BUFF = 0.2f;
+    public static final float DC_SPELL_RESIST_BUFF = 0.2f;
+    public static final float DC_SPEED_BUFF = 0.15f;
+    public static final float DC_PD_BUFF = 0.2f;
+
     public static final double RESPAWN_SPEED_BOOST = 2d;
     public static final int RESPAWN_SPEED_BOOST_MS = 5000;
     public static final int MAGIC_CUBE_CD = 6000;
@@ -74,7 +73,6 @@ public class UserActor extends Actor {
     protected int killingSpree = 0;
     protected int multiKill = 0;
     protected long lastKilled = System.currentTimeMillis();
-    protected int dcBuff = 0;
     protected boolean[] canCast = {true, true, true};
     protected Map<String, ScheduledFuture<?>> iconHandlers = new HashMap<>();
     protected int idleTime = 0;
@@ -86,10 +84,6 @@ public class UserActor extends Actor {
     private static boolean speedDebug;
     private static boolean damageDebug;
     protected double hits = 0;
-    protected boolean hasKeeothBuff = false;
-    protected boolean hasGooBuff = false;
-    protected long keeothBuffStartTime = 0;
-    protected long gooBuffStartTime = 0;
     protected List<UserActor> killedPlayers = new ArrayList<>();
     protected long lastAutoTargetTime = 0;
     private boolean moonVfxActivated = false;
@@ -114,6 +108,10 @@ public class UserActor extends Actor {
     protected int eGunStacks = 0;
     protected Long lastEGunStack = 0L;
     protected Map<Actor, Long> lastMagicCubeProc = new HashMap<>();
+
+    private static final String DC_BUFF_TIER1_ID = "dc_buff_tier1";
+    private static final String DC_BUFF_TIER2_ID = "dc_buff_tier2";
+    private static final int DC_BUFF_DURATION = 1000 * 15 * 60;
 
     // TODO: Add all stats into UserActor object instead of User Variables
     public UserActor(User u, ATBPExtension parentExt) {
@@ -184,22 +182,6 @@ public class UserActor extends Actor {
 
     public void setAutoAttackEnabled(boolean enabled) {
         this.autoAttackEnabled = enabled;
-    }
-
-    public void setHasKeeothBuff(boolean hasBuff) {
-        this.hasKeeothBuff = hasBuff;
-    }
-
-    public void setHasGooBuff(boolean hasBuff) {
-        this.hasGooBuff = hasBuff;
-    }
-
-    public void setKeeothBuffStartTime(long keeothBuffStartTime) {
-        this.keeothBuffStartTime = keeothBuffStartTime;
-    }
-
-    public void setGooBuffStartTime(long gooBuffStartTime) {
-        this.gooBuffStartTime = gooBuffStartTime;
     }
 
     public void setCanCast(boolean q, boolean w, boolean e) {
@@ -338,8 +320,9 @@ public class UserActor extends Actor {
             }
 
             if (this.pickedUpHealthPack) {
-                removeHealthPackEffect();
+                removeCyclopsHealing();
             }
+
             if (a.getActorType() == ActorType.TOWER) {
                 ExtensionCommands.playSound(
                         this.parentExt,
@@ -353,7 +336,14 @@ public class UserActor extends Actor {
                 resetRoboStacks();
                 if (isNeitherStructureNorAlly(a)) {
                     lastRoboEffect = System.currentTimeMillis();
-                    effectManager.addState(ActorState.SLOWED, ROBO_SLOW_VALUE, ROBO_SLOW_DURATION);
+
+                    String stateId = id + "robo_slow";
+                    a.getEffectManager()
+                            .addState(
+                                    ActorState.SLOWED,
+                                    stateId,
+                                    ROBO_SLOW_VALUE,
+                                    ROBO_SLOW_DURATION);
                 }
             }
 
@@ -677,8 +667,13 @@ public class UserActor extends Actor {
             this.canMove = false;
             setInsideBrush(false);
             if (!effectManager.hasState(ActorState.AIRBORNE)) this.stopMoving();
+
             if (this.hasKeeothBuff) disableKeeothBuff();
             if (this.hasGooBuff) disableGooBuff();
+
+            if (pickedUpHealthPack) {
+                removeCyclopsHealing();
+            }
 
             if (a.getActorType() != ActorType.PLAYER) {
                 ExtensionCommands.playSound(
@@ -712,15 +707,15 @@ public class UserActor extends Actor {
                     this.deathTime);
             if (this.magicNailStacks > 0) {
                 this.magicNailStacks /= 2;
-                this.updateStatMenu("attackDamage");
+                updateStatMenu("attackDamage");
             }
             if (this.lightningSwordStacks > 0) {
                 this.lightningSwordStacks /= 2;
-                this.updateStatMenu("spellDamage");
+                updateStatMenu("spellDamage");
             }
             if (this.robeStacks > 0) {
                 this.robeStacks /= 2;
-                this.updateStatMenu("coolDownReduction");
+                updateStatMenu("coolDownReduction");
             }
             try {
                 ExtensionCommands.handleDeathRecap(
@@ -791,21 +786,16 @@ public class UserActor extends Actor {
        healthRegen
     */
 
-    private void disableKeeothBuff() {
-        this.hasKeeothBuff = false;
-        ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "keeoth_buff");
-        ExtensionCommands.removeFx(
-                this.parentExt, this.room, this.getId() + "_" + "jungle_buff_keeoth");
-        String[] stats = {"lifeSteal", "spellVamp", "criticalChance"};
-        this.updateStatMenu(stats);
+    @Override
+    public void disableKeeothBuff() {
+        super.disableKeeothBuff();
+        ExtensionCommands.removeStatusIcon(parentExt, player, "keeoth_buff");
     }
 
-    private void disableGooBuff() {
-        this.hasGooBuff = false;
-        ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "goomonster_buff");
-        ExtensionCommands.removeFx(
-                this.parentExt, this.room, this.getId() + "_" + "jungle_buff_goo");
-        this.updateStatMenu("speed");
+    @Override
+    public void disableGooBuff() {
+        super.disableGooBuff();
+        ExtensionCommands.removeStatusIcon(parentExt, player, "goomonster_buff");
     }
 
     public void updateStat(String key, double value) {
@@ -870,7 +860,7 @@ public class UserActor extends Actor {
                 String desc = "Your Power Damage is increased by " + pdValue;
 
                 ExtensionCommands.addStatusIcon(parentExt, getUser(), iconName, desc, itemName, 0f);
-                updateStatMenu("spellDamage");
+                // updateStatMenu("spellDamage");
             }
         }
 
@@ -891,7 +881,7 @@ public class UserActor extends Actor {
                 String iconName = userActor + "simon_glasses_buff";
                 glassesBuff -= pdValue;
 
-                updateStatMenu("spellDamage");
+                // updateStatMenu("spellDamage");
 
                 ExtensionCommands.removeStatusIcon(parentExt, getUser(), iconName);
                 iterator.remove();
@@ -1053,7 +1043,7 @@ public class UserActor extends Actor {
 
                 if (this.roboStacks < 3 && ready) {
                     this.roboStacks++;
-                    this.updateStatMenu("speed");
+                    // this.updateStatMenu("speed");
 
                     if (this.roboStacks == 3)
                         ExtensionCommands.createActorFX(
@@ -1083,14 +1073,11 @@ public class UserActor extends Actor {
             if (this.canRegenHealth()) {
                 regenHealth();
             }
-            if (this.pickedUpHealthPack
-                    && System.currentTimeMillis() - healthPackPickUpTime >= 60000) {
-                this.pickedUpHealthPack = false;
-                this.updateStatMenu("healthRegen");
-            }
+
             if (this.pickedUpHealthPack && this.getHealth() == this.maxHealth) {
-                removeHealthPackEffect();
+                removeCyclopsHealing();
             }
+
             int newDeath = 10 + ((msRan / 1000) / 60);
             if (newDeath != this.deathTime) this.deathTime = newDeath;
             List<Actor> actorsToRemove = new ArrayList<Actor>(this.aggressors.keySet().size());
@@ -1117,27 +1104,12 @@ public class UserActor extends Actor {
             }
         }
         if (this.changeTowerAggro && !isInTowerRadius(this, false)) this.changeTowerAggro = false;
-
-        if (this.hasKeeothBuff
-                && System.currentTimeMillis() - this.keeothBuffStartTime >= KEEOTH_BUFF_DURATION) {
-            disableKeeothBuff();
-        }
-        if (this.hasGooBuff
-                && System.currentTimeMillis() - this.gooBuffStartTime >= GOO_BUFF_DURATION) {
-            disableGooBuff();
-        }
     }
 
     private void regenHealth() {
         double healthRegen = this.getPlayerStat("healthRegen");
         if (this.currentHealth + healthRegen <= 0) healthRegen = (this.currentHealth - 1) * -1;
         this.changeHealth((int) healthRegen);
-    }
-
-    private void removeHealthPackEffect() {
-        ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "healthPackFX");
-        this.pickedUpHealthPack = false;
-        this.updateStatMenu("healthRegen");
     }
 
     public void resetIdleTime() {
@@ -1519,49 +1491,30 @@ public class UserActor extends Actor {
 
     @Override
     public double getPlayerStat(String stat) {
-        if (stat.equalsIgnoreCase("healthRegen")) {
-            if (this.pickedUpHealthPack) return super.getPlayerStat(stat) + HEALTH_PACK_REGEN;
-        }
-        if (stat.equalsIgnoreCase("attackDamage")) {
-            double attackDamage = super.getPlayerStat(stat);
-            if (this.dcBuff == 2) attackDamage *= DC_AD_BUFF;
-            attackDamage += (DEMON_SWORD_AD_BUFF * this.getMonsterBuffCount(stat));
-            return attackDamage + this.magicNailStacks;
+        double base = effectManager.getTempStat(stat);
+        String s = stat.toLowerCase();
 
-        } else if (stat.equalsIgnoreCase("armor")) {
-            double armor = super.getPlayerStat(stat);
-            if (this.dcBuff >= 1) armor *= DC_ARMOR_BUFF;
-            return armor + (5 * this.getMonsterBuffCount(stat));
-
-        } else if (stat.equalsIgnoreCase("spellResist")) {
-            double mr = super.getPlayerStat(stat);
-            if (this.dcBuff >= 1) mr *= DC_SPELL_RESIST_BUFF;
-            return mr + (5 * this.getMonsterBuffCount(stat));
-
-        } else if (stat.equalsIgnoreCase("speed")) {
-            double speedBoost = SPEED_BOOST_PER_ROBO_STACK * this.roboStacks; // TODO: Make scalable
-            if (speedBoost < 0) speedBoost = 0;
-            if (this.dcBuff >= 1) return super.getPlayerStat(stat) * DC_SPEED_BUFF + speedBoost;
-            return super.getPlayerStat(stat) + speedBoost;
-
-        } else if (stat.equalsIgnoreCase("spellDamage")) {
-            double spellDamage = super.getPlayerStat(stat);
-            if (this.dcBuff == 2) spellDamage *= DC_PD_BUFF;
-            if (glassesBuff != 0) spellDamage += glassesBuff;
-            return spellDamage
+        if (s.equals("attackdamage")) {
+            return base + magicNailStacks + (DEMON_SWORD_AD_BUFF * getMonsterBuffCount(stat));
+        } else if (s.equals("spelldamage")) {
+            return base
+                    + glassesBuff
                     + lightningSwordStacks
                     + (DEMON_SWORD_SD_BUFF * getMonsterBuffCount(stat));
-
-        } else if (stat.equalsIgnoreCase("coolDownReduction")) {
-            return super.getPlayerStat(stat) + this.robeStacks;
+        } else if (s.equals("armor") || s.equals("spellresist")) {
+            return base + (5 * getMonsterBuffCount(stat));
+        } else if (s.equals("speed")) {
+            return base + Math.max(0, SPEED_BOOST_PER_ROBO_STACK * roboStacks);
+        } else if (s.equals("cooldownreduction")) {
+            return base + robeStacks;
         }
-        return super.getPlayerStat(stat);
+        return base;
     }
 
     public void resetRoboStacks() {
         roboStacks = 0;
         ExtensionCommands.removeFx(parentExt, room, id + "_roboSpeed");
-        updateStatMenu("speed");
+        // updateStatMenu("speed");
     }
 
     public void useGhostPouch() {
@@ -1601,13 +1554,13 @@ public class UserActor extends Actor {
         switch (buff) {
             case OWL:
             case GNOME:
-                this.updateStatMenu("attackDamage");
-                this.updateStatMenu("spellDamage");
+                updateStatMenu("attackDamage");
+                updateStatMenu("spellDamage");
                 break;
             case BEAR:
             case WOLF:
-                this.updateStatMenu("spellResist");
-                this.updateStatMenu("armor");
+                updateStatMenu("spellResist");
+                updateStatMenu("armor");
                 break;
         }
     }
@@ -1638,8 +1591,10 @@ public class UserActor extends Actor {
                 this.changeHealth((int) Math.round(this.maxHealth * 0.15d));
             }
             if (ChampionData.getJunkLevel(this, "junk_1_night_sword") > 0) {
-                effectManager.addState(ActorState.STEALTH, 0, NIGHT_SWORD_INVIS_DUR);
-                effectManager.addState(ActorState.INVISIBLE, 0d, NIGHT_SWORD_INVIS_DUR);
+                effectManager.addState(
+                        ActorState.STEALTH, id + "_night_sword_stealth", 0, NIGHT_SWORD_INVIS_DUR);
+                effectManager.addState(
+                        ActorState.INVISIBLE, id + "_night_sword_invis", 0d, NIGHT_SWORD_INVIS_DUR);
             }
         }
         if (ChampionData.getJunkLevel(this, "junk_1_magic_nail") > 0) addMagicNailStacks(a);
@@ -1698,7 +1653,7 @@ public class UserActor extends Actor {
         if (pointsPutIntoNail > 0) {
             if (magicNailStacks + amountOfStacks > stackCap) magicNailStacks = stackCap;
             else magicNailStacks += amountOfStacks;
-            this.updateStatMenu("attackDamage");
+            updateStatMenu("attackDamage");
         }
     }
 
@@ -1713,7 +1668,7 @@ public class UserActor extends Actor {
         if (pointsPutIntoNail > 0) {
             if (lightningSwordStacks + amountOfStacks > stackCap) lightningSwordStacks = stackCap;
             else lightningSwordStacks += amountOfStacks;
-            this.updateStatMenu("spellDamage");
+            updateStatMenu("spellDamage");
         }
     }
 
@@ -1729,7 +1684,7 @@ public class UserActor extends Actor {
             if (robeStacks + amountOfStacks > stackCap) robeStacks = stackCap;
             else robeStacks += amountOfStacks;
             Console.debugLog("Robe stacks: " + this.robeStacks);
-            this.updateStatMenu("coolDownReduction");
+            updateStatMenu("coolDownReduction");
         }
     }
 
@@ -1814,70 +1769,128 @@ public class UserActor extends Actor {
     }
 
     public void handleDCBuff(int teamSizeDiff, boolean removeSecondBuff) {
-        String[] stats = {"armor", "spellResist", "speed"};
-        String[] stats2 = {"attackDamage", "spellDamage"};
         if (removeSecondBuff) {
-            this.dcBuff = 1;
-            ExtensionCommands.updateActorData(parentExt, room, id, getPlayerStats(stats2));
-            ExtensionCommands.removeStatusIcon(parentExt, player, "DC Buff #2");
-            ExtensionCommands.removeFx(parentExt, room, id + "_dcbuff2");
+            removeDCBuff(2);
+            applyDCBuff(1); // downgrade to tier 1 if they still need a buff
             return;
         }
-        switch (teamSizeDiff) {
-            case 0:
-                this.dcBuff = 0;
-                ExtensionCommands.updateActorData(parentExt, room, id, getPlayerStats(stats));
-                ExtensionCommands.removeStatusIcon(parentExt, player, "DC Buff #1");
-                ExtensionCommands.removeFx(parentExt, room, id + "_dcbuff1");
-                break;
+
+        int targetTier;
+        switch (Math.abs(teamSizeDiff)) {
             case 1:
-            case -1:
-                this.dcBuff = 1;
-                ExtensionCommands.updateActorData(parentExt, room, id, getPlayerStats(stats));
-                ExtensionCommands.addStatusIcon(
-                        parentExt,
-                        player,
-                        "DC Buff #1",
-                        "Some coward left the battle! Here's something to help even the playing field!",
-                        "icon_parity",
-                        0);
-                ExtensionCommands.createActorFX(
-                        parentExt,
-                        room,
-                        id,
-                        "disconnect_buff_duo",
-                        1000 * 15 * 60,
-                        id + "_dcbuff1",
-                        true,
-                        "",
-                        false,
-                        false,
-                        team);
+                targetTier = 1;
                 break;
             case 2:
-            case -2:
-                this.dcBuff = 2;
-                ExtensionCommands.updateActorData(parentExt, room, id, getPlayerStats(stats2));
-                ExtensionCommands.addStatusIcon(
-                        parentExt,
-                        player,
-                        "DC Buff #2",
-                        "You're the last one left, finish the mission",
-                        "icon_parity2",
-                        0);
-                ExtensionCommands.createActorFX(
-                        parentExt,
-                        room,
-                        id,
-                        "disconnect_buff_solo",
-                        1000 * 15 * 60,
-                        id + "_dcbuff2",
-                        true,
-                        "",
-                        false,
-                        false,
-                        team);
+                targetTier = 2;
                 break;
+            default:
+                targetTier = 0;
+                break;
+        }
+
+        // Remove both tiers and reapply at the correct tier
+        removeDCBuff(1);
+        removeDCBuff(2);
+        if (targetTier >= 1) applyDCBuff(1);
+        if (targetTier == 2) applyDCBuff(2);
+    }
+
+    private void applyDCBuff(int tier) {
+        if (tier == 1) {
+            effectManager.addEffect(
+                    DC_BUFF_TIER1_ID,
+                    "armor",
+                    DC_ARMOR_BUFF - 1,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    DC_BUFF_DURATION);
+
+            effectManager.addEffect(
+                    DC_BUFF_TIER1_ID,
+                    "spellResist",
+                    DC_SPELL_RESIST_BUFF,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    DC_BUFF_DURATION);
+
+            effectManager.addEffect(
+                    DC_BUFF_TIER1_ID,
+                    "speed",
+                    DC_SPEED_BUFF,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    DC_BUFF_DURATION);
+
+            ExtensionCommands.addStatusIcon(
+                    parentExt,
+                    player,
+                    "DC Buff #1",
+                    "Some coward left the battle! Here's something to help even the playing field!",
+                    "icon_parity",
+                    0);
+
+            ExtensionCommands.createActorFX(
+                    parentExt,
+                    room,
+                    id,
+                    "disconnect_buff_duo",
+                    DC_BUFF_DURATION,
+                    id + "_dcbuff1",
+                    true,
+                    "",
+                    false,
+                    false,
+                    team);
+
+        } else if (tier == 2) {
+            effectManager.addEffect(
+                    DC_BUFF_TIER2_ID,
+                    "attackDamage",
+                    DC_AD_BUFF,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    DC_BUFF_DURATION);
+
+            effectManager.addEffect(
+                    DC_BUFF_TIER2_ID,
+                    "spellDamage",
+                    DC_PD_BUFF,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    DC_BUFF_DURATION);
+
+            ExtensionCommands.addStatusIcon(
+                    parentExt,
+                    player,
+                    "DC Buff #2",
+                    "You're the last one left, finish the mission",
+                    "icon_parity2",
+                    0);
+
+            ExtensionCommands.createActorFX(
+                    parentExt,
+                    room,
+                    id,
+                    "disconnect_buff_solo",
+                    DC_BUFF_DURATION,
+                    id + "_dcbuff2",
+                    true,
+                    "",
+                    false,
+                    false,
+                    team);
+        }
+    }
+
+    private void removeDCBuff(int tier) {
+        if (tier == 1) {
+            effectManager.removeAllEffectsById(DC_BUFF_TIER1_ID);
+            ExtensionCommands.removeStatusIcon(parentExt, player, "DC Buff #1");
+            ExtensionCommands.removeFx(parentExt, room, id + "_dcbuff1");
+        } else if (tier == 2) {
+            effectManager.removeAllEffectsById(DC_BUFF_TIER2_ID);
+            ExtensionCommands.removeStatusIcon(parentExt, player, "DC Buff #2");
+            ExtensionCommands.removeFx(parentExt, room, id + "_dcbuff2");
         }
     }
 
@@ -1986,6 +1999,7 @@ public class UserActor extends Actor {
                 a.getEffectManager()
                         .addState(
                                 ActorState.SLOWED,
+                                id + "_numb_chuck_slow",
                                 ChampionData.getCustomJunkStat(this, "junk_1_numb_chucks"),
                                 1500);
                 Console.debugLog("Numb Chuck slow applied!");
@@ -2009,12 +2023,6 @@ public class UserActor extends Actor {
     public void heal(int delta) {
         if (ChampionData.getJunkLevel(this, "junk_1_ax_bass") > 0) return;
         super.heal(delta);
-    }
-
-    @Override
-    public void handleCyclopsHealing() {
-        super.handleCyclopsHealing();
-        this.updateStatMenu("healthRegen");
     }
 
     public int getMonsterBuffCount(String stat) {

@@ -167,7 +167,7 @@ public class Minion extends Actor {
         this.attackCooldown = this.getPlayerStat("attackSpeed");
         this.xpWorth = 7;
 
-        moveSpeed = (float) getPlayerStat("speed");
+        forcedMoveSpeed = (float) getPlayerStat("speed");
     }
 
     @Override

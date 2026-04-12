@@ -635,7 +635,11 @@ public class FinnBot extends Bot {
                         if (this.wallLines[i].ptSegDist(a.getLocation()) <= 0.5f) {
                             if (isNonStructureEnemy(a) && a.isNotLeaping()) {
                                 a.getEffectManager()
-                                        .addState(ActorState.ROOTED, 0d, E_ROOT_DURATION);
+                                        .addState(
+                                                ActorState.ROOTED,
+                                                id + "_finn_e_root",
+                                                0d,
+                                                E_ROOT_DURATION);
                             }
 
                             if (isNonStructureEnemy(a) && a.isNotLeaping()) {
