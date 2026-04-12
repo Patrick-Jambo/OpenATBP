@@ -35,6 +35,7 @@ public class Jake extends UserActor {
     public static final int E_STOMP_CD = 500;
     public static final int Q_VICTIM_SEPARATION = 2;
     public static final float W_KNOCKBACK_DIST = 3.5f;
+    public static final float W_RADIUS = 3f;
 
     private boolean grabActive = false;
     private Point2D grabPoint;
@@ -133,7 +134,7 @@ public class Jake extends UserActor {
                     ExtensionCommands.createActorFX(
                             parentExt,
                             room,
-                            id,
+                            victim.getId(),
                             "jake_trail",
                             timeMS,
                             victim.getId() + "qTrail",
@@ -343,7 +344,7 @@ public class Jake extends UserActor {
                                 true,
                                 this.team);
                         RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                        for (Actor a : Champion.getActorsInRadius(handler, location, 3f)) {
+                        for (Actor a : Champion.getActorsInRadius(handler, location, W_RADIUS)) {
                             if (isNeitherStructureNorAlly(a)) {
                                 a.handleKnockback(location, W_KNOCKBACK_DIST);
                             }
@@ -447,7 +448,7 @@ public class Jake extends UserActor {
         offsetDistance = 1;
     }
 
-    private void doPassive(Actor target) {
+    public void doPassive(Actor target) {
         Runnable passive =
                 () -> {
                     lastPassiveTime.put(target.getId(), System.currentTimeMillis());

@@ -14,6 +14,7 @@ import xyz.openatbp.extension.game.RoomGroup;
 import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.bots.FinnBot;
 import xyz.openatbp.extension.game.bots.IceKingBot;
+import xyz.openatbp.extension.game.bots.JakeBot;
 import xyz.openatbp.extension.game.bots.LemongrabBot;
 
 public class GameModeSpawns {
@@ -211,8 +212,8 @@ public class GameModeSpawns {
                 break;
         }
 
-        String[] avatars = {"finn", "iceking", "lemongrab"};
-        String[] names = {"FINN BOT", "ICE KING BOT", "LEMONGRAB BOT"};
+        String[] avatars = {"finn", "iceking", "jake", "lemongrab"};
+        String[] names = {"FINN BOT", "ICE KING BOT", "JAKE BOT", "LEMONGRAB BOT"};
 
         Random rand = new Random();
 
@@ -238,8 +239,7 @@ public class GameModeSpawns {
             case "iceking":
                 return new IceKingBot(parentExt, room, avatar, displayName, team, mapConfig);
             case "jake":
-                // TODO: add jake bot
-                break;
+                return new JakeBot(parentExt, room, avatar, displayName, team, mapConfig);
             case "lemongrab":
                 return new LemongrabBot(parentExt, room, avatar, displayName, team, mapConfig);
         }

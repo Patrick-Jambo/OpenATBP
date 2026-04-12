@@ -4,6 +4,7 @@ import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -67,6 +68,9 @@ public abstract class Bot extends Actor {
         JUNGLING, // attack jungle camp
         PUSHING, // push lane
     }
+
+    protected BotState botState;
+    protected Point2D towerPoint;
 
     protected Point2D altarToCapture;
     protected Point2D[] lanePath;
@@ -694,6 +698,7 @@ public abstract class Bot extends Actor {
             return BotState.PUSHING;
         }
 
+        // CAPTURE DEFENSE ALTARS
         Point2D[] defenseAltars = new Point2D[2];
         defenseAltars[0] = mapConfig.defenseAltar;
 
@@ -706,10 +711,11 @@ public abstract class Bot extends Actor {
                 return BotState.ALTAR;
             }
         }
+
         return BotState.FLEEING;
     }
 
-    protected void executeBotState(BotState stateToExecute) {
+    protected void executeBotState(BotState stateToExecute, int msRan) {
         // ALL startMoveTo called in update() need to check for !isMoving to not cause desync
         // between visual model and server location
         switch (stateToExecute) {
@@ -743,7 +749,23 @@ public abstract class Bot extends Actor {
                 break;
             case FLEEING:
                 handleRetreatAbilities();
-                Point2D fleePoint = getNextFleeWaypoint();
+
+                Point2D fleePoint;
+
+                if (msRan < 1000 * 60) {
+                    RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                    int allyTowerNum = mapConfig.allyTowers.length;
+                    Random random = new Random();
+                    int randomIndex = random.nextInt(allyTowerNum);
+
+                    Point2D randomTowerPoint = mapConfig.allyTowers[randomIndex];
+
+                    fleePoint = rh.getPathFinder().getStoppingPoint(location, randomTowerPoint, 2);
+
+                } else {
+                    fleePoint = getNextFleeWaypoint();
+                }
+
                 if (!isMoving && canMove()) {
                     startMoveTo(fleePoint);
                 }
@@ -805,7 +827,7 @@ public abstract class Bot extends Actor {
         BotState botState = evaluateBotState();
         if (botState != null) {
             /* Console.debugLog("Bot state: " + botState);*/
-            executeBotState(botState);
+            executeBotState(botState, msRan);
         }
     }
 
@@ -844,16 +866,13 @@ public abstract class Bot extends Actor {
     protected void faceTarget(Actor target) {
         if (target != null) {
             Point2D rotationPoint =
-                    Champion.getAbilityLine(location, target.getLocation(), 0.1f).getP2();
+                    Champion.getAbilityLine(location, target.getLocation(), 0.75f).getP2();
+
+            setLocation(rotationPoint);
 
             ExtensionCommands.moveActor(
-                    parentExt,
-                    room,
-                    id,
-                    location,
-                    rotationPoint,
-                    (float) getPlayerStat("speed"),
-                    true);
+                    parentExt, room, id, location, location, (float) getPlayerStat("speed"), true);
+            stopMoving();
         }
     }
 

@@ -1159,39 +1159,6 @@ public class UserActor extends Actor {
         }
     }
 
-    public boolean canUseMovementAbility() {
-        return !isAutoAttacking && !hasMovementCC() && movementState == MovementState.IDLE;
-    }
-
-    public boolean hasInterrupingCC() {
-        ActorState[] states = {
-            ActorState.CHARMED,
-            ActorState.FEARED,
-            ActorState.POLYMORPH,
-            ActorState.STUNNED,
-            ActorState.AIRBORNE,
-            ActorState.SILENCED
-        };
-        for (ActorState state : states) {
-            if (effectManager.hasState(state)) return true;
-        }
-        return false;
-    }
-
-    public boolean hasDashAttackInterruptCC() {
-        ActorState[] states = {
-            ActorState.STUNNED,
-            ActorState.CHARMED,
-            ActorState.POLYMORPH,
-            ActorState.FEARED,
-            ActorState.SILENCED,
-        };
-        for (ActorState state : states) {
-            if (effectManager.hasState(state)) return true;
-        }
-        return false;
-    }
-
     public void resetTarget() {
         this.target = null;
         ExtensionCommands.setTarget(this.parentExt, this.player, this.id, "");
