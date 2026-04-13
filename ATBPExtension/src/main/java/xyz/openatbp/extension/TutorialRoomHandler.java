@@ -18,9 +18,11 @@ import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 
+import xyz.openatbp.extension.game.BotMapConfig;
 import xyz.openatbp.extension.game.GameMap;
 import xyz.openatbp.extension.game.Projectile;
 import xyz.openatbp.extension.game.actors.*;
+import xyz.openatbp.extension.game.bots.JakeBot;
 
 public class TutorialRoomHandler extends RoomHandler {
 
@@ -29,6 +31,8 @@ public class TutorialRoomHandler extends RoomHandler {
     private static final Point2D SUPER_MINION_SPAWN2 = new Point2D.Float(-44, 4.5f);
     private static final Point2D MOVE_DESTINATION2 = new Point2D.Float(-2.8f, 0.1f);
     public static final int TUTORIAL_COINS = 1000;
+    public static final int TUTORIAL_JAKE_HP = 350;
+    public static final int TUTORIAL_JAKE_DAMAGE = 15;
 
     private TutorialSuperMinion superMinion;
     private UserActor tutorialPlayer;
@@ -377,7 +381,13 @@ public class TutorialRoomHandler extends RoomHandler {
                             "announcer/tut_enemy_champ",
                             new Point2D.Float(0, 0));
 
-                    // TODO: SPAWN BOT AND MAKE THE BOT WORK :/
+                    BotMapConfig config = BotMapConfig.createPractice(1);
+                    jakeBot = new JakeBot(parentExt, room, "jake", "JAKE BOT", 1, config);
+
+                    jakeBot.setStat("attackDamage", TUTORIAL_JAKE_DAMAGE);
+                    jakeBot.setStat("spellDamage", TUTORIAL_JAKE_DAMAGE);
+                    jakeBot.setHealth(TUTORIAL_JAKE_HP, TUTORIAL_JAKE_HP);
+                    companions.add(jakeBot);
                 }
             }
         } catch (Exception e) {
