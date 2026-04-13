@@ -2,13 +2,15 @@ package xyz.openatbp.extension;
 
 import static com.mongodb.client.model.Filters.eq;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
@@ -23,10 +25,11 @@ import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 import com.smartfoxserver.v2.util.TaskScheduler;
 
-import xyz.openatbp.extension.game.ActorType;
-import xyz.openatbp.extension.game.Champion;
-import xyz.openatbp.extension.game.Projectile;
+import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.*;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public abstract class RoomHandler implements Runnable {
     protected static final int ALTAR_LOCK_TIME_SEC = 90;
@@ -35,7 +38,7 @@ public abstract class RoomHandler implements Runnable {
     protected static final int GOO_SPAWN_RATE = 90;
     protected static final int MONSTER_DEBUG_SPAWN_RATE = 3;
     public static final double ALTAR_BUFF = 0.25;
-    public static final double GOO_ALTAR_BUFF = 1.5;
+    public static final double GOO_ALTAR_BUFF = 37.5;
     public static final int ALTAR_BUFF_DURATION = 60000;
     public static final int GOO_ALTAR_CAPTURE_EXP = 25;
     protected final String[] SPAWNS;
@@ -69,6 +72,9 @@ public abstract class RoomHandler implements Runnable {
     protected ScheduledFuture<?> scriptHandler;
     protected int dcWeight = 0;
     protected float FOUNTAIN_RADIUS = 4f;
+    protected List<Actor> companions = new ArrayList<>();
+
+    protected PathFinder pathFinder;
 
     private enum PointLeadTeam {
         PURPLE,
@@ -81,7 +87,13 @@ public abstract class RoomHandler implements Runnable {
     private static final int SINGLE_KILL_COOLDOWN = 5000;
     private long lastSingleKillAnnouncement = 0;
 
-    public RoomHandler(ATBPExtension parentExt, Room room, String[] spawns, int HP_SPAWN_RATE) {
+    public RoomHandler(
+            ATBPExtension parentExt,
+            Room room,
+            String[] spawns,
+            int HP_SPAWN_RATE,
+            Point2D[] mapBoundary,
+            List<Point2D[]> obstacles) {
         this.parentExt = parentExt;
         this.room = room;
         this.minions = new ArrayList<>();
@@ -98,13 +110,18 @@ public abstract class RoomHandler implements Runnable {
         bases[1] = new Base(parentExt, room, 1);
         guardians[0] = new GumballGuardian(parentExt, room, 0);
         guardians[1] = new GumballGuardian(parentExt, room, 1);
-        for (User u : room.getUserList()) {
-            players.add(Champion.getCharacterClass(u, parentExt));
-        }
         this.campMonsters = new ArrayList<>();
 
         TaskScheduler scheduler = parentExt.getTaskScheduler();
         scriptHandler = scheduler.scheduleAtFixedRate(this, 100, 100, TimeUnit.MILLISECONDS);
+
+        pathFinder = new PathFinder(mapBoundary, obstacles);
+    }
+
+    public void initPlayers() {
+        for (User u : room.getUserList()) {
+            players.add(Champion.getCharacterClass(u, parentExt));
+        }
     }
 
     public abstract void handleMinionSpawns();
@@ -135,23 +152,89 @@ public abstract class RoomHandler implements Runnable {
 
     public abstract HashMap<Integer, Point2D> getFountainsCenter();
 
-    public abstract List<Actor> getActors();
+    public PathFinder getPathFinder() {
+        return pathFinder;
+    }
 
-    public abstract List<Actor> getActorsInRadius(Point2D center, float radius);
+    public List<Actor> getActors() {
+        List<Actor> actors = new ArrayList<>();
+        actors.addAll(towers);
+        actors.addAll(baseTowers);
+        actors.addAll(minions);
+        Collections.addAll(actors, bases);
+        actors.addAll(players);
+        actors.addAll(campMonsters);
+        actors.addAll(companions);
+        actors.removeIf(a -> a.getHealth() <= 0);
+        return actors;
+    }
 
-    public abstract List<Actor> getEnemiesInPolygon(int team, Path2D polygon);
+    public List<Actor> getActorsInRadius(Point2D center, float radius) {
+        List<Actor> actors = getActors();
+        return actors.stream()
+                .filter(a -> a.getLocation().distance(center) <= radius)
+                .collect(Collectors.toList());
+    }
 
-    public abstract List<Actor> getNonStructureEnemies(int team);
-
-    public abstract List<Actor> getEligibleActors(
+    public List<Actor> getEligibleActors(
             int team,
             boolean teamFilter,
             boolean hpFilter,
             boolean towerFilter,
-            boolean baseFilter);
+            boolean baseFilter) {
+        List<Actor> actors = getActors();
+        return actors.stream()
+                .filter(a -> !hpFilter || a.getHealth() > 0)
+                .filter(a -> !teamFilter || a.getTeam() != team)
+                .filter(a -> !towerFilter || a.getActorType() != ActorType.TOWER)
+                .filter(a -> !baseFilter || a.getActorType() != ActorType.BASE)
+                .collect(Collectors.toList());
+    }
 
     public ScheduledFuture<?> getScriptHandler() {
         return this.scriptHandler;
+    }
+
+    protected void updateDBCoinsAndAccountXp(int winningTeam) throws IOException {
+        for (UserActor ua : players) {
+            RoomGroup roomGroup = GameManager.getRoomGroupEnum(room.getGroupId());
+            int coinsGained = GameManager.getGameOverCoins(ua.getTeam(), winningTeam, roomGroup);
+            int prestigePointsGained =
+                    GameManager.getGameOverPrestigePoints(ua.getTeam(), winningTeam, roomGroup);
+
+            if (coinsGained == 0 || prestigePointsGained == 0) return;
+
+            MongoCollection<Document> playerData = parentExt.getPlayerDatabase();
+            String tegID = (String) ua.getUser().getSession().getProperty("tegid");
+            Document data = playerData.find(eq("user.TEGid", tegID)).first();
+
+            if (data != null) {
+                Document playerObject = data.get("player", Document.class);
+                if (playerObject != null) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode dataNode = mapper.readTree(data.toJson());
+
+                    int rankIncrement = 0;
+
+                    int currentRankProgress = dataNode.get("player").get("rankProgress").asInt();
+
+                    if (currentRankProgress + prestigePointsGained >= 100) {
+                        rankIncrement = 1;
+                        currentRankProgress = 0;
+                    } else {
+                        currentRankProgress += prestigePointsGained;
+                    }
+
+                    List<Bson> updateList = new ArrayList<>();
+                    updateList.add(Updates.inc("player.coins", coinsGained));
+                    updateList.add(Updates.inc("player.rank", rankIncrement));
+                    updateList.add(Updates.set("player.rankProgress", currentRankProgress));
+                    Bson updates = Updates.combine(updateList);
+                    UpdateOptions options = new UpdateOptions().upsert(true);
+                    Console.debugLog(playerData.updateOne(data, updates, options));
+                }
+            }
+        }
     }
 
     protected void logChampionData(int winningTeam) {
@@ -273,16 +356,22 @@ public abstract class RoomHandler implements Runnable {
             if (s.length() == 3) {
                 ISFSObject spawns = room.getVariable("spawns").getSFSObjectValue();
                 if (spawns.getInt(s) == HP_SPAWN_RATE_SEC + 1) {
-                    for (UserActor u : players) {
-                        Point2D currentPoint = u.getLocation();
-                        if (insideHealth(currentPoint, getHealthNum(s)) && u.getHealth() > 0) {
-                            int team = u.getTeam();
+                    List<Actor> actorsToCheck = new ArrayList<>(players);
+                    List<Actor> bots = new ArrayList<>(companions);
+                    bots.removeIf(a -> !(a instanceof Bot));
+
+                    actorsToCheck.addAll(bots);
+
+                    for (Actor a : actorsToCheck) {
+                        Point2D currentPoint = a.getLocation();
+                        if (insideHealth(currentPoint, getHealthNum(s)) && a.getHealth() > 0) {
+                            int team = a.getTeam();
                             Point2D healthLoc = getHealthLocation(getHealthNum(s));
                             ExtensionCommands.removeFx(parentExt, room, s + "_fx");
                             ExtensionCommands.createActorFX(
                                     parentExt,
                                     room,
-                                    String.valueOf(u.getId()),
+                                    a.getId(),
                                     "picked_up_health_cyclops",
                                     2000,
                                     s + "_fx2",
@@ -292,8 +381,8 @@ public abstract class RoomHandler implements Runnable {
                                     false,
                                     team);
                             ExtensionCommands.playSound(
-                                    parentExt, u.getRoom(), "", "sfx_health_picked_up", healthLoc);
-                            u.handleCyclopsHealing();
+                                    parentExt, a.getRoom(), "", "sfx_health_picked_up", healthLoc);
+                            a.handleCyclopsHealing();
                             spawns.putInt(s, 0);
                             break;
                         }
@@ -834,10 +923,6 @@ public abstract class RoomHandler implements Runnable {
                     boolean hasGooBuff = a instanceof UserActor && gooUsers.contains(a);
 
                     if (killerId == null) killerId = a.getId();
-
-                    double delta1;
-                    double delta2;
-
                     String stat1;
                     String stat2;
 
@@ -861,17 +946,29 @@ public abstract class RoomHandler implements Runnable {
                         icon = "icon_altar_armor";
                         desc = "altar1_description";
                     }
-                    delta1 = a.getStat(stat1) * ALTAR_BUFF;
-                    delta2 = a.getStat(stat2) * ALTAR_BUFF;
 
-                    if (hasGooBuff) {
-                        delta1 *= GOO_ALTAR_BUFF;
-                        delta2 *= GOO_ALTAR_BUFF;
-                    }
+                    double percent = ALTAR_BUFF;
+                    if (hasGooBuff) percent = GOO_ALTAR_BUFF;
 
-                    a.addEffect(stat1, delta1, ALTAR_BUFF_DURATION, fxId, "");
-                    a.addEffect(stat2, delta2, ALTAR_BUFF_DURATION);
-
+                    a.getEffectManager()
+                            .addEffect(
+                                    a.getId() + "_altar_buff1",
+                                    stat1,
+                                    percent,
+                                    ModifierType.MULTIPLICATIVE,
+                                    ModifierIntent.BUFF,
+                                    ALTAR_BUFF_DURATION,
+                                    fxId,
+                                    a.getId() + fxId,
+                                    "");
+                    a.getEffectManager()
+                            .addEffect(
+                                    a.getId() + "_altar_buff2",
+                                    stat2,
+                                    percent,
+                                    ModifierType.MULTIPLICATIVE,
+                                    ModifierIntent.BUFF,
+                                    ALTAR_BUFF_DURATION);
                     if (a instanceof UserActor) {
                         UserActor ua = (UserActor) a;
 
@@ -893,8 +990,10 @@ public abstract class RoomHandler implements Runnable {
 
     private int getAltarNum(int i) {
         int altarNum;
-        String groupId = this.room.getGroupId();
-        if (groupId.equals("PVP") || groupId.equals("PVE")) {
+        String groupId = room.getGroupId();
+        GameMap gameMap = GameManager.getMap(GameManager.getRoomGroupEnum(groupId));
+
+        if (gameMap == GameMap.BATTLE_LAB) {
             altarNum = i == 0 ? 1 : i == 1 ? 0 : i;
         } else {
             // altar num 0 - top
@@ -1303,7 +1402,7 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public ArrayList<UserActor> getPlayers() {
-        return this.players;
+        return new ArrayList<>(this.players);
     }
 
     public Tower findTower(String id) {
@@ -1320,8 +1419,8 @@ public abstract class RoomHandler implements Runnable {
         return null;
     }
 
-    public void addMinion(int team, int minionNum, int wave, int lane) {
-        Minion m = new Minion(parentExt, room, team, minionNum, wave, lane);
+    public void addMinion(GameMap map, int team, int minionNum, int wave, int lane) {
+        Minion m = new Minion(parentExt, room, map, team, minionNum, wave, lane);
         minions.add(m);
     }
 
@@ -1376,7 +1475,7 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public List<Minion> getMinions() {
-        return this.minions;
+        return new ArrayList<>(minions);
     }
 
     public List<Minion> getMinions(int team, int lane) {
@@ -1389,7 +1488,8 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public List<Monster> getCampMonsters() {
-        return this.campMonsters;
+
+        return new ArrayList<>(this.campMonsters);
     }
 
     public List<Monster> getCampMonsters(String id) {
@@ -1412,14 +1512,14 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public List<Tower> getTowers() {
-        return this.towers;
+        return new ArrayList<>(this.towers);
     }
 
     public List<BaseTower> getBaseTowers() {
-        return this.baseTowers;
+        return new ArrayList<>(this.baseTowers);
     }
 
-    protected boolean canSpawnSupers(int team) {
+    public boolean canSpawnSupers(int team) {
         for (Tower t : this.towers) {
             if (t.getTeam() != team) {
                 if (t.getTowerNum() != 3 && t.getTowerNum() != 0 && t.getHealth() > 0) return false;
@@ -1487,9 +1587,8 @@ public abstract class RoomHandler implements Runnable {
     }
 
     public boolean isPracticeMap() {
-        return room.getGroupId().equals("Practice")
-                || room.getGroupId().equals("Tutorial")
-                || room.getGroupId().equals("ARAM");
+        RoomGroup roomGroup = GameManager.getRoomGroupEnum(room.getGroupId());
+        return GameManager.getMap(roomGroup) == GameMap.CANDY_STREETS;
     }
 
     public List<Projectile> getActiveProjectiles() {

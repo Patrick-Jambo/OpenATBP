@@ -1,27 +1,30 @@
 package xyz.openatbp.extension;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import com.smartfoxserver.v2.entities.Room;
 import com.smartfoxserver.v2.entities.User;
 
-import xyz.openatbp.extension.game.ActorType;
+import xyz.openatbp.extension.game.GameMap;
 import xyz.openatbp.extension.game.Projectile;
+import xyz.openatbp.extension.game.RoomGroup;
 import xyz.openatbp.extension.game.actors.*;
 
 public class PracticeRoomHandler extends RoomHandler {
 
     private HashMap<User, UserActor> dcPlayers = new HashMap<>();
-    private List<Actor> companions = new ArrayList<>();
-    private Point2D finnBotRespawnPoint;
-    private Bot finnBot;
+
+    private Bot bot;
 
     public PracticeRoomHandler(
-            ATBPExtension parentExt, Room room, String[] SPAWNS, int HP_SPAWN_RATE) {
-        super(parentExt, room, SPAWNS, HP_SPAWN_RATE);
+            ATBPExtension parentExt,
+            Room room,
+            String[] SPAWNS,
+            int HP_SPAWN_RATE,
+            Point2D[] mapBoundary,
+            List<Point2D[]> obstacles) {
+        super(parentExt, room, SPAWNS, HP_SPAWN_RATE, mapBoundary, obstacles);
         HashMap<String, Point2D> towers0 = MapData.getPTowerActorData(0);
         HashMap<String, Point2D> towers1 = MapData.getPTowerActorData(1);
         baseTowers.add(new BaseTower(parentExt, room, "purple_tower0", 0));
@@ -33,12 +36,13 @@ public class PracticeRoomHandler extends RoomHandler {
         for (String key : towers1.keySet()) {
             towers.add(new Tower(parentExt, room, key, 1, towers1.get(key)));
         }
-        if (this.players.size() == 1) {
-            Point2D purpleSpawn = MapData.L1_PURPLE_SPAWNS[1];
-            float x = (float) purpleSpawn.getX();
-            float finnBotSpawnX = x * -1;
-            finnBotRespawnPoint = new Point2D.Float(finnBotSpawnX, (float) purpleSpawn.getY());
-            finnBot = new Bot(parentExt, room, "finn", 1, finnBotRespawnPoint);
+
+        if (room.getGroupId().equals(RoomGroup.PRACTICE.name())) {
+            List<String> bots = new ArrayList<>();
+            bot =
+                    GameModeSpawns.createRandomBot(
+                            bots, false, parentExt, room, 1, GameMap.CANDY_STREETS);
+            companions.add(bot);
         }
         FOUNTAIN_RADIUS = 6f;
     }
@@ -47,8 +51,12 @@ public class PracticeRoomHandler extends RoomHandler {
     public void run() {
         if (gameOver) return;
         super.run();
-        if (finnBot != null && !gameOver) {
-            finnBot.update(mSecondsRan);
+        try {
+            if (bot != null && !gameOver) {
+                bot.update(mSecondsRan);
+            }
+        } catch (NullPointerException e) {
+            e.printStackTrace();
         }
     }
 
@@ -59,12 +67,12 @@ public class PracticeRoomHandler extends RoomHandler {
             int minionNum = secondsRan % 10;
             if (minionNum == 4) this.currentMinionWave = minionWave;
             if (minionNum <= 3) {
-                this.addMinion(1, minionNum, minionWave, 0);
-                this.addMinion(0, minionNum, minionWave, 0);
+                this.addMinion(GameMap.CANDY_STREETS, 1, minionNum, minionWave, 0);
+                this.addMinion(GameMap.CANDY_STREETS, 0, minionNum, minionWave, 0);
             } else if (minionNum == 4) {
                 for (int g = 0; g < 2; g++) {
                     if (!this.hasSuperMinion(0, g) && this.canSpawnSupers(g))
-                        this.addMinion(g, minionNum, minionWave, 0);
+                        this.addMinion(GameMap.CANDY_STREETS, g, minionNum, minionWave, 0);
                 }
             }
         }
@@ -99,7 +107,8 @@ public class PracticeRoomHandler extends RoomHandler {
         try {
             this.gameOver = true;
             this.room.setProperty("state", 3);
-            ExtensionCommands.gameOver(parentExt, room, dcPlayers, winningTeam, false, false);
+            ExtensionCommands.gameOver(parentExt, room, dcPlayers, winningTeam, false);
+            updateDBCoinsAndAccountXp(winningTeam);
             // logChampionData(winningTeam);
 
             for (UserActor ua : this.players) {
@@ -286,98 +295,5 @@ public class PracticeRoomHandler extends RoomHandler {
         centers.put(0, purpleCenter);
         centers.put(1, blueCenter);
         return centers;
-    }
-
-    @Override
-    public List<Actor> getActors() {
-        List<Actor> actors = new ArrayList<>();
-        if (finnBot != null) actors.add(finnBot);
-        actors.addAll(towers);
-        actors.addAll(baseTowers);
-        actors.addAll(minions);
-        Collections.addAll(actors, bases);
-        actors.addAll(players);
-        actors.addAll(campMonsters);
-        actors.addAll(companions);
-        actors.removeIf(a -> a.getHealth() <= 0);
-        return actors;
-    }
-
-    @Override
-    public List<Actor> getActorsInRadius(Point2D center, float radius) {
-        List<Actor> actorsInRadius = new ArrayList<>();
-        if (finnBot != null) actorsInRadius.add(finnBot);
-        actorsInRadius.addAll(towers);
-        actorsInRadius.addAll(baseTowers);
-        actorsInRadius.addAll(minions);
-        Collections.addAll(actorsInRadius, bases);
-        actorsInRadius.addAll(players);
-        actorsInRadius.addAll(campMonsters);
-        actorsInRadius.addAll(companions);
-        actorsInRadius.removeIf(a -> a.getHealth() <= 0);
-        return actorsInRadius.stream()
-                .filter(a -> a.getLocation().distance(center) <= radius)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getEnemiesInPolygon(int team, Path2D polygon) {
-        List<Actor> enemiesInPolygon = new ArrayList<>();
-        if (finnBot != null) enemiesInPolygon.add(finnBot);
-        enemiesInPolygon.addAll(towers);
-        enemiesInPolygon.addAll(baseTowers);
-        enemiesInPolygon.addAll(minions);
-        Collections.addAll(enemiesInPolygon, bases);
-        enemiesInPolygon.addAll(players);
-        enemiesInPolygon.addAll(campMonsters);
-        enemiesInPolygon.addAll(companions);
-        enemiesInPolygon.removeIf(a -> a.getHealth() <= 0);
-        return enemiesInPolygon.stream()
-                .filter(a -> a.getTeam() != team)
-                .filter(a -> polygon.contains(a.getLocation()))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getNonStructureEnemies(int team) {
-        List<Actor> nonStructureEnemies = new ArrayList<>();
-        if (finnBot != null) nonStructureEnemies.add(finnBot);
-        nonStructureEnemies.addAll(towers);
-        nonStructureEnemies.addAll(baseTowers);
-        nonStructureEnemies.addAll(minions);
-        Collections.addAll(nonStructureEnemies, bases);
-        nonStructureEnemies.addAll(players);
-        nonStructureEnemies.addAll(campMonsters);
-        nonStructureEnemies.addAll(companions);
-        nonStructureEnemies.removeIf(a -> a.getHealth() <= 0);
-        return nonStructureEnemies.stream()
-                .filter(a -> a.getTeam() != team)
-                .filter(a -> a.getActorType() != ActorType.TOWER)
-                .filter(a -> a.getActorType() != ActorType.BASE)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Actor> getEligibleActors(
-            int team,
-            boolean teamFilter,
-            boolean hpFilter,
-            boolean towerFilter,
-            boolean baseFilter) {
-        List<Actor> eligibleActors = new ArrayList<>();
-        if (finnBot != null) eligibleActors.add(finnBot);
-        eligibleActors.addAll(towers);
-        eligibleActors.addAll(baseTowers);
-        eligibleActors.addAll(minions);
-        Collections.addAll(eligibleActors, bases);
-        eligibleActors.addAll(players);
-        eligibleActors.addAll(campMonsters);
-        eligibleActors.addAll(companions);
-        return eligibleActors.stream()
-                .filter(a -> !hpFilter || a.getHealth() > 0)
-                .filter(a -> !teamFilter || a.getTeam() != team)
-                .filter(a -> !towerFilter || a.getActorType() != ActorType.TOWER)
-                .filter(a -> !baseFilter || a.getActorType() != ActorType.BASE)
-                .collect(Collectors.toList());
     }
 }

@@ -11,7 +11,6 @@ import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
 import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.actors.Actor;
-import xyz.openatbp.extension.game.actors.UserActor;
 
 public abstract class Projectile {
 
@@ -20,7 +19,7 @@ public abstract class Projectile {
     protected Point2D location;
     protected Point2D startingLocation;
     protected float speed;
-    protected UserActor owner;
+    protected Actor owner;
     protected String id;
     protected String projectileAsset;
     protected float hitbox;
@@ -32,7 +31,7 @@ public abstract class Projectile {
 
     public Projectile(
             ATBPExtension parentExt,
-            UserActor owner,
+            Actor owner,
             Line2D path,
             float speed,
             float hitboxRadius,
@@ -108,7 +107,8 @@ public abstract class Projectile {
         return !avatar.equals("neptr_mine")
                 && !avatar.equals("choosegoose_chest")
                 && a.getActorType() != ActorType.TOWER
-                && a.getTeam() != owner.getTeam();
+                && a.getTeam() != owner.getTeam()
+                && a.isNotLeaping();
     }
 
     protected abstract void hit(Actor victim);

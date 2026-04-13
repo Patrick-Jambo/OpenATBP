@@ -12,9 +12,9 @@ import com.smartfoxserver.v2.entities.User;
 import com.smartfoxserver.v2.entities.data.ISFSObject;
 import com.smartfoxserver.v2.entities.data.SFSObject;
 
-import xyz.openatbp.extension.game.ActorState;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class ExtensionCommands {
 
@@ -463,9 +463,11 @@ public class ExtensionCommands {
             Room room,
             HashMap<User, UserActor> dcPlayers,
             double winningTeam,
-            boolean isRankedMatch,
             boolean tutorialCoins)
             throws JsonProcessingException {
+
+        Console.debugLog("TUTORIAL COINS: " + tutorialCoins);
+
         for (User u : room.getUserList()) {
             Room lastRoom = u.getLastJoinedRoom();
             System.out.println("Calling game over!");
@@ -474,23 +476,11 @@ public class ExtensionCommands {
             node.set(
                     "teamA",
                     GameManager.getTeamData(
-                            parentExt,
-                            dcPlayers,
-                            0,
-                            lastRoom,
-                            isRankedMatch,
-                            tutorialCoins,
-                            (int) winningTeam));
+                            parentExt, dcPlayers, 0, lastRoom, tutorialCoins, (int) winningTeam));
             node.set(
                     "teamB",
                     GameManager.getTeamData(
-                            parentExt,
-                            dcPlayers,
-                            1,
-                            lastRoom,
-                            isRankedMatch,
-                            tutorialCoins,
-                            (int) winningTeam));
+                            parentExt, dcPlayers, 1, lastRoom, tutorialCoins, (int) winningTeam));
             node.set(
                     "globalTeamData",
                     GameManager.getGlobalTeamData(parentExt, dcPlayers, lastRoom));

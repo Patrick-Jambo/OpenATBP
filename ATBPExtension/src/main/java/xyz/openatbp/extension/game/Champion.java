@@ -1,7 +1,6 @@
 package xyz.openatbp.extension.game;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,6 +20,7 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.champions.*;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class Champion {
     public static void updateServerHealth(ATBPExtension parentExt, Actor a) {
@@ -97,91 +97,6 @@ public class Champion {
         float y = slope1 * ((intercept2 - intercept1) / (slope1 - slope2)) + intercept1;
         if (Float.isNaN(x) || Float.isNaN(y)) return line.getP1();
         return new Point2D.Float(x, y);
-    }
-
-    public static Point2D calculatePolygonPoint(
-            Point2D originalPoint, float distance, double angle) {
-        float x = (float) (originalPoint.getX() + distance * Math.cos(angle));
-        float y = (float) (originalPoint.getY() + distance * Math.sin(angle));
-        return new Point2D.Float(x, y);
-    }
-
-    public static Path2D createTrapezoid(
-            Point2D location,
-            Point2D destination,
-            float spellRange,
-            float offsetDistanceBottom,
-            float offsetDistanceTop) {
-        Line2D abilityLine = Champion.getAbilityLine(location, destination, spellRange);
-        double angle =
-                Math.atan2(
-                        abilityLine.getY2() - abilityLine.getY1(),
-                        abilityLine.getX2() - abilityLine.getX1());
-        int PERPENDICULAR_ANGLE = 90;
-        Point2D startPoint1 =
-                calculatePolygonPoint(
-                        abilityLine.getP1(),
-                        offsetDistanceBottom,
-                        angle + Math.toRadians(PERPENDICULAR_ANGLE));
-        Point2D startPoint2 =
-                calculatePolygonPoint(
-                        abilityLine.getP1(),
-                        offsetDistanceBottom,
-                        angle - Math.toRadians(PERPENDICULAR_ANGLE));
-        Point2D endPoint1 =
-                calculatePolygonPoint(
-                        abilityLine.getP2(),
-                        offsetDistanceTop,
-                        angle + Math.toRadians(PERPENDICULAR_ANGLE));
-        Point2D endPoint2 =
-                calculatePolygonPoint(
-                        abilityLine.getP2(),
-                        offsetDistanceTop,
-                        angle - Math.toRadians(PERPENDICULAR_ANGLE));
-
-        Path2D.Float trapezoid = new Path2D.Float();
-        trapezoid.moveTo(startPoint1.getX(), startPoint1.getY());
-        trapezoid.lineTo(endPoint1.getX(), endPoint1.getY());
-        trapezoid.lineTo(endPoint2.getX(), endPoint2.getY());
-        trapezoid.lineTo(startPoint2.getX(), startPoint2.getY());
-        return trapezoid;
-    }
-
-    public static Path2D createRectangle(
-            Point2D location, Point2D destination, float spellRange, float offsetDistance) {
-        Line2D abilityLine = getAbilityLine(location, destination, spellRange);
-        double angle =
-                Math.atan2(
-                        abilityLine.getY2() - abilityLine.getY1(),
-                        abilityLine.getX2() - abilityLine.getX1());
-        int PERPENDICULAR_ANGLE = 90;
-        Point2D startPoint1 =
-                calculatePolygonPoint(
-                        abilityLine.getP1(),
-                        offsetDistance,
-                        angle + Math.toRadians(PERPENDICULAR_ANGLE));
-        Point2D startPoint2 =
-                calculatePolygonPoint(
-                        abilityLine.getP1(),
-                        offsetDistance,
-                        angle - Math.toRadians(PERPENDICULAR_ANGLE));
-        Point2D endPoint1 =
-                calculatePolygonPoint(
-                        abilityLine.getP2(),
-                        offsetDistance,
-                        angle + Math.toRadians(PERPENDICULAR_ANGLE));
-        Point2D endPoint2 =
-                calculatePolygonPoint(
-                        abilityLine.getP2(),
-                        offsetDistance,
-                        angle - Math.toRadians(PERPENDICULAR_ANGLE));
-
-        Path2D.Float rectangle = new Path2D.Float();
-        rectangle.moveTo(startPoint1.getX(), startPoint1.getY());
-        rectangle.lineTo(endPoint1.getX(), endPoint1.getY());
-        rectangle.lineTo(endPoint2.getX(), endPoint2.getY());
-        rectangle.lineTo(startPoint2.getX(), startPoint2.getY());
-        return rectangle;
     }
 
     @Deprecated
@@ -323,6 +238,21 @@ public class Champion {
         double extendedY = y + abilityRange * unitY;
         Point2D lineEndPoint = new Point2D.Double(extendedX, extendedY);
         return new Line2D.Double(location, lineEndPoint);
+    }
+
+    public static Line2D getRotatedLine(Point2D origin, Point2D dest, double angle) {
+        double dx = dest.getX() - origin.getX();
+        double dy = dest.getY() - origin.getY();
+
+        double angleRad = Math.toRadians(angle);
+        double cos = Math.cos(angleRad);
+        double sin = Math.sin(angleRad);
+
+        double rotatedX = dx * cos - dy * sin;
+        double rotatedY = dx * sin + dy * cos;
+
+        Point2D rotatedEnd = new Point2D.Double(origin.getX() + rotatedX, origin.getY() + rotatedY);
+        return new Line2D.Double(origin, rotatedEnd);
     }
 
     public static HashMap<ActorState, Boolean> getBlankStates() {

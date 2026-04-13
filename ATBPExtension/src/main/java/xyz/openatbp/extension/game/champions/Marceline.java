@@ -13,23 +13,28 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 public class Marceline extends UserActor {
     private static final double PASSIVE_HP_REG_VALUE = 1.5d;
     private static final int PASSIVE_HP_REG_SOUND_DELAY = 3000;
     private static final int Q_ROOT_DURATION = 2000;
     private static final int Q_SLOW_DURATION = 1500;
-    private static final double Q_SLOW_VALUE = 0.15d;
+    private static final double Q_SLOW_PERCENT = 0.15d;
     private static final int W_DURATION = 3000;
-    private static final double W_BEAST_SPEED_VALUE = 0.4d;
-    private static final double W_VAMPIRE_SPEED_VALUE = 0.15d;
+    private static final double W_BEAST_SPEED_PERCENT = 0.4d;
+    private static final double W_VAMPIRE_SPEED_PERCENT = 0.15d;
     private static final String W_BEAST_ICON = "beast_w";
     private static final String W_VAMP_ICON = "vamp_w";
     private static final int E_CAST_DELAY = 750;
-    private static final int E_ATTACKSPEED_DURATION = 3000;
+    private static final int E_ATTACK_SPEED_DURATION = 3000;
     private static final int E_IMMUNITY_DURATION = 2000;
     private static final int E_CHARM_DURATION = 2000;
     private static final int E_FEAR_DURATION = 2000;
+    public static final int E_AS_PERCENT = 1;
+    public static final int ULT_RADIUS = 3;
 
     private int passiveHits = 0;
     private boolean hpRegenActive = false;
@@ -53,6 +58,7 @@ public class Marceline extends UserActor {
 
     public Marceline(User u, ATBPExtension parentExt) {
         super(u, parentExt);
+        this.customPolySwap = true;
     }
 
     @Override
@@ -61,12 +67,10 @@ public class Marceline extends UserActor {
         if (this.vampireWActive
                 && System.currentTimeMillis() - this.vampireWStartTime >= W_DURATION) {
             this.vampireWActive = false;
-            updateStatMenu("speed");
             ExtensionCommands.removeStatusIcon(parentExt, player, W_VAMP_ICON);
         }
         if (this.beastWActive && System.currentTimeMillis() - this.bestWStartTime >= W_DURATION) {
             this.beastWActive = false;
-            updateStatMenu("speed");
             ExtensionCommands.removeStatusIcon(parentExt, player, W_BEAST_ICON);
         }
         if (this.currentHealth < this.maxHealth
@@ -95,7 +99,7 @@ public class Marceline extends UserActor {
         if (this.vampireWActive) {
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.location, 2f)) {
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     JsonNode spellData = this.parentExt.getAttackData(this.avatar, "spell2");
                     double damage = getSpellDamage(spellData, false) / 10d;
                     a.addToDamageQueue(this, damage, spellData, true);
@@ -142,7 +146,7 @@ public class Marceline extends UserActor {
     }
 
     @Override
-    public void handleSwapFromPoly() {
+    public void customSwapFromPoly() {
         String bundle = this.form == Form.BEAST ? "marceline_bat" : getSkinAssetBundle();
         ExtensionCommands.swapActorAsset(this.parentExt, this.room, this.id, bundle);
     }
@@ -152,9 +156,9 @@ public class Marceline extends UserActor {
         if (stat.equalsIgnoreCase("healthRegen") && this.form == Form.BEAST) {
             return super.getPlayerStat(stat) * PASSIVE_HP_REG_VALUE;
         } else if (stat.equalsIgnoreCase("speed")) {
-            if (this.beastWActive) return super.getPlayerStat(stat) * (1 + W_BEAST_SPEED_VALUE);
+            if (this.beastWActive) return super.getPlayerStat(stat) * (1 + W_BEAST_SPEED_PERCENT);
             else if (this.vampireWActive)
-                return super.getPlayerStat(stat) * (1 + W_VAMPIRE_SPEED_VALUE);
+                return super.getPlayerStat(stat) * (1 + W_VAMPIRE_SPEED_PERCENT);
         }
         return super.getPlayerStat(stat);
     }
@@ -378,7 +382,6 @@ public class Marceline extends UserActor {
                     logExceptionMessage(avatar, ability);
                     exception.printStackTrace();
                 }
-                updateStatMenu("speed");
                 ExtensionCommands.actorAbilityResponse(
                         this.parentExt,
                         this.player,
@@ -477,7 +480,7 @@ public class Marceline extends UserActor {
 
                 if (target != null
                         && isNeitherStructureNorAlly(target)
-                        && !getState(ActorState.BLINDED)) {
+                        && !effectManager.hasState(ActorState.BLINDED)) {
                     changeHealth((int) Math.round(damage * lifesteal));
                 }
 
@@ -490,7 +493,7 @@ public class Marceline extends UserActor {
             if (form == Form.VAMPIRE
                     && this.target != null
                     && isNeitherStructureNorAlly(this.target)
-                    && !getState(ActorState.BLINDED)) {
+                    && !effectManager.hasState(ActorState.BLINDED)) {
                 passiveHits++;
             }
             if (beastWActive && form == Form.BEAST) {
@@ -554,7 +557,7 @@ public class Marceline extends UserActor {
             }
 
             if (getHealth() > 0) {
-                boolean canSwapAsset = !getState(ActorState.POLYMORPH);
+                boolean canSwapAsset = !effectManager.hasState(ActorState.POLYMORPH);
 
                 if (form == Form.BEAST) {
                     form = Form.VAMPIRE;
@@ -566,15 +569,14 @@ public class Marceline extends UserActor {
                         ExtensionCommands.removeFx(parentExt, room, id + "_batRegen");
                         hpRegenActive = false;
                     }
-                    double delta = (getPlayerStat("attackSpeed") / 2) * -1;
-                    if (getPlayerStat("attackSpeed") - delta > 500) {
-                        Marceline.this.addEffect("attackSpeed", delta, E_ATTACKSPEED_DURATION);
-                    } else {
-                        Marceline.this.addEffect(
-                                "attackSpeed",
-                                500 - getPlayerStat("attackSpeed"),
-                                E_ATTACKSPEED_DURATION);
-                    }
+                    Marceline.this.effectManager.addEffect(
+                            Marceline.this.id + "_marcy_e_as_buff",
+                            "attackSpeed",
+                            E_AS_PERCENT,
+                            ModifierType.MULTIPLICATIVE,
+                            ModifierIntent.BUFF,
+                            E_ATTACK_SPEED_DURATION);
+
                 } else {
                     form = Form.BEAST;
                     passiveHits = 0;
@@ -582,12 +584,13 @@ public class Marceline extends UserActor {
                         ExtensionCommands.swapActorAsset(parentExt, room, id, "marceline_bat");
                     }
                 }
-                updateStatMenu("healthRegen");
 
                 if (canDoUltAttack && !dead) {
-                    Marceline.this.addState(ActorState.IMMUNITY, 0d, E_IMMUNITY_DURATION);
-                    setState(ActorState.CLEANSED, true);
-                    Marceline.this.cleanseEffects();
+                    Marceline.this.effectManager.addState(
+                            ActorState.IMMUNITY, id + "_marcy_e_immunity", 0d, E_IMMUNITY_DURATION);
+                    effectManager.setState(ActorState.CLEANSED, true);
+                    // setState(ActorState.CLEANSED, true);
+                    Marceline.this.effectManager.cleanseDebuffs();
                     ExtensionCommands.createActorFX(
                             parentExt,
                             room,
@@ -611,17 +614,29 @@ public class Marceline extends UserActor {
 
                     RoomHandler handler = parentExt.getRoomHandler(room.getName());
                     Point2D loc = Marceline.this.location;
-                    for (Actor a : Champion.getActorsInRadius(handler, loc, 3)) {
-                        if (isNeitherTowerNorAlly(a)) {
+                    for (Actor a : Champion.getActorsInRadius(handler, loc, ULT_RADIUS)) {
+                        if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
 
                             double damage = getSpellDamage(spellData, true);
                             a.addToDamageQueue(Marceline.this, damage, spellData, false);
 
                             if (a.getActorType() != ActorType.BASE) {
                                 if (form == Form.VAMPIRE) {
-                                    a.handleCharm(Marceline.this, E_CHARM_DURATION);
+                                    a.setCharmer(Marceline.this);
+                                    a.getEffectManager()
+                                            .addState(
+                                                    ActorState.CHARMED,
+                                                    id + "_marcy_e_charm",
+                                                    0d,
+                                                    E_CHARM_DURATION);
                                 } else {
-                                    a.handleFear(Marceline.this.location, E_FEAR_DURATION);
+                                    a.setFearer(Marceline.this);
+                                    a.getEffectManager()
+                                            .addState(
+                                                    ActorState.FEARED,
+                                                    id + "_marcy_e_fear",
+                                                    0d,
+                                                    E_FEAR_DURATION);
                                 }
                             }
                         }
@@ -673,7 +688,8 @@ public class Marceline extends UserActor {
                     team);
             if (transformed) {
                 if (isNeitherStructureNorAlly(victim)) {
-                    victim.addState(ActorState.ROOTED, 0d, Q_ROOT_DURATION);
+                    victim.getEffectManager()
+                            .addState(ActorState.ROOTED, id + "_marcy_q_root", 0d, Q_ROOT_DURATION);
                 }
             } else {
                 qVictim = victim;
@@ -686,7 +702,12 @@ public class Marceline extends UserActor {
                 scheduleTask(endVictim, 1500);
 
                 if (isNeitherStructureNorAlly(victim)) {
-                    victim.addState(ActorState.SLOWED, Q_SLOW_VALUE, Q_SLOW_DURATION);
+                    victim.getEffectManager()
+                            .addState(
+                                    ActorState.SLOWED,
+                                    id + "_marcy_q_slow",
+                                    Q_SLOW_PERCENT,
+                                    Q_SLOW_DURATION);
                 }
             }
             JsonNode spellData = parentExt.getAttackData(avatar, "spell1");

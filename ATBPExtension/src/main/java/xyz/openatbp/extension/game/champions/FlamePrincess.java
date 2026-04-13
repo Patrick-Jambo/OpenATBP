@@ -1,7 +1,6 @@
 package xyz.openatbp.extension.game.champions;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -13,7 +12,10 @@ import com.smartfoxserver.v2.entities.User;
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
+import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class FlamePrincess extends UserActor {
 
@@ -24,7 +26,7 @@ public class FlamePrincess extends UserActor {
     private static final int Q_BURST_RECTANGLE_LENGTH = 4;
     private static final int Q_BURST_RECTANGLE_WIDTH = 1;
 
-    private static final int W_POLY_DURATION = 3000;
+    public static final int W_POLY_DURATION = 3000;
     private static final int W_CAST_DELAY = 1000;
 
     private static final int E_DASH_COOLDOWN = 350;
@@ -49,6 +51,7 @@ public class FlamePrincess extends UserActor {
 
     public FlamePrincess(User u, ATBPExtension parentExt) {
         super(u, parentExt);
+        this.customPolySwap = true;
     }
 
     @Override
@@ -61,7 +64,7 @@ public class FlamePrincess extends UserActor {
         if (this.form == Form.ULT) {
             RoomHandler handler = parentExt.getRoomHandler(this.room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.location, 2)) {
-                if (a.getTeam() != this.team && isNeitherTowerNorAlly(a)) {
+                if (a.getTeam() != this.team && isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     JsonNode attackData = this.parentExt.getAttackData(getAvatar(), "spell3");
                     double damage = (double) this.getSpellDamage(attackData, false) / 10;
                     a.addToDamageQueue(this, damage, attackData, true);
@@ -71,7 +74,7 @@ public class FlamePrincess extends UserActor {
         }
         if (System.currentTimeMillis() - lastPolymorphTime <= W_POLY_DURATION) {
             for (Actor a : this.parentExt.getRoomHandler(this.room.getName()).getPlayers()) {
-                boolean polymorphActive = a.getState(ActorState.POLYMORPH);
+                boolean polymorphActive = a.getEffectManager().hasState(ActorState.POLYMORPH);
                 if (polymorphActive) {
                     RoomHandler handler = parentExt.getRoomHandler(room.getName());
                     List<Actor> actorsInRadius =
@@ -79,7 +82,8 @@ public class FlamePrincess extends UserActor {
                     actorsInRadius.remove(a);
 
                     for (Actor affectedActor : actorsInRadius) {
-                        if (isNeitherStructureNorAlly(affectedActor)) {
+                        if (isNeitherStructureNorAlly(affectedActor)
+                                && affectedActor.isNotLeaping()) {
                             handlePassive();
                             JsonNode spellData = this.parentExt.getAttackData("flame", "spell2");
 
@@ -93,8 +97,7 @@ public class FlamePrincess extends UserActor {
     }
 
     @Override
-    public void handleSwapToPoly(int duration) {
-        super.handleSwapToPoly(duration);
+    public void customSwapToPoly() {
         if (this.passiveEnabled) {
             ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_flame_passive");
         }
@@ -105,7 +108,7 @@ public class FlamePrincess extends UserActor {
     }
 
     @Override
-    public void handleSwapFromPoly() {
+    public void customSwapFromPoly() {
         String bundle = this.form == Form.ULT ? "flame_ult" : getSkinAssetBundle();
         ExtensionCommands.swapActorAsset(this.parentExt, this.room, this.id, bundle);
         if (form == Form.ULT) {
@@ -332,33 +335,43 @@ public class FlamePrincess extends UserActor {
                             abilityRunnable(ability, spellData, cooldown, gCooldown, dest),
                             castDelay);
                 } else if (this.ultUses < 5) {
-                    if (canDash()) {
-                        this.ultUses++;
-                        Point2D ogLocation = this.location;
-                        Point2D dashLocation = this.dash(dest, false, E_DASH_SPEED);
-                        double time = ogLocation.distance(dashLocation) / E_DASH_SPEED;
-                        this.dashTime = (int) (time * 1000);
-                        ExtensionCommands.actorAnimate(
-                                this.parentExt, this.room, this.id, "run", this.dashTime, false);
-                        int remainingTime = (int) (System.currentTimeMillis() - ultStartTime);
+                    this.ultUses++;
 
-                        if (remainingTime + dashTime > E_DURATION) { // handle last moment dashing
-                            int timeNeeded = remainingTime + dashTime - E_DURATION;
-                            this.ultStartTime += timeNeeded; // add time to complete anim
-                            this.ultUses = 5; // disable further dashing
-                        }
-                        scheduleTask(
-                                abilityRunnable(ability, spellData, cooldown, gCooldown, dest),
-                                E_DASH_COOLDOWN);
-                    } else {
-                        ExtensionCommands.playSound(
-                                this.parentExt,
-                                this.player,
-                                this.id,
-                                "not_allowed_error",
-                                new Point2D.Float(0, 0));
+                    RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                    PathFinder pathFinder = rh.getPathFinder();
+
+                    Point2D dashPoint = pathFinder.getIntersectionPoint(location, dest);
+
+                    double time = location.distance(dashPoint) / E_DASH_SPEED;
+                    this.dashTime = (int) (time * 1000);
+
+                    DashContext ctx =
+                            new DashContext.Builder(location, dashPoint, E_DASH_SPEED)
+                                    .canBeRedirected(true)
+                                    .onInterrupt(this::playIdleAndInterruptSound)
+                                    .build();
+                    startDash(ctx);
+
+                    ExtensionCommands.actorAnimate(parentExt, room, id, "run", dashTime, false);
+                    int remainingTime = (int) (System.currentTimeMillis() - ultStartTime);
+
+                    if (remainingTime + dashTime > E_DURATION) { // handle last moment dashing
+                        int timeNeeded = remainingTime + dashTime - E_DURATION;
+                        this.ultStartTime += timeNeeded; // add time to complete anim
+                        this.ultUses = 5; // disable further dashing
                     }
+                    scheduleTask(
+                            abilityRunnable(ability, spellData, cooldown, gCooldown, dest),
+                            E_DASH_COOLDOWN);
+                } else {
+                    ExtensionCommands.playSound(
+                            this.parentExt,
+                            this.player,
+                            this.id,
+                            "not_allowed_error",
+                            new Point2D.Float(0, 0));
                 }
+
                 break;
         }
     }
@@ -378,7 +391,7 @@ public class FlamePrincess extends UserActor {
             ExtensionCommands.scaleActor(parentExt, room, id, 0.6667f);
             this.fpScale = 1;
         }
-        if (!this.getState(ActorState.POLYMORPH)) { // poly asset swap handled elsewhere
+        if (!effectManager.hasState(ActorState.POLYMORPH)) { // poly asset swap handled elsewhere
             ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
         }
         ExtensionCommands.removeFx(parentExt, room, id + "flameE");
@@ -425,13 +438,14 @@ public class FlamePrincess extends UserActor {
                             .collect(Collectors.toList());
 
             for (Actor a : affectedUsers) {
-                if (a.getActorType() == ActorType.PLAYER) { // poly for bot handled elsewhere
-                    UserActor userActor = (UserActor) a;
-                    userActor.addState(ActorState.POLYMORPH, 0d, 3000);
+                if (a instanceof UserActor || a instanceof Bot && a.isNotLeaping()) {
+                    a.getEffectManager()
+                            .addState(ActorState.POLYMORPH, id + "_fp_poly", 0d, W_POLY_DURATION);
+
                     lastPolymorphTime = System.currentTimeMillis();
                 }
                 double newDamage = getSpellDamage(spellData, true);
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     JsonNode attackData = parentExt.getAttackData(getAvatar(), "spell2");
                     a.addToDamageQueue(FlamePrincess.this, newDamage, attackData, false);
                     handlePassive();
@@ -511,14 +525,20 @@ public class FlamePrincess extends UserActor {
             Point2D hitPoint = victim.getLocation();
             Point2D endPoint = getBurstEndPoint(hitPoint);
 
-            Path2D rect =
-                    Champion.createRectangle(
+            AbilityShape qRect =
+                    AbilityShape.createRectangle(
                             hitPoint, endPoint, Q_BURST_RECTANGLE_LENGTH, Q_BURST_RECTANGLE_WIDTH);
 
             double burstDamage = damage * Q_BURST_DMG_RATIO;
 
-            for (Actor actor : handler.getEnemiesInPolygon(team, rect)) {
-                if (isNeitherTowerNorAlly(actor) && !actor.equals(victim)) {
+            List<Actor> nearbyEnemies =
+                    Champion.getEnemyActorsInRadius(handler, team, location, 10f);
+
+            for (Actor actor : nearbyEnemies) {
+                if (isNeitherTowerNorAlly(actor)
+                        && !actor.equals(victim)
+                        && qRect.contains(actor.getLocation(), actor.getCollisionRadius())
+                        && actor.isNotLeaping()) {
                     actor.addToDamageQueue(FlamePrincess.this, burstDamage, attackData, false);
                 }
             }

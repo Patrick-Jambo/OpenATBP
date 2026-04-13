@@ -1,7 +1,6 @@
 package xyz.openatbp.extension.game.champions;
 
 import java.awt.geom.Line2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +15,7 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
 
 public class LSP extends UserActor {
     public static final int Q_CAST_DELAY = 750;
@@ -53,7 +53,7 @@ public class LSP extends UserActor {
             JsonNode spellData = this.parentExt.getAttackData(this.avatar, "spell2");
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, this.location, 3f)) {
-                if (isNeitherTowerNorAlly(a)) {
+                if (isNeitherTowerNorAlly(a) && a.isNotLeaping()) {
                     double dmg = getSpellDamage(spellData, false) / 10d;
                     a.addToDamageQueue(this, dmg, spellData, true);
                 }
@@ -63,7 +63,7 @@ public class LSP extends UserActor {
             isCastingult = false;
             ExtensionCommands.playSound(parentExt, room, id, "sfx_skill_interrupted", location);
             ExtensionCommands.actorAnimate(parentExt, room, id, "idle", 1, false);
-            if (!getState(ActorState.POLYMORPH))
+            if (!effectManager.hasState(ActorState.POLYMORPH))
                 ExtensionCommands.swapActorAsset(parentExt, room, id, getSkinAssetBundle());
         }
 
@@ -230,19 +230,33 @@ public class LSP extends UserActor {
                         true,
                         false,
                         team);
-                Path2D qRect =
-                        Champion.createRectangle(location, dest, Q_SPELL_RANGE, Q_OFFSET_DISTANCE);
+                AbilityShape qRect =
+                        AbilityShape.createRectangle(
+                                location, dest, Q_SPELL_RANGE, Q_OFFSET_DISTANCE);
 
                 List<Actor> affectedActors = new ArrayList<>();
                 RoomHandler handler = parentExt.getRoomHandler(room.getName());
-                List<Actor> actorsInPolygon = handler.getEnemiesInPolygon(team, qRect);
-                if (!actorsInPolygon.isEmpty()) {
-                    for (Actor a : actorsInPolygon) {
-                        if (isNeitherStructureNorAlly(a)) {
-                            a.handleFear(LSP.this.location, Q_FEAR_DURATION);
+
+                List<Actor> nearbyEnemies =
+                        Champion.getEnemyActorsInRadius(handler, team, location, Q_SPELL_RANGE);
+
+                if (!nearbyEnemies.isEmpty()) {
+                    for (Actor a : nearbyEnemies) {
+                        if (isNeitherStructureNorAlly(a)
+                                && qRect.contains(a.getLocation(), a.getCollisionRadius())
+                                && a.isNotLeaping()) {
+                            a.setFearer(LSP.this);
+                            a.getEffectManager()
+                                    .addState(
+                                            ActorState.FEARED,
+                                            id + "_lsp_q_fear",
+                                            0,
+                                            Q_FEAR_DURATION);
                         }
 
-                        if (isNeitherTowerNorAlly(a)) {
+                        if (isNeitherTowerNorAlly(a)
+                                && qRect.contains(a.getLocation(), a.getCollisionRadius())
+                                && a.isNotLeaping()) {
                             double damage = getSpellDamage(spellData, true);
                             a.addToDamageQueue(LSP.this, damage, spellData, false);
                             affectedActors.add(a);

@@ -32,11 +32,12 @@ public class ChampionData {
         for (int i = 0; i < XP_LEVELS.length; i++) {
             if (xp < XP_LEVELS[i]) return i + 1;
         }
-        return -1;
+        return XP_LEVELS.length;
     }
 
     public static int getLevelXP(int level) {
-        if (level == 0) return 0;
+        if (level <= 0) return 0;
+        if (level > XP_LEVELS.length) return XP_LEVELS[XP_LEVELS.length - 1];
         return XP_LEVELS[level - 1];
     }
 
@@ -67,7 +68,7 @@ public class ChampionData {
                     stats = new double[] {0.1, 0.15, 0.2, 0.3};
                     break;
                 case "junk_4_antimagic_cube":
-                    stats = new double[] {-25, -50, -75, -100};
+                    stats = new double[] {25, 50, 75, 100};
                     break;
                 case "junk_2_peppermint_tank":
                 case "junk_3_globs_helmet":

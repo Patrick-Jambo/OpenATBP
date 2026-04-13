@@ -8,7 +8,6 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import com.smartfoxserver.v2.entities.User;
-import com.smartfoxserver.v2.entities.data.ISFSObject;
 
 import xyz.openatbp.extension.ATBPExtension;
 import xyz.openatbp.extension.Console;
@@ -17,19 +16,23 @@ import xyz.openatbp.extension.RoomHandler;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
 import xyz.openatbp.extension.game.actors.UserActor;
+import xyz.openatbp.extension.game.effects.ActorState;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 public class Neptr extends UserActor {
     private static final int PASSIVE_SPEED_DURATION = 3500;
-    private static final double PASSIVE_SPEED_VALUE = 0.35d;
-    private static final int PASSIVE_ATTACKSPEED_DURATION = 3500;
-    private static final double PASSIVE_ATTACKSPEED_VALUE = 0.25d;
+    private static final double PASSIVE_SPEED_PERCENT = 0.35d;
+    private static final int PASSIVE_ATTACK_SPEED_DURATION = 3500;
+    private static final double PASSIVE_ATTACK_SPEED_PERCENT = 0.25d;
     private static final int PASSIVE_DURATION = 3500;
     private static final int W_SLOW_DURATION = 3000;
-    private static final double W_SLOW_VALUE = 0.4d;
+    private static final double W_SLOW_PERCENT = 0.4d;
     private static final int MINE_LIFE_SPAN = 30000;
     private static final int E_DAMAGE_DURATION = 3000;
     private static final int E_CAST_DELAY = 500;
     private static final int E_SILENCE_DURATION = 1000;
+    public static final float E_KNOCKBACK_DIST = 3.5f;
     private boolean passiveActive = false;
     private long passiveStart = 0;
     private int mineNum = 0;
@@ -53,7 +56,6 @@ public class Neptr extends UserActor {
                 && System.currentTimeMillis() - this.passiveStart >= PASSIVE_DURATION) {
             this.passiveActive = false;
             ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "passive");
-            if (this.invisOrInBrush(this)) this.setState(ActorState.BRUSH, true);
         }
         if (this.isStopped() && !this.soundPlayed) {
             String moveEndSFX = SkinData.getNeptrMoveEndSFX(avatar);
@@ -84,9 +86,9 @@ public class Neptr extends UserActor {
     }
 
     @Override
-    public void setState(ActorState state, boolean enabled) {
-        super.setState(state, enabled);
-        if (state == ActorState.BRUSH && enabled) {
+    public void setInsideBrush(boolean isInsideBrush) {
+        super.setInsideBrush(isInsideBrush);
+        if (isInsideBrush) {
             this.passiveStart = System.currentTimeMillis();
             ExtensionCommands.createActorFX(
                     this.parentExt,
@@ -108,12 +110,21 @@ public class Neptr extends UserActor {
                 ExtensionCommands.playSound(
                         this.parentExt, this.room, this.id, "vo/vo_neptr_passive", this.location);
             }
-            this.addEffect(
-                    "speed", this.getStat("speed") * PASSIVE_SPEED_VALUE, PASSIVE_SPEED_DURATION);
-            this.addEffect(
+            effectManager.addEffect(
+                    this.id + "_neptr_passive_speed",
+                    "speed",
+                    PASSIVE_SPEED_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    PASSIVE_SPEED_DURATION);
+            effectManager.addEffect(
+                    this.id + "_neptr_passive_as",
                     "attackSpeed",
-                    this.getStat("attackSpeed") * -PASSIVE_ATTACKSPEED_VALUE,
-                    PASSIVE_ATTACKSPEED_DURATION);
+                    PASSIVE_ATTACK_SPEED_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.BUFF,
+                    PASSIVE_ATTACK_SPEED_DURATION);
+
             if (this.passiveActive) {
                 ExtensionCommands.removeStatusIcon(this.parentExt, this.player, "passive");
             }
@@ -129,12 +140,12 @@ public class Neptr extends UserActor {
     }
 
     @Override
-    public void move(ISFSObject params, Point2D destination) {
+    public void startMoveTo(Point2D endPoint) {
+        super.startMoveTo(endPoint);
         if (this.isStopped())
             ExtensionCommands.playSound(
                     this.parentExt, this.player, this.id, "sfx_neptr_move_start", this.location);
         this.soundPlayed = false;
-        super.move(params, destination);
     }
 
     @Override
@@ -332,10 +343,15 @@ public class Neptr extends UserActor {
             ultImpactedActors = new ArrayList<>();
             RoomHandler handler = parentExt.getRoomHandler(room.getName());
             for (Actor a : Champion.getActorsInRadius(handler, ultLocation, 3f)) {
-                if (a.getActorType() != ActorType.BASE) {
-                    if (isNeitherStructureNorAlly(a)) {
-                        a.knockback(Neptr.this.location, 3.5f);
-                        a.addState(ActorState.SILENCED, 0d, E_SILENCE_DURATION);
+                if (a.getActorType() != ActorType.BASE && a.isNotLeaping()) {
+                    if (isNeitherStructureNorAlly(a) && a.isNotLeaping()) {
+                        a.handleKnockback(Neptr.this.location, E_KNOCKBACK_DIST);
+                        a.getEffectManager()
+                                .addState(
+                                        ActorState.SILENCED,
+                                        id + "_neptr_e_silence",
+                                        0d,
+                                        E_SILENCE_DURATION);
                     }
                     if (isNeitherTowerNorAlly(a)) {
                         ExtensionCommands.createActorFX(
@@ -597,11 +613,16 @@ public class Neptr extends UserActor {
 
                         if (!targets.isEmpty()) {
                             for (Actor t : targets) {
-                                if (isNeitherStructureNorAlly(t)) {
-                                    t.addState(ActorState.SLOWED, W_SLOW_VALUE, W_SLOW_DURATION);
+                                if (isNeitherStructureNorAlly(t) && t.isNotLeaping()) {
+                                    t.getEffectManager()
+                                            .addState(
+                                                    ActorState.SLOWED,
+                                                    id + "_neptr_w_slow",
+                                                    W_SLOW_PERCENT,
+                                                    W_SLOW_DURATION);
                                 }
 
-                                if (isNeitherTowerNorAlly(t)) {
+                                if (isNeitherTowerNorAlly(t) && t.isNotLeaping()) {
                                     String ava = Neptr.this.avatar;
                                     JsonNode spellData = parentExt.getAttackData(ava, "spell2");
                                     double dmg = getSpellDamage(spellData, true);
