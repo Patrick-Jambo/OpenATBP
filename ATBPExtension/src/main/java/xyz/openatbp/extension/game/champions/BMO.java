@@ -499,9 +499,9 @@ public class BMO extends UserActor {
                 UserActor owner,
                 Line2D path,
                 float speed,
-                float hitboxRadius,
+                float offsetDistance,
                 String id) {
-            super(parentExt, owner, path, speed, hitboxRadius, id);
+            super(parentExt, owner, path, speed, offsetDistance, offsetDistance, id);
             this.victims = new ArrayList<>();
         }
 
@@ -523,7 +523,7 @@ public class BMO extends UserActor {
 
         @Override
         public Actor checkPlayerCollision(RoomHandler roomHandler) {
-            float searchArea = hitbox * 2;
+            float searchArea = offsetDistance * 2;
             List<Actor> actorsInRadius = roomHandler.getActorsInRadius(location, searchArea);
 
             for (Actor a : actorsInRadius) {
@@ -531,7 +531,7 @@ public class BMO extends UserActor {
                     JsonNode actorData = parentExt.getActorData(a.getAvatar());
                     double collisionRadius = actorData.get("collisionRadius").asDouble();
 
-                    if (a.getLocation().distance(location) <= hitbox + collisionRadius
+                    if (a.getLocation().distance(location) <= offsetDistance + collisionRadius
                             && isTargetable(a)) {
                         return a;
                     }
