@@ -2,7 +2,6 @@ package xyz.openatbp.extension.game.actors;
 
 import static xyz.openatbp.extension.game.actors.UserActor.*;
 import static xyz.openatbp.extension.game.effects.EffectManager.FEAR_MOVING_DISTANCE;
-import static xyz.openatbp.extension.game.effects.EffectManager.KNOCKBACK_SPEED;
 
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
@@ -367,6 +366,9 @@ public abstract class Actor {
     }
 
     public void stopMoving() {
+        if (movementState == MovementState.KNOCKBACK || movementState == MovementState.PULLED)
+            return;
+
         isMoving = false;
         moveStartPoint = location;
         moveDestination = location;
@@ -448,7 +450,7 @@ public abstract class Actor {
         ExtensionCommands.moveActor(parentExt, room, id, location, location, TELEPORT_SPEED, true);
     }
 
-    public void handleKnockback(Point2D source, float distance) {
+    public void handleKnockback(Point2D source, float distance, float speed) {
         if (effectManager.hasState(ActorState.IMMUNITY)) {
             return;
         }
@@ -467,10 +469,10 @@ public abstract class Actor {
             return;
         }
 
-        applyForcedMovement(knockbackDest, MovementState.KNOCKBACK);
+        applyForcedMovement(knockbackDest, MovementState.KNOCKBACK, speed);
     }
 
-    public void handlePull(Point2D source, float distance) {
+    public void handlePull(Point2D source, float distance, float speed) {
         if (effectManager.hasState(ActorState.IMMUNITY)) {
             return;
         }
@@ -482,22 +484,25 @@ public abstract class Actor {
             interruptDash(false);
         }
 
-        applyForcedMovement(pullDest, MovementState.PULLED);
+        applyForcedMovement(pullDest, MovementState.PULLED, speed);
     }
 
-    private void applyForcedMovement(Point2D dest, MovementState state) {
+    private void applyForcedMovement(Point2D dest, MovementState state, float speed) {
         float finalDist = (float) location.distance(dest);
-        int time = (int) ((finalDist / KNOCKBACK_SPEED) * 1000);
+        int time = (int) ((finalDist / speed) * 1000);
 
-        if (movementState == MovementState.IDLE) {
-            movementState = state;
-            forcedMoveSpeed = KNOCKBACK_SPEED;
-            scheduleTask(
-                    () -> {
+        movementState = state;
+        forcedMoveSpeed = speed;
+        final int generation = ++dashGeneration;
+
+        scheduleTask(
+                () -> {
+                    if (dashGeneration == generation) {
                         movementState = MovementState.IDLE;
-                    },
-                    time);
-        }
+                    }
+                },
+                time);
+
         startMoveTo(dest);
     }
 
@@ -527,7 +532,7 @@ public abstract class Actor {
         }
     }
 
-    public void playIdleAndInterruptSound() {
+    public void playInterruptSoundAndIdle() {
         ExtensionCommands.actorAnimate(parentExt, room, id, "idle", 100, false);
         ExtensionCommands.playSound(parentExt, room, id, "sfx_skill_interrupted", location);
     }
@@ -1314,8 +1319,9 @@ public abstract class Actor {
         double extendedX = x + abilityRange * unitX;
         double extendedY = y + abilityRange * unitY;
         Point2D lineEndPoint = new Point2D.Double(extendedX, extendedY);
-        double speed =
-                parentExt.getActorStats(projectile.getProjectileAsset()).get("speed").asDouble();
+
+        double speed = projectile.getSpeed();
+
         ExtensionCommands.createProjectile(
                 parentExt,
                 this.room,
@@ -1325,6 +1331,7 @@ public abstract class Actor {
                 location,
                 lineEndPoint,
                 (float) speed);
+
         this.parentExt.getRoomHandler(this.room.getName()).addProjectile(projectile);
     }
 

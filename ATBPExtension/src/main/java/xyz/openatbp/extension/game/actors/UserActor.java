@@ -821,8 +821,8 @@ public class UserActor extends Actor {
 
     @Override
     public void update(int msRan) {
-        this.handleDamageQueue();
         effectManager.handleEffectsUpdate();
+        this.handleDamageQueue();
 
         handleMovementUpdate();
         handleCharmMovement();

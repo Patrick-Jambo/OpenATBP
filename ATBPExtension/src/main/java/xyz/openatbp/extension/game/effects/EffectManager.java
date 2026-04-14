@@ -22,7 +22,7 @@ public class EffectManager {
     private static final List<Class<? extends Actor>> ignoreList =
             List.of(Base.class, Tower.class, BaseTower.class, BubbleGum.Turret.class);
 
-    public static final float KNOCKBACK_SPEED = 11;
+    public static final float DEFAULT_KNOCKBACK_SPEED = 11;
     public static final int FEAR_MOVING_DISTANCE = 3;
 
     public EffectManager(Actor a) {

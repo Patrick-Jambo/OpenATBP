@@ -79,6 +79,10 @@ public abstract class Bot extends Actor {
     protected Point2D[] lanePath;
     protected BotMapConfig mapConfig;
 
+    protected boolean isForcedMoving() {
+        return movementState == MovementState.KNOCKBACK || movementState == MovementState.PULLED;
+    }
+
     public Bot(
             ATBPExtension parentExt,
             Room room,
@@ -272,6 +276,13 @@ public abstract class Bot extends Actor {
 
     public void logCooldowns() {
         Console.log("Q: " + qCooldownMs + " W: " + wCooldownMs + " E: " + eCooldownMs);
+    }
+
+    public boolean defaultAbilityCheck(int abilityNum) {
+        return timeOk(abilityNum)
+                && !hasInterrupingCC()
+                && !isAutoAttacking
+                && movementState == MovementState.IDLE;
     }
 
     public void simulateBackpackLevelUp(String bag) {
@@ -717,28 +728,10 @@ public abstract class Bot extends Actor {
             }
         }
 
-        BotRole role = getBotRole();
-
-        if (role == BotRole.FIGHTER) {
-            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
-            if (tryMidAltar(rh)) return BotState.ALTAR;
-            if (tryJungle(rh)) return BotState.JUNGLING;
-            if (tryPushLanes(rh)) return BotState.PUSHING;
-        }
-
-        if (role == BotRole.LANE_PUSHER) {
-            if (tryMidAltar(rh)) return BotState.ALTAR;
-            if (tryPushLanes(rh)) return BotState.PUSHING;
-            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
-            if (tryJungle(rh)) return BotState.JUNGLING;
-        }
-
-        if (role == BotRole.JUNGLER) {
-            if (tryJungle(rh)) return BotState.JUNGLING;
-            if (tryMidAltar(rh)) return BotState.ALTAR;
-            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
-            if (tryPushLanes(rh)) return BotState.PUSHING;
-        }
+        if (tryClosestEnemy(rh)) return BotState.FIGHTING;
+        if (tryMidAltar(rh)) return BotState.ALTAR;
+        if (tryPushLanes(rh)) return BotState.PUSHING;
+        if (tryJungle(rh)) return BotState.JUNGLING;
 
         // CAPTURE DEFENSE ALTARS
         Point2D[] defenseAltars = new Point2D[2];
@@ -760,6 +753,9 @@ public abstract class Bot extends Actor {
     protected void executeBotState(BotState stateToExecute, int msRan) {
         // ALL startMoveTo called in update() need to check for !isMoving to not cause desync
         // between visual model and server location
+
+        if (isForcedMoving()) return;
+
         switch (stateToExecute) {
             case FIGHTING:
             case JUNGLING:
@@ -832,6 +828,7 @@ public abstract class Bot extends Actor {
 
     @Override
     public void update(int msRan) {
+        effectManager.handleEffectsUpdate();
         if (dead) return;
 
         if (globalCooldown > 0) globalCooldown -= 100;
@@ -839,7 +836,6 @@ public abstract class Bot extends Actor {
         if (attackCooldown > 0) attackCooldown -= 100;
 
         handleDamageQueue();
-        effectManager.handleEffectsUpdate();
         handleMovementUpdate();
         handleCharmMovement();
         handleBrush();
@@ -868,7 +864,6 @@ public abstract class Bot extends Actor {
         // BOT ACTIONS
         BotState botState = evaluateBotState();
         if (botState != null) {
-            /* Console.debugLog("Bot state: " + botState);*/
             executeBotState(botState, msRan);
         }
     }
@@ -937,6 +932,8 @@ public abstract class Bot extends Actor {
                 return;
             }
 
+            if (isForcedMoving()) return;
+
             this.target = target;
             if (!withinRange(target) && canMove()) {
                 startMoveTo(target.getLocation());
@@ -948,12 +945,16 @@ public abstract class Bot extends Actor {
     }
 
     public void respawn() {
-        dead = false;
+        effectManager.removeEffects();
         setLocation(mapConfig.respawnPoint);
+        dead = false;
+        isAutoAttacking = false;
+
         ExtensionCommands.snapActor(parentExt, room, id, location, location, false);
         setCanMove(true);
+
         setHealth((int) maxHealth, (int) maxHealth);
-        effectManager.removeEffects();
+
         agressors.clear();
         ExtensionCommands.playSound(parentExt, room, id, "sfx/sfx_champion_respawn", location);
         ExtensionCommands.createActorFX(

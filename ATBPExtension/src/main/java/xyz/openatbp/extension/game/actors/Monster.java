@@ -209,8 +209,8 @@ public class Monster extends Actor {
     public void handleKill(Actor a, JsonNode attackData) {}
 
     @Override
-    public void handleKnockback(Point2D source, float distance) {
-        super.handleKnockback(source, distance);
+    public void handleKnockback(Point2D source, float distance, float speed) {
+        super.handleKnockback(source, distance, speed);
         this.attackRangeOverride = true;
     }
 
@@ -328,10 +328,9 @@ public class Monster extends Actor {
     @Override
     public void update(int msRan) {
         this.handleDamageQueue();
-        // this.handleActiveEffects();
+        effectManager.handleEffectsUpdate();
         if (this.dead) return;
 
-        effectManager.handleEffectsUpdate();
         handleMovementUpdate();
         handleCharmMovement();
 

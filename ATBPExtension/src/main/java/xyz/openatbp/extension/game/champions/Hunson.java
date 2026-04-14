@@ -1,5 +1,7 @@
 package xyz.openatbp.extension.game.champions;
 
+import static xyz.openatbp.extension.game.effects.EffectManager.DEFAULT_KNOCKBACK_SPEED;
+
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.util.HashMap;
@@ -493,7 +495,7 @@ public class Hunson extends UserActor {
             }
 
             if (isNeitherStructureNorAlly(victim)) {
-                victim.handlePull(location, (float) Q_PULL_DISTANCE);
+                victim.handlePull(location, (float) Q_PULL_DISTANCE, DEFAULT_KNOCKBACK_SPEED);
                 victim.getEffectManager()
                         .addState(
                                 ActorState.SLOWED,

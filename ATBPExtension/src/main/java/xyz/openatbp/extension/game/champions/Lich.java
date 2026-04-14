@@ -515,9 +515,10 @@ public class Lich extends UserActor {
 
         @Override
         public void update(int msRan) {
+            effectManager.handleEffectsUpdate();
             this.handleDamageQueue();
             if (this.dead) return;
-            effectManager.handleEffectsUpdate();
+
             handleMovementUpdate();
 
             if (System.currentTimeMillis() - spawnTimeStamp >= SKULLY_LIFE_SPAN) {
