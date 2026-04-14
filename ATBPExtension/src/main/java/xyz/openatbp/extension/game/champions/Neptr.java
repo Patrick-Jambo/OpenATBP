@@ -448,21 +448,8 @@ public class Neptr extends UserActor {
         }
 
         @Override
-        public Actor checkPlayerCollision(RoomHandler roomHandler) {
-            float searchArea = offsetDistance * 2;
-            List<Actor> actorsInRadius = roomHandler.getActorsInRadius(location, searchArea);
-            for (Actor a : actorsInRadius) {
-                if (!this.damagedActors.contains(a)) {
-                    JsonNode actorData = parentExt.getActorData(a.getAvatar());
-                    double collisionRadius = actorData.get("collisionRadius").asDouble();
-
-                    if (a.getLocation().distance(location) <= offsetDistance + collisionRadius
-                            && isTargetable(a)) {
-                        return a;
-                    }
-                }
-            }
-            return null;
+        public boolean isTargetable(Actor a) {
+            return super.isTargetable(a) && !this.damagedActors.contains(a);
         }
 
         @Override

@@ -242,7 +242,7 @@ public class Lich extends UserActor {
 
                     Line2D abilityLine = Champion.getAbilityLine(this.location, dest, 8f);
                     this.fireProjectile(
-                            new LichCharm(
+                            new LichWProjectile(
                                     parentExt,
                                     this,
                                     abilityLine,
@@ -646,9 +646,9 @@ public class Lich extends UserActor {
         }
     }
 
-    public class LichCharm extends Projectile {
+    public class LichWProjectile extends Projectile {
 
-        public LichCharm(
+        public LichWProjectile(
                 ATBPExtension parentExt,
                 UserActor owner,
                 Line2D path,
