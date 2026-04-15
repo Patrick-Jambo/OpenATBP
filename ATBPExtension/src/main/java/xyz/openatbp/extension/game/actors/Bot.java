@@ -41,7 +41,6 @@ public abstract class Bot extends Actor {
     protected Long enemyDmgTime = 0L;
     protected HashMap<Actor, Long> agressors = new HashMap<>();
 
-    protected static final int BASIC_ATTACK_DELAY = 500;
     protected int qCooldownMs;
     protected int wCooldownMs;
     protected int eCooldownMs;

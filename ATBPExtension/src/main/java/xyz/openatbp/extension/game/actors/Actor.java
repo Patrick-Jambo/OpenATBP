@@ -77,7 +77,7 @@ public abstract class Actor {
     protected boolean hasKeeothBuff = false;
     protected boolean hasGooBuff = false;
 
-    protected static final int BASIC_ATTACK_DELAY = 500;
+    public static final int BASIC_ATTACK_DELAY = 500;
 
     protected EffectManager effectManager = new EffectManager(this);
 
