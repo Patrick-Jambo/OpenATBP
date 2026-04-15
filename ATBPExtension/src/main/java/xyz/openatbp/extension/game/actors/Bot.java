@@ -1,5 +1,8 @@
 package xyz.openatbp.extension.game.actors;
 
+import static xyz.openatbp.extension.game.actors.UserActor.RESPAWN_SPEED_BOOST;
+import static xyz.openatbp.extension.game.actors.UserActor.RESPAWN_SPEED_BOOST_MS;
+
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,6 +19,8 @@ import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.champions.GooMonster;
 import xyz.openatbp.extension.game.champions.Keeoth;
+import xyz.openatbp.extension.game.effects.ModifierIntent;
+import xyz.openatbp.extension.game.effects.ModifierType;
 
 public abstract class Bot extends Actor {
     private static final boolean MOVEMENT_DEBUG = false;
@@ -123,10 +128,12 @@ public abstract class Bot extends Actor {
 
     @Override
     public void die(Actor a) {
+        if (dead) return;
         dead = true;
-        currentHealth = 0;
+        target = null;
         setCanMove(false);
         setInsideBrush(false);
+        setHealth(0, getMaxHealth());
 
         Actor realKiller = a;
 
@@ -945,18 +952,31 @@ public abstract class Bot extends Actor {
     }
 
     public void respawn() {
-        effectManager.removeEffects();
         setLocation(mapConfig.respawnPoint);
+        setCanMove(true);
+        setHealth((int) maxHealth, (int) maxHealth);
         dead = false;
         isAutoAttacking = false;
+        effectManager.removeEffects();
+        agressors.clear();
+
+        Console.debugLog("Respawning " + id + " at " + location);
 
         ExtensionCommands.snapActor(parentExt, room, id, location, location, false);
-        setCanMove(true);
-
-        setHealth((int) maxHealth, (int) maxHealth);
-
-        agressors.clear();
         ExtensionCommands.playSound(parentExt, room, id, "sfx/sfx_champion_respawn", location);
+
+        effectManager.addEffect(
+                this.getId() + "_respawn_speed_boost",
+                "speed",
+                RESPAWN_SPEED_BOOST,
+                ModifierType.ADDITIVE,
+                ModifierIntent.BUFF,
+                RESPAWN_SPEED_BOOST_MS,
+                "statusEffect_speed",
+                id + "statusEffect_speed",
+                "targetNode");
+
+        ExtensionCommands.respawnActor(parentExt, room, id);
         ExtensionCommands.createActorFX(
                 parentExt,
                 room,
@@ -969,8 +989,6 @@ public abstract class Bot extends Actor {
                 false,
                 false,
                 team);
-
-        ExtensionCommands.respawnActor(parentExt, room, id);
     }
 
     @Override

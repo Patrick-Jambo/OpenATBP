@@ -6,6 +6,7 @@ import java.util.*;
 
 import xyz.openatbp.extension.Console;
 import xyz.openatbp.extension.ExtensionCommands;
+import xyz.openatbp.extension.game.MovementState;
 import xyz.openatbp.extension.game.actors.*;
 import xyz.openatbp.extension.game.champions.BubbleGum;
 
@@ -80,10 +81,10 @@ public class EffectManager {
     }
 
     private boolean canMoveDuringCharmOrFear(ActorState stateToApply) {
+        // if actor has charm and fear at the same time, don't move
         boolean canMove =
-                !(hasState(ActorState.ROOTED)
-                        || hasState(ActorState.STUNNED)
-                        || hasState(ActorState.AIRBORNE));
+                !(hasState(ActorState.ROOTED) || hasState(ActorState.STUNNED))
+                        && actor.getMovementState() == MovementState.IDLE;
         if (stateToApply == ActorState.CHARMED) {
             return canMove && !hasState(ActorState.FEARED);
         }

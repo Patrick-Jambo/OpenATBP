@@ -149,7 +149,7 @@ public class JakeBot extends Bot {
 
     @Override
     public boolean defaultAbilityCheck(int abilityNum) {
-        return super.defaultAbilityCheck(abilityNum) && blockSkillsAndWalking;
+        return super.defaultAbilityCheck(abilityNum) && !blockSkillsAndWalking;
     }
 
     @Override

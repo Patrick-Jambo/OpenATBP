@@ -38,7 +38,6 @@ public abstract class Actor {
     protected double maxHealth;
     protected Point2D location;
     protected boolean dead = false;
-    protected float timeTraveled;
     protected String id;
     protected Room room;
     protected int team;
@@ -223,11 +222,7 @@ public abstract class Actor {
 
     public boolean hasMovementCC() {
         ActorState[] cc = {
-            ActorState.AIRBORNE,
-            ActorState.STUNNED,
-            ActorState.ROOTED,
-            ActorState.FEARED,
-            ActorState.CHARMED
+            ActorState.STUNNED, ActorState.ROOTED, ActorState.FEARED, ActorState.CHARMED
         };
         for (ActorState effect : cc) {
             if (effectManager.hasState(effect)) return true;
@@ -237,11 +232,7 @@ public abstract class Actor {
 
     public boolean hasAttackCC() {
         ActorState[] cc = {
-            ActorState.AIRBORNE,
-            ActorState.STUNNED,
-            ActorState.CHARMED,
-            ActorState.FEARED,
-            ActorState.BLINDED
+            ActorState.STUNNED, ActorState.CHARMED, ActorState.FEARED, ActorState.BLINDED
         };
         for (ActorState effect : cc) {
             if (effectManager.hasState(effect)) return true;
@@ -292,7 +283,6 @@ public abstract class Actor {
             if (s == ActorState.STUNNED
                     || s == ActorState.FEARED
                     || s == ActorState.CHARMED
-                    || s == ActorState.AIRBORNE
                     || s == ActorState.POLYMORPH) {
                 if (effectManager.hasState(s)) return false;
             }
@@ -316,8 +306,7 @@ public abstract class Actor {
             if (s == ActorState.ROOTED
                     || s == ActorState.STUNNED
                     || s == ActorState.FEARED
-                    || s == ActorState.CHARMED
-                    || s == ActorState.AIRBORNE) {
+                    || s == ActorState.CHARMED) {
                 if (effectManager.hasState(s)) return false;
             }
         }
@@ -325,6 +314,8 @@ public abstract class Actor {
                 || movementState == MovementState.LEAPING
                 || movementState == MovementState.KNOCKBACK
                 || movementState == MovementState.PULLED) return false;
+
+        if (isAutoAttacking) return false;
         return this.canMove;
     }
 
@@ -338,7 +329,6 @@ public abstract class Actor {
             ActorState.FEARED,
             ActorState.POLYMORPH,
             ActorState.STUNNED,
-            ActorState.AIRBORNE,
             ActorState.SILENCED
         };
         for (ActorState state : states) {

@@ -205,7 +205,11 @@ public class Minion extends Actor {
     public void die(Actor a) {
         this.currentHealth = 0;
         if (this.dead) return;
-        if (!effectManager.hasState(ActorState.AIRBORNE)) this.stopMoving();
+
+        if (movementState != MovementState.KNOCKBACK && movementState != MovementState.PULLED) {
+            stopMoving();
+        }
+
         this.dead = true;
         if (a.getActorType() == ActorType.PLAYER || a.getActorType() == ActorType.COMPANION) {
             UserActor ua = null;
@@ -507,6 +511,7 @@ public class Minion extends Actor {
 
     @Override
     public void setTarget(Actor a) {
+        if (a == null) return;
         this.target = a;
         if (a.getActorType() == ActorType.PLAYER) {
             UserActor ua = (UserActor) a;
