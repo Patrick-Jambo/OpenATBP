@@ -362,6 +362,11 @@ public class Jake extends UserActor {
         }
 
         @Override
+        public boolean isTargetable(Actor a) {
+            return super.isTargetable(a) && a.isNotLeaping();
+        }
+
+        @Override
         protected void hit(Actor victim) {
             JsonNode spellData = parentExt.getAttackData(getChampionName(avatar), "spell1");
 
