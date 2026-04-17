@@ -26,6 +26,7 @@ public class EffectManager {
 
     public static final float DEFAULT_KNOCKBACK_SPEED = 11;
     public static final int FEAR_MOVING_DISTANCE = 3;
+    private final float POLYMORPH_SLOW = 0.4f;
 
     public EffectManager(Actor a) {
         this.actor = a;
@@ -71,7 +72,12 @@ public class EffectManager {
 
             case POLYMORPH:
                 actor.interruptDash(false);
-                if (actor.hasCustomPolySwap()) actor.customSwapToPoly();
+                addState(
+                        ActorState.SLOWED,
+                        actor.getId() + "_poly_slow",
+                        POLYMORPH_SLOW,
+                        durationMs);
+                if (actor.hasCustomSwapToPoly()) actor.customSwapToPoly();
                 else handleSwapToPoly();
                 break;
 
@@ -409,7 +415,7 @@ public class EffectManager {
                 if (stateBools.get(s) && stateCount.get(s) == 0) {
                     setState(s, false); // remove state if expired
 
-                    if (s == ActorState.POLYMORPH && actor.hasCustomPolySwap()) {
+                    if (s == ActorState.POLYMORPH && actor.hasCustomSwapFromPoly()) {
                         actor.customSwapFromPoly();
                     } else if (s == ActorState.POLYMORPH) {
                         handleSwapFromPoly();

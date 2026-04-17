@@ -1,5 +1,6 @@
 package xyz.openatbp.extension.game.actors;
 
+import static xyz.openatbp.extension.game.actors.Tower.TOWER_ATTACK_RANGE;
 import static xyz.openatbp.extension.game.actors.UserActor.*;
 import static xyz.openatbp.extension.game.effects.EffectManager.FEAR_MOVING_DISTANCE;
 
@@ -29,6 +30,10 @@ public abstract class Actor {
     public static final int TELEPORT_SPEED = 100;
     public static final int CYCLOPS_REGEN_DURATION = 60000;
 
+    private static final String DC_BUFF_TIER1_ID = "dc_buff_tier1";
+    private static final String DC_BUFF_TIER2_ID = "dc_buff_tier2";
+    private static final int DC_BUFF_DURATION = 1000 * 15 * 60;
+
     public enum AttackType {
         PHYSICAL,
         SPELL
@@ -54,7 +59,6 @@ public abstract class Actor {
     protected List<Point2D> path;
     protected int xpWorth;
     protected String bundle;
-    protected boolean towerAggroCompanion = false;
     protected Map<Actor, ISFSObject> aggressors = new HashMap<>();
     protected Map<String, Double> endGameStats = new HashMap<>();
     protected Actor charmer;
@@ -83,7 +87,10 @@ public abstract class Actor {
 
     protected EffectManager effectManager = new EffectManager(this);
 
-    protected boolean customPolySwap = false;
+    protected boolean hasCustomSwapFromPoly = false;
+    protected boolean hasCustomSwapToPoly = false;
+
+    protected boolean towerFocused = false;
 
     protected long lastGrobDeviceProc = 0L;
     protected boolean grobShieldActive = false;
@@ -101,6 +108,44 @@ public abstract class Actor {
     protected boolean isInsideBrush = false;
 
     protected float lastSyncedMoveSpeed = -1;
+
+    protected long lastKilled = System.currentTimeMillis();
+    protected boolean shouldTriggerAnnouncer = false;
+
+    protected int killingSpree = 0;
+    protected int multiKill = 0;
+
+    public boolean getShouldTriggerAnnouncer() {
+        return shouldTriggerAnnouncer;
+    }
+
+    public void setShouldTriggerAnnouncer(boolean announced) {
+        this.shouldTriggerAnnouncer = announced;
+    }
+
+    public int getMultiKill() {
+        return multiKill;
+    }
+
+    public int getKillingSpree() {
+        return killingSpree;
+    }
+
+    public long getLastKilled() {
+        return lastKilled;
+    }
+
+    public void setLastKilled(Long time) {
+        this.lastKilled = time;
+    }
+
+    public boolean isTowerFocused() {
+        return this.towerFocused;
+    }
+
+    public void setTowerFocused(boolean focused) {
+        this.towerFocused = focused;
+    }
 
     public double getGameStat(String stat) {
         return this.endGameStats.get(stat);
@@ -268,12 +313,18 @@ public abstract class Actor {
     // EFFECTS AND STATS
     public void onStateChange(ActorState state, boolean enabled) {}
 
-    public void customSwapToPoly() {}
+    public void customSwapToPoly() {
+        effectManager.handleSwapToPoly();
+    }
 
     public void customSwapFromPoly() {}
 
-    public boolean hasCustomPolySwap() {
-        return customPolySwap;
+    public boolean hasCustomSwapToPoly() {
+        return hasCustomSwapToPoly;
+    }
+
+    public boolean hasCustomSwapFromPoly() {
+        return hasCustomSwapFromPoly;
     }
 
     public boolean hasMovementCC() {
@@ -816,6 +867,119 @@ public abstract class Actor {
             best = i + 1;
         }
         return best; // remaining path is roughly straight
+    }
+
+    public void addTier1DCBuff() {
+        effectManager.addEffect(
+                DC_BUFF_TIER1_ID,
+                "armor",
+                DC_ARMOR_BUFF - 1,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                DC_BUFF_DURATION);
+
+        effectManager.addEffect(
+                DC_BUFF_TIER1_ID,
+                "spellResist",
+                DC_SPELL_RESIST_BUFF,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                DC_BUFF_DURATION);
+
+        effectManager.addEffect(
+                DC_BUFF_TIER1_ID,
+                "speed",
+                DC_SPEED_BUFF,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                DC_BUFF_DURATION);
+        ExtensionCommands.createActorFX(
+                parentExt,
+                room,
+                id,
+                "disconnect_buff_duo",
+                DC_BUFF_DURATION,
+                id + "_dcbuff1",
+                true,
+                "",
+                false,
+                false,
+                team);
+    }
+
+    public void addTier2DCBuff() {
+        effectManager.addEffect(
+                DC_BUFF_TIER2_ID,
+                "attackDamage",
+                DC_AD_BUFF,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                DC_BUFF_DURATION);
+
+        effectManager.addEffect(
+                DC_BUFF_TIER2_ID,
+                "spellDamage",
+                DC_PD_BUFF,
+                ModifierType.MULTIPLICATIVE,
+                ModifierIntent.BUFF,
+                DC_BUFF_DURATION);
+
+        ExtensionCommands.createActorFX(
+                parentExt,
+                room,
+                id,
+                "disconnect_buff_solo",
+                DC_BUFF_DURATION,
+                id + "_dcbuff2",
+                true,
+                "",
+                false,
+                false,
+                team);
+    }
+
+    public void applyDCBuff(int tier) {
+        if (tier == 1) {
+            addTier1DCBuff();
+
+        } else if (tier == 2) {
+            addTier2DCBuff();
+        }
+    }
+
+    public void removeTier1DCBuff() {
+        effectManager.removeAllEffectsById(DC_BUFF_TIER1_ID);
+        ExtensionCommands.removeFx(parentExt, room, id + "_dcbuff1");
+    }
+
+    public void removeTier2DCBuff() {
+        effectManager.removeAllEffectsById(DC_BUFF_TIER2_ID);
+        ExtensionCommands.removeFx(parentExt, room, id + "_dcbuff2");
+    }
+
+    public void removeDCBuff(int tier) {
+        if (tier == 1) {
+            removeTier1DCBuff();
+        } else if (tier == 2) {
+            removeTier2DCBuff();
+        }
+    }
+
+    public boolean isInAliveTowerRange(Actor actor, boolean allyTower) {
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+
+        List<Actor> towers = new ArrayList<>(rh.getTowers());
+        towers.addAll(rh.getBaseTowers());
+
+        int teamToCheck = allyTower ? actor.getOppositeTeam() : getTeam();
+
+        towers.removeIf(t -> t.getHealth() <= 0 || t.isDead() || t.getTeam() == teamToCheck);
+
+        for (Actor tower : towers) {
+            if (actor.getLocation().distance(tower.getLocation()) <= TOWER_ATTACK_RANGE)
+                return true;
+        }
+        return false;
     }
 
     public boolean withinRange(Actor a) {

@@ -18,6 +18,7 @@ import xyz.openatbp.extension.game.Champion;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 @MultiHandler
 public class DoActorAbilityHandler extends BaseClientRequestHandler {
@@ -67,7 +68,12 @@ public class DoActorAbilityHandler extends BaseClientRequestHandler {
                 && spellData.get("castType").asText().equalsIgnoreCase("AIMED")) {
             Point2D serverLocation =
                     new Point2D.Float(params.getFloat("fx"), params.getFloat("fz"));
-            player.setLocation(serverLocation);
+
+            RoomHandler rh = parentExt.getRoomHandler(player.getRoom().getName());
+            PathFinder pf = rh.getPathFinder();
+            if (!pf.isPointInsideObstacle(serverLocation) && pf.isPointInsideMap(serverLocation)) {
+                player.setLocation(serverLocation);
+            }
         }
 
         Point2D oldLocation = new Point2D.Float(x, z);

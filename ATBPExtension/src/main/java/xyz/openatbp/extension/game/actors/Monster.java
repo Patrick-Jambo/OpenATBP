@@ -287,6 +287,11 @@ public class Monster extends Actor {
                 stopMoving();
             }
 
+            if (a instanceof Bot) {
+                RoomHandler rh = parentExt.getRoomHandler(room.getName());
+                rh.addScore(a, a.getTeam(), this.xpWorth);
+            }
+
             this.currentHealth = -1;
             RoomHandler roomHandler = parentExt.getRoomHandler(this.room.getName());
             int scoreValue = parentExt.getActorStats(this.avatar).get("valueScore").asInt();

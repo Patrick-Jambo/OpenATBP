@@ -210,6 +210,11 @@ public class Minion extends Actor {
             stopMoving();
         }
 
+        if (a instanceof Bot) {
+            RoomHandler rh = parentExt.getRoomHandler(room.getName());
+            rh.addScore(a, a.getTeam(), 1);
+        }
+
         this.dead = true;
         if (a.getActorType() == ActorType.PLAYER || a.getActorType() == ActorType.COMPANION) {
             UserActor ua = null;
@@ -241,7 +246,6 @@ public class Minion extends Actor {
             List<Actor> enemies = Champion.getEnemyActorsInRadius(rh, team, location, XP_RADIUS);
             enemies.removeIf(e -> !(e instanceof UserActor || e instanceof Bot));
 
-            int xpValue = (int) (xpWorth / 2.0);
             for (Actor actor : enemies) {
 
                 if (actor instanceof UserActor) {

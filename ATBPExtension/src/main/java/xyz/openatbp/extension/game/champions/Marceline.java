@@ -58,7 +58,7 @@ public class Marceline extends UserActor {
 
     public Marceline(User u, ATBPExtension parentExt) {
         super(u, parentExt);
-        this.customPolySwap = true;
+        this.hasCustomSwapFromPoly = true;
     }
 
     @Override

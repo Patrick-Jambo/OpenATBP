@@ -50,18 +50,36 @@ public class JakeBot extends Bot {
             BotMapConfig mapConfig) {
         super(parentExt, room, botId, avatar, displayName, team, mapConfig);
 
-        qCooldownMs = 12000;
-        wCooldownMs = 14000;
-        eCooldownMs = 60000;
+        this.qCooldownMs = 12000;
+        this.wCooldownMs = 14000;
+        this.eCooldownMs = 60000;
 
-        qGCooldownMs = 1000;
-        wGCooldownMs = 500;
-        eGCooldownMs = 5000;
+        this.qGCooldownMs = 1000;
+        this.wGCooldownMs = 500;
+        this.eGCooldownMs = 5000;
 
-        qCastDelayMS = 600;
-        wCastDelayMS = 0;
-        eCastDelayMS = 0;
+        this.qCastDelayMS = 600;
+        this.wCastDelayMS = 0;
+        this.eCastDelayMS = 0;
         setHealth(800, 800);
+
+        this.lowHpActionPHealth = 0.25;
+
+        this.canWinUnderTowerLvDif = -3;
+        this.canWinEReadyLvDif = -2;
+        this.canWinQWReadyLvDif = -1;
+
+        this.soloJungleLv = 4;
+        this.soloJunglePHealth = 0.9;
+        this.duoJungleLv = 2;
+        this.duoJunglePHealth = 0.5;
+        this.trioJunglePHeath = 0.35;
+        this.closestPlayerLvDif = -1;
+
+        this.fleeMinionsAttackedPHpPerLv = 0.035f;
+        this.defAltarCaptureActionDist = 2f;
+
+        this.botRole = BotRole.FIGHTER;
     }
 
     @Override
@@ -217,6 +235,9 @@ public class JakeBot extends Bot {
     @Override
     public void handleFightingAbilities() {
         if (target != null) {
+
+            if (target.getActorType() == ActorType.TOWER) return;
+
             if (target instanceof UserActor) {
                 if (canUseQ()) useQ(target.getLocation());
             }
