@@ -249,7 +249,7 @@ public class Hunson extends UserActor {
                             this.id,
                             "sfx_hunson_scream2",
                             this.location);
-                    Line2D spellLine = Champion.getAbilityLine(this.location, dest, 8f);
+                    Line2D spellLine = Champion.createLineTowards(this.location, dest, 8f);
                     this.fireProjectile(
                             new HudsonProjectile(
                                     this.parentExt,

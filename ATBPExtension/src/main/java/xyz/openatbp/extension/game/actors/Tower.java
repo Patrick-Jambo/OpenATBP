@@ -242,9 +242,6 @@ public class Tower extends Actor {
                     .getRoomHandler(this.room.getName())
                     .addScore(earner, a.getTeam(), TOWER_KILL_POINTS);
         }
-        if (target != null && target instanceof Bot) {
-            ExtensionCommands.removeFx(parentExt, room, id + "_target");
-        }
     }
 
     protected String getTowerDownSound(UserActor ua) {
@@ -353,6 +350,7 @@ public class Tower extends Actor {
         if (enemiesInRadius.isEmpty()) {
             if (attackCooldown != TOWER_ATTACK_SPEED_FIRST_SHOT) {
                 attackCooldown = TOWER_ATTACK_SPEED_FIRST_SHOT;
+                target = null;
             }
             return;
         }
@@ -374,6 +372,10 @@ public class Tower extends Actor {
         if (potentialTarget == null) return;
 
         boolean targetChanged = target == null || !target.equals(potentialTarget);
+
+        if ((targetChanged && target != null) || (target != null && target.getHealth() <= 0)) {
+            ExtensionCommands.removeFx(parentExt, room, id + "_target");
+        }
 
         this.target = potentialTarget;
 

@@ -189,7 +189,7 @@ public class Jake extends UserActor {
                 blockSkillsAndWalking = true;
                 Runnable activateHitbox =
                         () -> {
-                            Line2D qLine = Champion.getAbilityLine(location, dest, Q_MAX_RANGE);
+                            Line2D qLine = Champion.createLineTowards(location, dest, Q_MAX_RANGE);
                             qProjectile =
                                     new JakeQProjectile(
                                             parentExt, this, qLine, Q_PROJECTILE_SPEED, 1f, 1f, "");

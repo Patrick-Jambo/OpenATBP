@@ -78,6 +78,7 @@ public class FinnBot extends Bot {
 
         this.fleeMinionsAttackedPHpPerLv = 0.05f;
         this.defAltarCaptureActionDist = 3f;
+        this.playerAttackedLvDif = -2;
 
         this.botRole = BotRole.FIGHTER;
     }
@@ -175,7 +176,7 @@ public class FinnBot extends Bot {
     public void handleRetreatAbilities() {
         if (canAttack()) {
             Point2D fleePoint = getNextFleeWaypoint();
-            Point2D dashPoint = Champion.getAbilityLine(location, fleePoint, 5f).getP2();
+            Point2D dashPoint = Champion.createLineTowards(location, fleePoint, 5f).getP2();
 
             if (canUseW()) useW(dashPoint);
 

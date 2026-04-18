@@ -4,6 +4,7 @@ import static xyz.openatbp.extension.game.actors.Tower.TOWER_ATTACK_RANGE;
 import static xyz.openatbp.extension.game.actors.UserActor.*;
 import static xyz.openatbp.extension.game.effects.EffectManager.FEAR_MOVING_DISTANCE;
 
+import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.*;
@@ -106,6 +107,7 @@ public abstract class Actor {
     protected int killingSpree = 0;
     protected int multiKill = 0;
     protected List<Actor> killedChampions = new ArrayList<>();
+    private Point2D endPoint = null;
 
     public List<Actor> getKilledChampions() {
         return this.killedChampions;
@@ -178,6 +180,10 @@ public abstract class Actor {
             default:
                 return (float) getPlayerStat("speed");
         }
+    }
+
+    public int getLevel() {
+        return this.level;
     }
 
     public MovementState getMovementState() {
@@ -532,7 +538,7 @@ public abstract class Actor {
                 },
                 timeMs);
 
-        startMoveTo(dashEndPoint);
+        startMoveTo(dashEndPoint, true);
     }
 
     public void completeDash() {
@@ -571,12 +577,12 @@ public abstract class Actor {
 
         double distToAttacker = location.distance(source);
         float dist = (float) (distance + distToAttacker);
-        Point2D knockbackDest = Champion.getAbilityLine(source, location, dist).getP2();
+        Point2D knockbackDest = Champion.createLineTowards(source, location, dist).getP2();
 
         if (activeDash != null) {
             if (activeDash.canBeRedirected()) {
                 activeDash.setDest(knockbackDest);
-                startMoveTo(knockbackDest);
+                startMoveTo(knockbackDest, true);
             } else {
                 interruptDash(false);
             }
@@ -591,7 +597,7 @@ public abstract class Actor {
             return;
         }
         // opposite of knockback — line goes FROM actor TOWARD source
-        Point2D pullDest = Champion.getAbilityLine(location, source, distance).getP2();
+        Point2D pullDest = Champion.createLineTowards(location, source, distance).getP2();
 
         // pull always cancels dashes, no redirect
         if (activeDash != null) {
@@ -617,23 +623,25 @@ public abstract class Actor {
                 },
                 time);
 
-        startMoveTo(dest);
+        startMoveTo(dest, true);
     }
 
     public void handleCharmMovement() {
+        if (isDead()) return;
         if (effectManager.hasState(ActorState.CHARMED)
                 && location.distance(charmer.getLocation()) > CHARM_MIN_DISTANCE) {
-            startMoveTo(charmer.getLocation());
+            startMoveTo(charmer.getLocation(), true);
         } else if (effectManager.hasState(ActorState.CHARMED)) {
             stopMoving();
         }
     }
 
     public void handleFear(Actor fearer) {
+        if (isDead()) return;
         if (fearMovePoint == null) {
             Point2D fearerLoc = fearer.getLocation();
             Point2D stopPoint =
-                    Champion.getAbilityLine(location, fearerLoc, FEAR_MOVING_DISTANCE).getP2();
+                    Champion.createLineTowards(location, fearerLoc, FEAR_MOVING_DISTANCE).getP2();
 
             double dx = stopPoint.getX() - location.getX();
             double dy = stopPoint.getY() - location.getY();
@@ -642,7 +650,7 @@ public abstract class Actor {
         }
 
         if (fearMovePoint.distance(location) > 0.1) {
-            startMoveTo(fearMovePoint);
+            startMoveTo(fearMovePoint, true);
         }
     }
 
@@ -690,8 +698,10 @@ public abstract class Actor {
                 true);
     }
 
-    public void startMoveTo(Point2D endPoint) {
-        if (isAutoAttacking) return;
+    public void startMoveTo(Point2D endPoint, boolean forcedMovement) {
+        this.endPoint = endPoint;
+        if (isAutoAttacking && !forcedMovement) return;
+
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
         PathFinder pF = rh.getPathFinder();
 
@@ -870,6 +880,36 @@ public abstract class Actor {
             best = i + 1;
         }
         return best; // remaining path is roughly straight
+    }
+
+    protected void handleAutoUnstuck() {
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+        PathFinder pF = rh.getPathFinder();
+
+        if (!pF.isPointInsideObstacle(location) && pF.isPointInsideMap(location)) {
+            // Console.debugLog("Location is inside map, not auto-unstucking");
+            return;
+        }
+
+        Console.logWarning("id: " + id + " is inside obstacle or outside the map!");
+
+        if (endPoint == null) {
+            Console.debugLog("No end Point, not auto-unstucking");
+            return;
+        }
+
+        Point2D intersection = pF.getIntersectionPoint(location, endPoint);
+        float distToSafeSpot = (float) location.distance(intersection) + 1;
+
+        Line2D safeSpotLine = Champion.createLineTowards(location, intersection, distToSafeSpot);
+        Point2D safeSpot = safeSpotLine.getP2();
+
+        if (pF.isPointInsideMap(safeSpot) && !pF.isPointInsideObstacle(safeSpot)) {
+            Console.debugLog("Teleporting to safe spot");
+            teleport(safeSpot);
+            return;
+        }
+        Console.logWarning("Failed to auto-unstuck for actor: " + id);
     }
 
     public void addTier1DCBuff() {

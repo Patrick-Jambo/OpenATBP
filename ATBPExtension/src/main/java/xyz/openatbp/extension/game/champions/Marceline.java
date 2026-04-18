@@ -234,7 +234,7 @@ public class Marceline extends UserActor {
                 this.canCast[0] = false;
                 try {
                     this.stopMoving(castDelay);
-                    Line2D abilityLine = Champion.getAbilityLine(this.location, dest, 7f);
+                    Line2D abilityLine = Champion.createLineTowards(this.location, dest, 7f);
                     String qVO = SkinData.getMarcelineQVO(avatar, form.toString());
                     String proj = "projectile_marceline_dot";
                     String proj2 = "projectile_marceline_root";

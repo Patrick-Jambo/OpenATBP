@@ -739,6 +739,8 @@ public class UserActor extends Actor {
         handleBrush();
         handleQueuedDest();
 
+        if (msRan % 500 == 0) handleAutoUnstuck();
+
         if (this.dead) {
             if (this.currentHealth > 0
                     && System.currentTimeMillis() > this.timeKilled + (deathTime * 1500L))
@@ -868,7 +870,7 @@ public class UserActor extends Actor {
                     Point2D lastMovePoint = movePointsToDest.get(movePointsToDest.size() - 1);
                     double distance = tLoc.distance(lastMovePoint);
                     if (distance > 0.5) { // to avoid extension command spam
-                        startMoveTo(target.getLocation());
+                        startMoveTo(target.getLocation(), false);
                     }
                 }
             }
@@ -1015,7 +1017,7 @@ public class UserActor extends Actor {
 
     private void handleQueuedDest() {
         if (queuedDest != null && canMove() && !isMoving) {
-            startMoveTo(queuedDest);
+            startMoveTo(queuedDest, false);
             queuedDest = null;
         }
     }
@@ -1225,10 +1227,6 @@ public class UserActor extends Actor {
             updateData.put("pLevel", this.getPLevel());
             ExtensionCommands.updateActorData(this.parentExt, this.room, this.id, updateData);
         }
-    }
-
-    public int getLevel() {
-        return this.level;
     }
 
     public double getPLevel() {

@@ -1834,12 +1834,12 @@ public abstract class RoomHandler implements Runnable {
         return returnMonsters;
     }
 
-    public int getAveragePlayerLevel() {
+    public int getAverageChampionLevel() {
         int combinedPlayerLevel = 0;
-        for (UserActor a : this.players) {
+        for (Actor a : champions) {
             combinedPlayerLevel += a.getLevel();
         }
-        return combinedPlayerLevel / this.players.size();
+        return combinedPlayerLevel / champions.size();
     }
 
     public List<Tower> getTowers() {

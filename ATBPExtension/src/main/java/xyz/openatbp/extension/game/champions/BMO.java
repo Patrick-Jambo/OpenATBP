@@ -495,7 +495,7 @@ public class BMO extends UserActor {
             int delay = getReducedCooldown(cooldown) - E_CAST_DELAY;
             scheduleTask(enableECasting, delay);
             if (getHealth() > 0) {
-                Line2D abilityLine = Champion.getAbilityLine(location, dest, E_RANGE);
+                Line2D abilityLine = Champion.createLineTowards(location, dest, E_RANGE);
                 String ultProjectile = SkinData.getBMOEProjectileFX(avatar);
                 fireProjectile(
                         new BMOUltProjectile(

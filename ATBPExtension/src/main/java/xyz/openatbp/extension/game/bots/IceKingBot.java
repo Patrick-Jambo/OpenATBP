@@ -89,6 +89,7 @@ public class IceKingBot extends Bot {
 
         this.fleeMinionsAttackedPHpPerLv = 0.04f;
         this.defAltarCaptureActionDist = 3f;
+        this.playerAttackedLvDif = -1;
 
         this.botRole = BotRole.LANE_PUSHER;
     }
@@ -462,7 +463,7 @@ public class IceKingBot extends Bot {
         @Override
         protected void spellQ() {
             if (getHealth() > 0) {
-                Line2D abilityLine = Champion.getAbilityLine(location, dest, 7.5f);
+                Line2D abilityLine = Champion.createLineTowards(location, dest, 7.5f);
                 IceKingBotProjectile p =
                         new IceKingBotProjectile(
                                 parentExt,

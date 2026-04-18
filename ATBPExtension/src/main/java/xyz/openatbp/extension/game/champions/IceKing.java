@@ -493,7 +493,7 @@ public class IceKing extends UserActor {
             int delay = getReducedCooldown(cooldown) - Q_CAST_DELAY;
             scheduleTask(enableQCasting, delay);
             if (getHealth() > 0) {
-                Line2D abilityLine = Champion.getAbilityLine(location, dest, Q_RANGE);
+                Line2D abilityLine = Champion.createLineTowards(location, dest, Q_RANGE);
                 fireProjectile(
                         new IceKingProjectile(
                                 parentExt,

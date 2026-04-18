@@ -209,7 +209,7 @@ public class FlamePrincess extends UserActor {
                 try {
                     stopMoving();
                     if (getHealth() > 0) {
-                        Line2D abilityLine = Champion.getAbilityLine(location, dest, 8f);
+                        Line2D abilityLine = Champion.createLineTowards(location, dest, 8f);
                         ExtensionCommands.playSound(
                                 parentExt,
                                 room,
