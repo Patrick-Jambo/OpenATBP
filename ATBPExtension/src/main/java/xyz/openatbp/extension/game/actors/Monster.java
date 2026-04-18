@@ -138,21 +138,27 @@ public class Monster extends Actor {
             boolean returnVal = super.damaged(a, newDamage, attackData);
             if (!this.headingBack && isProperActor(a)) { // attacks the nearest attacker
                 state = AggroState.ATTACKED;
-                if (!effectManager.hasState(ActorState.CHARMED) && this.target == null
-                        || a.getLocation().distance(this.getLocation())
-                                < this.target.getLocation().distance(this.location)) {
+
+                if (!effectManager.hasState(ActorState.CHARMED) && this.target == null) {
                     this.target = a;
                 }
-                if (this.target != null && !this.withinRange(this.target)) {
+
+                if (target != null) {
+                    if (a.getLocation().distance(location)
+                            < target.getLocation().distance(location)) {
+                        this.target = a;
+                    }
+                }
+
+                if (target != null && !this.withinRange(this.target)) {
                     this.moveTowardsActor();
                 }
 
                 if (target != null && target.getActorType() == ActorType.PLAYER)
                     ExtensionCommands.setTarget(
                             parentExt, ((UserActor) target).getUser(), this.id, target.getId());
-                if (this.type
-                        == MonsterType
-                                .SMALL) { // Gets all mini monsters like gnomes and owls to all
+                if (this.type == MonsterType.SMALL) {
+                    // Gets all mini monsters like gnomes and owls to all
                     // target player when
                     // one is hit
                     for (Monster m :

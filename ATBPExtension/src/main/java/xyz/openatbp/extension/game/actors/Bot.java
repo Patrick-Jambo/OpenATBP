@@ -181,7 +181,7 @@ public abstract class Bot extends Actor {
         if (realKiller instanceof UserActor || realKiller instanceof Bot) {
             realKiller.increaseStat("kills", 1);
             RoomHandler roomHandler = parentExt.getRoomHandler(room.getName());
-            roomHandler.addScore(realKiller, realKiller.getTeam(), 25);
+            roomHandler.addScore(realKiller, realKiller.getTeam(), CHAMPION_KILL_POINTS);
 
             if (realKiller instanceof UserActor) {
                 UserActor player = (UserActor) realKiller;
@@ -1118,7 +1118,7 @@ public abstract class Bot extends Actor {
 
         if (a instanceof Bot || a instanceof UserActor) {
             shouldTriggerAnnouncer = true;
-            increaseStat("kills", 1);
+            killedChampions.add(a);
             killingSpree++;
 
             if (hasGameStat("spree")) {

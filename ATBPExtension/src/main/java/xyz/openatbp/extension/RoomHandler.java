@@ -92,7 +92,7 @@ public abstract class RoomHandler implements Runnable {
     private PointLeadTeam pointLeadTeam;
 
     private boolean isAnnouncingKill = false;
-    private static final int SINGLE_KILL_COOLDOWN = 5000;
+    private static final int SINGLE_KILL_COOLDOWN = 3000;
     private long lastSingleKillAnnouncement = 0;
 
     public RoomHandler(
@@ -371,7 +371,7 @@ public abstract class RoomHandler implements Runnable {
             players.removeIf(p -> p.getId().equalsIgnoreCase(String.valueOf(user.getId())));
             champions.removeIf(p -> p.getId().equalsIgnoreCase(String.valueOf(user.getId())));
 
-            handleDcBuff();
+            handleDcBuffAndGameOver();
 
             if (ranked) {
                 MongoCollection<Document> playerData = this.parentExt.getPlayerDatabase();
@@ -565,9 +565,7 @@ public abstract class RoomHandler implements Runnable {
         }
     }
 
-    protected void handleDcBuff() {
-        if (champions.size() == 1) return;
-
+    protected void handleDcBuffAndGameOver() {
         List<Actor> purpleTeam = new ArrayList<>(champions);
         List<Actor> blueTeam = new ArrayList<>(champions);
 
@@ -576,6 +574,15 @@ public abstract class RoomHandler implements Runnable {
 
         int purpleTeamSize = purpleTeam.size();
         int blueTeamSize = blueTeam.size();
+
+        int winningTeam = -1;
+        if (purpleTeamSize == 0) winningTeam = 1;
+        else if (blueTeamSize == 0) winningTeam = 0;
+
+        if (winningTeam != -1) {
+            gameOver(winningTeam);
+            return;
+        }
 
         this.dcWeight = purpleTeamSize - blueTeamSize;
 
@@ -1419,11 +1426,21 @@ public abstract class RoomHandler implements Runnable {
         parentExt.getTaskScheduler().schedule(stingEnd, duration, TimeUnit.MILLISECONDS);
     }
 
-    private void announceForTeam(Actor killer, int team, String announcerLine) {
+    private void announceForTeam(Actor killer, int team, String announcerLine, boolean singleKill) {
         List<UserActor> users = new ArrayList<>(players);
 
         UserActor killerUA = getPlayer(killer.getId());
         if (killerUA != null) users.remove(killerUA);
+
+        if (singleKill) {
+            Actor killedChampion =
+                    killer.getKilledChampions().get(killer.getKilledChampions().size() - 1);
+            UserActor killedUa = getPlayer(killedChampion.getId());
+
+            if (killedUa != null) {
+                users.remove(killedUa);
+            }
+        }
 
         for (UserActor ua : users) {
             if (ua.getTeam() == team) {
@@ -1436,13 +1453,10 @@ public abstract class RoomHandler implements Runnable {
         for (Actor a : champions) {
             if (a.getShouldTriggerAnnouncer()) {
                 a.setShouldTriggerAnnouncer(false);
-
                 handleAnnouncerBoolean();
 
                 int multi = a.getMultiKill();
                 int spree = a.getKillingSpree();
-
-                Console.debugLog("multi: " + multi + " spree: " + spree);
 
                 if (multi > 1) {
                     announceMultiOrSpree(
@@ -1480,19 +1494,32 @@ public abstract class RoomHandler implements Runnable {
         String allySound = allySounds[index];
         String enemySound = enemySounds[index];
 
-        announceForTeam(killerUa, killer.getTeam(), "announcer/" + allySound);
-        announceForTeam(killer, killer.getOppositeTeam(), "announcer/" + enemySound);
+        announceForTeam(killer, killer.getTeam(), "announcer/" + allySound, false);
+        announceForTeam(killer, killer.getOppositeTeam(), "announcer/" + enemySound, false);
     }
 
     private void announceSingleKill(Actor killer) {
-        UserActor killerUa = getPlayer(killer.getId());
-        if (killerUa != null) {
-            ExtensionCommands.playSound(
-                    parentExt, killerUa.getUser(), "global", "announcer/you_defeated_enemy");
-        }
+        if (System.currentTimeMillis() - lastSingleKillAnnouncement >= SINGLE_KILL_COOLDOWN) {
+            lastSingleKillAnnouncement = System.currentTimeMillis();
 
-        announceForTeam(killer, killer.getTeam(), "announcer/enemy_defeated");
-        announceForTeam(killer, killer.getOppositeTeam(), "announcer/ally_defeated");
+            UserActor killerUa = getPlayer(killer.getId());
+            if (killerUa != null) {
+                ExtensionCommands.playSound(
+                        parentExt, killerUa.getUser(), "global", "announcer/you_defeated_enemy");
+            }
+
+            Actor killedChampion =
+                    killer.getKilledChampions().get(killer.getKilledChampions().size() - 1);
+            UserActor killedUa = getPlayer(killedChampion.getId());
+
+            if (killedUa != null) {
+                ExtensionCommands.playSound(
+                        parentExt, killedUa.getUser(), "global", "announcer/you_are_defeated");
+            }
+
+            announceForTeam(killer, killer.getTeam(), "announcer/enemy_defeated", true);
+            announceForTeam(killer, killer.getOppositeTeam(), "announcer/ally_defeated", true);
+        }
     }
 
     private void handleAnnouncerBoolean() {

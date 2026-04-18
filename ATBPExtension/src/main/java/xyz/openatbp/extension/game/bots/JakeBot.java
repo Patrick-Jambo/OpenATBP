@@ -37,6 +37,7 @@ public class JakeBot extends Bot {
     private long ultStartTime = 0;
     private long lastSpell1cAnimTime = 0L;
     private boolean qAnimResetNeeded = false;
+    private boolean blockAttacks = false;
 
     private JakeQProjectile qProjectile;
 
@@ -296,7 +297,8 @@ public class JakeBot extends Bot {
         RoomHandler rh = parentExt.getRoomHandler(room.getName());
         List<Actor> enemiesNearby = Champion.getEnemyActorsInRadius(rh, team, location, W_RADIUS);
 
-        return enemiesNearby.size() > 1;
+        return enemiesNearby.size() > 1
+                || enemiesNearby.stream().anyMatch(a -> a instanceof UserActor);
     }
 
     @Override
@@ -344,7 +346,12 @@ public class JakeBot extends Bot {
         globalCooldown += wGCooldownMs;
         lastWUse = System.currentTimeMillis();
 
-        this.stopMoving(wGCooldownMs);
+        stopMoving(wGCooldownMs);
+        blockAttacks = true;
+
+        Runnable enableAttacks = () -> blockAttacks = false;
+        scheduleTask(enableAttacks, wGCooldownMs);
+
         String ballFX = SkinData.getJakeWFX(avatar);
         String dustUpFX = SkinData.getJakeWDustUpFX(avatar);
 

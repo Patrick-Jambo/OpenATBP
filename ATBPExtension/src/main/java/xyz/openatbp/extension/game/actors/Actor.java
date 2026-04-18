@@ -29,10 +29,21 @@ public abstract class Actor {
     public static final float CHARM_MIN_DISTANCE = 2f;
     public static final int TELEPORT_SPEED = 100;
     public static final int CYCLOPS_REGEN_DURATION = 60000;
+    public static final int CHAMPION_KILL_POINTS = 25;
+    public static final int TOWER_KILL_POINTS = 100;
+    private static final int HEALTH_PACK_REGEN = 15;
+    public static final int BASIC_ATTACK_DELAY = 500;
+    public final int BRUSH_PENALTY_DUR = 3000;
 
     private static final String DC_BUFF_TIER1_ID = "dc_buff_tier1";
     private static final String DC_BUFF_TIER2_ID = "dc_buff_tier2";
     private static final int DC_BUFF_DURATION = 1000 * 15 * 60;
+
+    private static final float DC_AD_BUFF = 0.2f;
+    private static final float DC_ARMOR_BUFF = 0.2f;
+    private static final float DC_SPELL_RESIST_BUFF = 0.2f;
+    private static final float DC_SPEED_BUFF = 0.15f;
+    private static final float DC_PD_BUFF = 0.2f;
 
     public enum AttackType {
         PHYSICAL,
@@ -68,52 +79,37 @@ public abstract class Actor {
     protected Point2D moveDestination;
     protected List<Point2D> movePointsToDest;
     protected int movePointsIndex = 0;
-
     protected long elapsedMoveTimeMs;
     protected long totalMoveTimeMs;
     protected int visualTargetIndex = 0;
-
     protected boolean isAutoAttacking = false;
     protected boolean isMoving = false;
     protected float forcedMoveSpeed = 3;
-
     protected boolean pickedUpHealthPack = false;
     protected Long healthPackRegenStart;
-
     protected boolean hasKeeothBuff = false;
     protected boolean hasGooBuff = false;
-
-    public static final int BASIC_ATTACK_DELAY = 500;
-
     protected EffectManager effectManager = new EffectManager(this);
-
     protected boolean hasCustomSwapFromPoly = false;
     protected boolean hasCustomSwapToPoly = false;
-
     protected boolean towerFocused = false;
-
     protected long lastGrobDeviceProc = 0L;
     protected boolean grobShieldActive = false;
-
     protected DashContext activeDash = null;
-
     protected MovementState movementState = MovementState.IDLE;
-
     protected int dashGeneration = 0;
-
     protected long brushPenaltyTime = 0L;
-
-    public final int BRUSH_PENALTY_DUR = 3000;
-
     protected boolean isInsideBrush = false;
-
     protected float lastSyncedMoveSpeed = -1;
-
     protected long lastKilled = System.currentTimeMillis();
     protected boolean shouldTriggerAnnouncer = false;
-
     protected int killingSpree = 0;
     protected int multiKill = 0;
+    protected List<Actor> killedChampions = new ArrayList<>();
+
+    public List<Actor> getKilledChampions() {
+        return this.killedChampions;
+    }
 
     public boolean getShouldTriggerAnnouncer() {
         return shouldTriggerAnnouncer;
@@ -288,7 +284,14 @@ public abstract class Actor {
     public void increaseStat(String key, double num) {
         // Console.debugLog("Increasing " + key + " by " + num);
         stats.put(key, stats.get(key) + num);
-        ExtensionCommands.updateActorData(parentExt, room, id, key, getPlayerStat(key));
+        double statValue;
+
+        if (key.equals("kills") || key.equals("deaths") || key.equals("assists")) {
+            statValue = stats.get(key);
+        } else {
+            statValue = getPlayerStat(key);
+        }
+        ExtensionCommands.updateActorData(parentExt, room, id, key, statValue);
     }
 
     public Actor getRealKiller(Actor a) {

@@ -22,9 +22,8 @@ import xyz.openatbp.extension.game.RoomGroup;
 
 public class Tower extends Actor {
     private static final float DAMAGE_REDUCTION_NO_MINIONS = 0.85f;
-    private static final int SCORE_VALUE = 100;
-    public static final int TOWER_NORMAL_ATTACK_SPEED = 2000;
-    public static final int TOWER_ATTACK_SPEED_FIRST_SHOT = 1000;
+    private static final int TOWER_NORMAL_ATTACK_SPEED = 2000;
+    private static final int TOWER_ATTACK_SPEED_FIRST_SHOT = 1000;
     public static final float TOWER_ATTACK_RANGE = 6;
 
     private final int[] PURPLE_TOWER_NUM = {2, 1};
@@ -241,7 +240,7 @@ public class Tower extends Actor {
 
             parentExt
                     .getRoomHandler(this.room.getName())
-                    .addScore(earner, a.getTeam(), SCORE_VALUE);
+                    .addScore(earner, a.getTeam(), TOWER_KILL_POINTS);
         }
         if (target != null && target instanceof Bot) {
             ExtensionCommands.removeFx(parentExt, room, id + "_target");

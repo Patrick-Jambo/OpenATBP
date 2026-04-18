@@ -332,6 +332,7 @@ public class Minion extends Actor {
                                 || a instanceof Tower
                                 || a instanceof Base
                                 || a instanceof Minion));
+        enemiesInAggro.removeIf(Actor::isDead);
 
         // if enemies are in aggro range, attack best target
         if (!enemiesInAggro.isEmpty()) {

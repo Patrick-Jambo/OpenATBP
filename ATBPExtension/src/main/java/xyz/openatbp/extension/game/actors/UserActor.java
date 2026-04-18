@@ -42,13 +42,6 @@ public class UserActor extends Actor {
     public static final int SIMON_GLASSES_RANGE = 5;
 
     public static final double DEFAULT_DASH_SPEED = 20d;
-    public static final int HEALTH_PACK_REGEN = 15;
-
-    public static final float DC_AD_BUFF = 0.2f;
-    public static final float DC_ARMOR_BUFF = 0.2f;
-    public static final float DC_SPELL_RESIST_BUFF = 0.2f;
-    public static final float DC_SPEED_BUFF = 0.15f;
-    public static final float DC_PD_BUFF = 0.2f;
 
     public static final double RESPAWN_SPEED_BOOST = 2d;
     public static final int RESPAWN_SPEED_BOOST_MS = 5000;
@@ -640,11 +633,13 @@ public class UserActor extends Actor {
                         this.id,
                         realKiller.getId(),
                         (HashMap<Actor, ISFSObject>) this.aggressors);
-                this.increaseStat("deaths", 1);
+                increaseStat("deaths", 1);
 
                 if (realKiller instanceof UserActor || realKiller instanceof Bot) {
-                    a.increaseStat("kills", 1);
-                    parentExt.getRoomHandler(room.getName()).addScore(a, a.getTeam(), 25);
+                    realKiller.increaseStat("kills", 1);
+                    parentExt
+                            .getRoomHandler(room.getName())
+                            .addScore(a, a.getTeam(), CHAMPION_KILL_POINTS);
                 }
                 for (Actor actor : this.aggressors.keySet()) {
                     if (actor.getActorType() == ActorType.PLAYER
@@ -967,10 +962,6 @@ public class UserActor extends Actor {
             }
 
             handleLargestMulti();
-
-            if (effectManager.hasTempStat("healthRegen") && currentHealth >= maxHealth) {
-                effectManager.removeAllStatEffects("healthRegen");
-            }
         }
     }
 
@@ -1446,6 +1437,7 @@ public class UserActor extends Actor {
 
         if (a instanceof UserActor || a instanceof Bot) {
             shouldTriggerAnnouncer = true;
+            killedChampions.add(a);
             double endGameSpree = getGameStat("spree");
 
             if (killingSpree > endGameSpree) {
@@ -1620,8 +1612,7 @@ public class UserActor extends Actor {
 
     public void updateStatMenu(String stat) {
         // Console.debugLog("Updating stat menu: " + stat + " with " + this.getPlayerStat(stat));
-        ExtensionCommands.updateActorData(
-                this.parentExt, this.room, this.id, stat, this.getPlayerStat(stat));
+        ExtensionCommands.updateActorData(parentExt, room, id, stat, getPlayerStat(stat));
     }
 
     protected void updateStatMenu(String[] stats) {
