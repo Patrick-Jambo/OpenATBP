@@ -105,7 +105,7 @@ public class JakeBot extends Bot {
             interruptQ();
         }
 
-        if (ultActivated && target != null && evaluateBotState() == BotState.FIGHTING) {
+        if (ultActivated && target != null && currentAction == BotAction.FIGHTING) {
             Point2D targetLoc = target.getLocation();
 
             final float MAX_RADIUS = 0.5f;
