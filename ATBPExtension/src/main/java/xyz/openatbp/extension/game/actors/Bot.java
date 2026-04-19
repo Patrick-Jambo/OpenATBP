@@ -73,6 +73,8 @@ public abstract class Bot extends Actor {
         ALLY_TOWER
     }
 
+    BotState currentState = BotState.FIGHTING;
+
     protected enum BotRole {
         FIGHTER,
         LANE_PUSHER,
@@ -101,6 +103,7 @@ public abstract class Bot extends Actor {
     protected float fleeMinionsAttackedPHpPerLv;
     protected float defAltarCaptureActionDist;
     protected double playerAttackedLvDif;
+    protected double junglingAlliesRadius;
 
     private long lastChampionKill = 0L;
     private int[] spCategoryPoints = {0, 0, 0, 0, 0};
@@ -638,12 +641,21 @@ public abstract class Bot extends Actor {
     }
 
     private boolean canJungle(RoomHandler rh) {
-        List<Actor> allies = rh.getActorsInRadius(location, 5f);
+        List<Actor> allies = rh.getActorsInRadius(location, (float) junglingAlliesRadius);
         allies.removeIf(
                 a ->
                         a == this
                                 || a.getTeam() != team
                                 || !(a instanceof Bot || a instanceof UserActor));
+
+        if (!allies.isEmpty()) {
+            for (Actor a : allies) {
+                if (a instanceof Bot) {
+                    Bot b = (Bot) a;
+                    if (b.currentState != BotState.JUNGLING) return false;
+                }
+            }
+        }
 
         return ((level >= soloJungleLv && getPHealth() >= soloJunglePHealth)
                 || (!allies.isEmpty() && getPHealth() >= duoJunglePHealth)
@@ -756,8 +768,10 @@ public abstract class Bot extends Actor {
         if (getPHealth() <= lowHpActionPHealth) {
             if (canWinFight() && lastPlayerAttacker != null && !lastPlayerAttacker.isInvisible()) {
                 this.target = lastPlayerAttacker;
+                currentState = BotState.FIGHTING;
                 return BotState.FIGHTING;
             }
+            currentState = BotState.RETREATING;
             return BotState.RETREATING;
         }
 
@@ -773,6 +787,7 @@ public abstract class Bot extends Actor {
         if (System.currentTimeMillis() - lastAttackedByTower <= 2000
                 || (System.currentTimeMillis() - lastAttackedByMinion <= 1000
                         && fleeOnMinionsAttacked())) {
+            currentState = BotState.FLEEING;
             return BotState.FLEEING;
         }
 
@@ -781,6 +796,7 @@ public abstract class Bot extends Actor {
             boolean wasAttackedRecently = System.currentTimeMillis() - lastPlayerAttackTime <= 2000;
             if (wasAttackedRecently && shouldAttackPlayer(lastPlayerAttacker)) {
                 target = lastPlayerAttacker;
+                currentState = BotState.FIGHTING;
                 return BotState.FIGHTING;
             }
         }
@@ -796,6 +812,7 @@ public abstract class Bot extends Actor {
             if (baseTowers.isEmpty()) {
                 // enemies can attack nexus, should defend
                 this.target = getClosestActor(enemies, true);
+                currentState = BotState.FIGHTING;
                 return BotState.FIGHTING;
             }
         }
@@ -819,6 +836,7 @@ public abstract class Bot extends Actor {
 
                 if (!enemiesBaseTower.isEmpty()) { // someone is attacking the base tower, defend it
                     this.target = getClosestActor(enemiesBaseTower, true);
+                    currentState = BotState.FIGHTING;
                     return BotState.FIGHTING;
                 }
             }
@@ -832,33 +850,79 @@ public abstract class Bot extends Actor {
                 enemiesUnderTower.removeIf(Actor::isInvisible);
                 if (!enemiesUnderTower.isEmpty()) {
                     this.target = getClosestActor(enemiesUnderTower, true);
+                    currentState = BotState.FIGHTING;
                     return BotState.FIGHTING;
                 }
             }
         }
 
         if (botRole == BotRole.FIGHTER) {
-            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
-            if (tryMidAltar(rh)) return BotState.ALTAR;
-            if (tryDefenseAltars(rh)) return BotState.ALTAR;
-            if (tryJungle(rh)) return BotState.JUNGLING;
-            if (tryPushLanes(rh)) return BotState.PUSHING;
+            if (tryMidAltar(rh)) {
+                currentState = BotState.ALTAR;
+                return BotState.ALTAR;
+            }
+            if (tryClosestEnemy(rh)) {
+                currentState = BotState.FIGHTING;
+                return BotState.FIGHTING;
+            }
+            if (tryJungle(rh)) {
+                currentState = BotState.JUNGLING;
+                return BotState.JUNGLING;
+            }
+            if (tryPushLanes(rh)) {
+                currentState = BotState.PUSHING;
+                return BotState.PUSHING;
+            }
+            if (tryDefenseAltars(rh)) {
+                currentState = BotState.ALTAR;
+                return BotState.ALTAR;
+            }
         }
 
         if (botRole == BotRole.LANE_PUSHER) {
-            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
-            if (tryMidAltar(rh)) return BotState.ALTAR;
-            if (tryDefenseAltars(rh)) return BotState.ALTAR;
-            if (tryPushLanes(rh)) return BotState.PUSHING;
-            if (tryJungle(rh)) return BotState.JUNGLING;
+            if (tryMidAltar(rh)) {
+                currentState = BotState.ALTAR;
+                return BotState.ALTAR;
+            }
+            if (tryPushLanes(rh)) {
+                currentState = BotState.PUSHING;
+                return BotState.PUSHING;
+            }
+            if (tryJungle(rh)) {
+                currentState = BotState.JUNGLING;
+                return BotState.JUNGLING;
+            }
+            if (tryClosestEnemy(rh)) {
+                currentState = BotState.FIGHTING;
+                return BotState.FIGHTING;
+            }
+            if (tryDefenseAltars(rh)) {
+                currentState = BotState.ALTAR;
+                return BotState.ALTAR;
+            }
         }
 
         if (botRole == BotRole.JUNGLER) {
-            if (tryJungle(rh)) return BotState.JUNGLING;
-            if (tryClosestEnemy(rh)) return BotState.FIGHTING;
-            if (tryMidAltar(rh)) return BotState.ALTAR;
-            if (tryDefenseAltars(rh)) return BotState.ALTAR;
-            if (tryPushLanes(rh)) return BotState.PUSHING;
+            if (tryMidAltar(rh)) {
+                currentState = BotState.ALTAR;
+                return BotState.ALTAR;
+            }
+            if (tryJungle(rh)) {
+                currentState = BotState.JUNGLING;
+                return BotState.JUNGLING;
+            }
+            if (tryClosestEnemy(rh)) {
+                currentState = BotState.FIGHTING;
+                return BotState.FIGHTING;
+            }
+            if (tryDefenseAltars(rh)) {
+                currentState = BotState.ALTAR;
+                return BotState.ALTAR;
+            }
+            if (tryPushLanes(rh)) {
+                currentState = BotState.PUSHING;
+                return BotState.PUSHING;
+            }
         }
 
         if (!towers.isEmpty()) {
@@ -869,14 +933,15 @@ public abstract class Bot extends Actor {
                 Point2D initialDest = closestTower.getLocation();
                 allyTowerReturnPoint =
                         rh.getPathFinder().getStoppingPoint(location, initialDest, 2);
+                currentState = BotState.ALLY_TOWER;
                 return BotState.ALLY_TOWER;
             }
         }
-
+        currentState = BotState.FLEEING;
         return BotState.FLEEING;
     }
 
-    protected void executeBotState(BotState stateToExecute, int msRan) {
+    protected void executeBotState(BotState stateToExecute) {
         // ALL startMoveTo called in update() need to check for !isMoving to not cause desync
         // between visual model and server location
 
@@ -1000,7 +1065,7 @@ public abstract class Bot extends Actor {
         // BOT ACTIONS
         BotState botState = evaluateBotState();
         if (botState != null) {
-            executeBotState(botState, msRan);
+            executeBotState(botState);
         }
     }
 

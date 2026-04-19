@@ -62,8 +62,7 @@ public class Monster extends Actor {
         Properties props = parentExt.getConfigProperties();
         movementDebug = Boolean.parseBoolean(props.getProperty("movementDebug", "false"));
         if (movementDebug)
-            ExtensionCommands.createActor(
-                    parentExt, room, id + "_test", "creep", this.location, 0f, 2);
+            ExtensionCommands.createActor(parentExt, room, id + "_test", "creep", location, 0f, 2);
         this.updateMaxHealth();
     }
 
@@ -198,13 +197,13 @@ public class Monster extends Actor {
     }
 
     public void updateMaxHealth() {
-        /*int averagePLevel = parentExt.getRoomHandler(room.getName()).getAverageChampionLevel();
+        int averagePLevel = parentExt.getRoomHandler(room.getName()).getAverageChampionLevel();
         if (averagePLevel != level) {
             int levelDiff = averagePLevel - level;
             this.maxHealth += parentExt.getHealthScaling(this.avatar) * levelDiff;
             this.level = averagePLevel;
             Champion.updateServerHealth(this.parentExt, this);
-        }*/
+        }
     }
 
     public boolean isProperActor(Actor a) {

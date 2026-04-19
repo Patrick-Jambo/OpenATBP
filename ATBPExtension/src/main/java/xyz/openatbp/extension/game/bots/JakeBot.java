@@ -81,6 +81,7 @@ public class JakeBot extends Bot {
         this.fleeMinionsAttackedPHpPerLv = 0.035f;
         this.defAltarCaptureActionDist = 2f;
         this.playerAttackedLvDif = -1;
+        this.junglingAlliesRadius = 4;
 
         this.botRole = BotRole.FIGHTER;
     }
