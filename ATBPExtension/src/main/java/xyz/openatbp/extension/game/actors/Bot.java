@@ -93,6 +93,7 @@ public abstract class Bot extends Actor {
     private long lastAttackedByMinions = 0L;
 
     private boolean commitSideAltar = false;
+    private boolean commitJungleCamp = false;
 
     protected boolean isForcedMoving() {
         return movementState == MovementState.KNOCKBACK || movementState == MovementState.PULLED;
@@ -178,8 +179,6 @@ public abstract class Bot extends Actor {
         if (globalCooldown <= 0) globalCooldown = 0;
         if (attackCooldown > 0) attackCooldown -= 100;
 
-        if (target != null && target.getHealth() <= 0) target = null;
-
         handleDamageQueue();
         handleMovementUpdate();
         handleCharmMovement();
@@ -187,6 +186,7 @@ public abstract class Bot extends Actor {
 
         handleDamagedByMinions();
         handleTargetedByTower();
+        handleJungleCommitReset();
 
         if (pickedUpHealthPack && getHealth() == getMaxHealth()) {
             removeCyclopsHealing();
@@ -447,6 +447,29 @@ public abstract class Bot extends Actor {
         return (a.getTeam() != team
                 && a.getActorType() != ActorType.BASE
                 && a.getActorType() != ActorType.TOWER);
+    }
+
+    private void handleJungleCommitReset() {
+        if (!(target instanceof Monster)) return;
+
+        RoomHandler rh = parentExt.getRoomHandler(room.getName());
+        String id = target.getId();
+        boolean shouldReset;
+
+        // Check for triplet camps first
+        if (id.contains("owl")) {
+            shouldReset = rh.tripletCampCleared("owl");
+        } else if (id.contains("gnome")) {
+            shouldReset = rh.tripletCampCleared("gnome");
+        } else {
+            // Standard health check for everything else
+            shouldReset = target.getHealth() <= 0;
+        }
+
+        if (shouldReset) {
+            commitJungleCamp = false;
+            target = null;
+        }
     }
 
     public void levelUpCooldowns() {
@@ -1024,11 +1047,12 @@ public abstract class Bot extends Actor {
                 return BotAction.FIGHTING;
             }
             if (commitSideAltar) commitSideAltar = false;
+            if (commitJungleCamp) commitJungleCamp = false;
             return BotAction.RETREATING;
         }
 
         // FLEE
-        if (!commitSideAltar) {
+        if (!commitSideAltar && !commitJungleCamp) {
             if (System.currentTimeMillis() - lastTargetedByTower <= 2000
                     || System.currentTimeMillis() - lastAttackedByMinions <= 1000)
                 return BotAction.FLEEING;
@@ -1038,11 +1062,12 @@ public abstract class Bot extends Actor {
         BotAction damagedAction = handleDamagedByChampion(rh, enemies);
         if (damagedAction != null) {
             commitSideAltar = false;
+            commitJungleCamp = false;
             return damagedAction;
         }
 
         // DEFEND STRUCTURES
-        if (!commitSideAltar) {
+        if (!commitSideAltar && !commitJungleCamp) {
             if (allyNexusUnderAttack(rh)
                     || allyBaseTowerUnderAttack(rh)
                     || anyAllyTowerUnderAttack(rh)) {
@@ -1051,7 +1076,7 @@ public abstract class Bot extends Actor {
         }
 
         // MID ALTAR
-        if (midAltarNotCaptured(rh) && !commitSideAltar) {
+        if (midAltarNotCaptured(rh) && !commitSideAltar && !commitJungleCamp) {
             List<Actor> altarEnemies =
                     Champion.getEnemyActorsInRadius(rh, team, mapConfig.offenseAltar, aggroRange);
             if (canWinFight(rh, altarEnemies, FightContext.AGGRO_ENGAGE)) {
@@ -1061,7 +1086,7 @@ public abstract class Bot extends Actor {
         }
 
         // ATTACK ENEMY CHAMPIONS IN RANGE
-        if (!commitSideAltar) {
+        if (!commitSideAltar && !commitJungleCamp) {
             List<Actor> enemyChamps = new ArrayList<>(enemies);
             enemyChamps.removeIf(e -> !e.isChampion());
             if (!enemyChamps.isEmpty() && canWinFight(rh, enemyChamps, FightContext.AGGRO_ENGAGE)) {
@@ -1073,7 +1098,9 @@ public abstract class Bot extends Actor {
         }
 
         // ATTACK MONSTERS
-        if (tryJungle(rh) && !commitSideAltar) {
+        if ((commitJungleCamp && target instanceof Monster)
+                || (tryJungle(rh) && !commitSideAltar)) {
+            commitJungleCamp = true;
             return BotAction.JUNGLING;
         }
 
@@ -1125,7 +1152,6 @@ public abstract class Bot extends Actor {
 
         // DEFENSE ALTARS
         if (canCaptureSideAltar(rh)) {
-            commitSideAltar = true;
             return BotAction.ALTAR;
         }
 
@@ -1218,9 +1244,12 @@ public abstract class Bot extends Actor {
         defAltars.add(mapConfig.defenseAltar);
         if (mapConfig.defenseAltar2 != null) defAltars.add(mapConfig.defenseAltar2);
 
-        for (Point2D defAltarLoc : defAltars) {
-            if (rh.getAltarStatus(defAltarLoc) != 10) {
-                altarToCapture.put(AltarType.SIDE, defAltarLoc);
+        for (Point2D sideAltarLocation : defAltars) {
+            if (rh.getAltarStatus(sideAltarLocation) != 10) {
+                if (location.distance(sideAltarLocation) < 50) {
+                    commitSideAltar = true;
+                }
+                altarToCapture.put(AltarType.SIDE, sideAltarLocation);
                 return true;
             }
         }
@@ -1388,6 +1417,7 @@ public abstract class Bot extends Actor {
         lastPlayerAttacker = null;
 
         commitSideAltar = false;
+        commitJungleCamp = false;
 
         Console.debugLog("Respawning " + id + " at " + location);
 

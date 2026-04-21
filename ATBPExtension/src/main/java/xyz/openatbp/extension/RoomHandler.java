@@ -779,7 +779,7 @@ public abstract class RoomHandler implements Runnable {
         }
     }
 
-    private boolean tripletCampCleared(String monsterName) {
+    public boolean tripletCampCleared(String monsterName) {
         List<Monster> triplet =
                 getCampMonsters().stream()
                         .filter(m -> m.getId().contains(monsterName))
