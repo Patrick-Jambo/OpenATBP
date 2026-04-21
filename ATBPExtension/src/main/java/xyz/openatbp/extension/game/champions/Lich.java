@@ -53,7 +53,6 @@ public class Lich extends UserActor {
     @Override
     public void update(int msRan) {
         super.update(msRan);
-        if (this.skully != null) skully.update(msRan);
         if (this.qActivated) {
             if (!qPoints.isEmpty()) {
                 long time = System.currentTimeMillis();

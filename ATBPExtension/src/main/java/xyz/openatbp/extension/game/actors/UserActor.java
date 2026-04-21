@@ -1144,6 +1144,8 @@ public class UserActor extends Actor {
         this.dead = false;
         effectManager.removeEffects();
         clearIconHandlers();
+        movementState = MovementState.IDLE;
+
         ExtensionCommands.snapActor(
                 this.parentExt, this.room, this.id, this.location, this.location, false);
         ExtensionCommands.playSound(

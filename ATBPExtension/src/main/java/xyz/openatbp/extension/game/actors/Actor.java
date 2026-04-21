@@ -109,6 +109,10 @@ public abstract class Actor {
     protected List<Actor> killedChampions = new ArrayList<>();
     private Point2D endPoint = null;
 
+    public Actor getTarget() {
+        return this.target;
+    }
+
     public List<Actor> getKilledChampions() {
         return this.killedChampions;
     }
@@ -698,6 +702,10 @@ public abstract class Actor {
                 true);
     }
 
+    public boolean isChampion() {
+        return this instanceof Bot || this instanceof UserActor;
+    }
+
     public void startMoveTo(Point2D endPoint, boolean forcedMovement) {
         this.endPoint = endPoint;
         if (isAutoAttacking && !forcedMovement) return;
@@ -808,7 +816,6 @@ public abstract class Actor {
             moveDestination = movePointsToDest.get(movePointsIndex);
             double dist = location.distance(moveDestination);
 
-            // skip zero length segments immediately
             while (dist <= 0.001 && movePointsIndex + 1 < movePointsToDest.size()) {
                 movePointsIndex++;
                 location = moveDestination;
