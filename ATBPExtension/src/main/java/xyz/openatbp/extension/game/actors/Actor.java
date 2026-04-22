@@ -1230,10 +1230,10 @@ public abstract class Actor {
             UserActor ua = (UserActor) this;
             String desc =
                     "You spell damage is reduced by "
-                            + debuffValue
+                            + (int) (debuffValue)
                             + " for "
-                            + MAGIC_CUBE_DEBUFF_DURATION
-                            + ".";
+                            + (MAGIC_CUBE_DEBUFF_DURATION / 1000)
+                            + " seconds.";
 
             Champion.handleStatusIcon(
                     parentExt, ua, "junk_4_antimagic_cube", desc, MAGIC_CUBE_DEBUFF_DURATION);

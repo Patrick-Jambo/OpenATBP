@@ -240,7 +240,8 @@ public abstract class Bot extends Actor {
         }
 
         if (currentAction != null) {
-            Console.debugLog("Avatar: " + getAvatar() + " current action: " + currentAction.name());
+            // Console.debugLog("Avatar: " + getAvatar() + " current action: " +
+            // currentAction.name());
         }
 
         List<Actor> actorsToRemove = new ArrayList<>(this.aggressors.size());
@@ -531,7 +532,7 @@ public abstract class Bot extends Actor {
     }
 
     public void logCooldowns() {
-        Console.log("Q: " + qCooldownMs + " W: " + wCooldownMs + " E: " + eCooldownMs);
+        // Console.log("Q: " + qCooldownMs + " W: " + wCooldownMs + " E: " + eCooldownMs);
     }
 
     protected boolean defaultAbilityCheck(int abilityNum) {
@@ -619,7 +620,7 @@ public abstract class Bot extends Actor {
         bagUpdateData.putInt("availableSpellPoints", 0);
         bagUpdateData.putUtfString("id", id);
 
-        Console.log("Bot bag update data: " + bagUpdateData.getDump());
+        // .log("Bot bag update data: " + bagUpdateData.getDump());
         ExtensionCommands.updateActorData(parentExt, room, bagUpdateData);
     }
 
@@ -840,7 +841,7 @@ public abstract class Bot extends Actor {
         score = processFightLvAndHp(score, enemyChampions, allies);
         score = processFightTeamDiff(allies, enemyChampions, score);
 
-        Console.debugLog("Can win fight low hp: " + (score >= 0));
+        // Console.debugLog("Can win fight low hp: " + (score >= 0));
         return score >= 0;
     }
 
@@ -854,7 +855,7 @@ public abstract class Bot extends Actor {
         score = processFightLvAndHp(score, enemyChampions, allies);
         score = processFightTeamDiff(allies, enemyChampions, score);
 
-        Console.debugLog("Can win fight aggro engage: " + (score >= 0));
+        // Console.debugLog("Can win fight aggro engage: " + (score >= 0));
         return score >= 0;
     }
 
@@ -869,7 +870,7 @@ public abstract class Bot extends Actor {
         score = processFightLvAndHp(score, enemyChampions, allies);
         score = processFightTeamDiff(allies, enemyChampions, score);
 
-        Console.debugLog("Can win fight damaged by champion: " + (score >= 0));
+        // Console.debugLog("Can win fight damaged by champion: " + (score >= 0));
         return score >= 0;
     }
 
@@ -1092,7 +1093,7 @@ public abstract class Bot extends Actor {
             if (!enemyChamps.isEmpty() && canWinFight(rh, enemyChamps, FightContext.AGGRO_ENGAGE)) {
 
                 target = getClosestActor(enemyChamps, true);
-                Console.debugLog("ATTACK ENEMY CHAMPION: " + target);
+                // Console.debugLog("ATTACK ENEMY CHAMPION: " + target);
                 return BotAction.FIGHTING;
             }
         }
@@ -1121,7 +1122,7 @@ public abstract class Bot extends Actor {
                 Actor closestEnemyMinion = getClosestActor(enemyMinions, false);
 
                 if (closestEnemyMinion != null) {
-                    Console.debugLog("CLOSEST ENEMY MINION IS NOT NULL");
+                    // Console.debugLog("CLOSEST ENEMY MINION IS NOT NULL");
                     Point2D minionLocation = closestEnemyMinion.getLocation();
 
                     boolean towerCheck =
@@ -1130,7 +1131,7 @@ public abstract class Bot extends Actor {
                     boolean safe = true;
 
                     if (towerCheck) {
-                        Console.debugLog("CLOSEST ENEMY MINION IN ENEMY TOWER RANGE!");
+                        // Console.debugLog("CLOSEST ENEMY MINION IN ENEMY TOWER RANGE!");
                         safe = false;
                         Actor tower = getEnemyTower(rh, closestEnemyMinion.getLocation());
 
