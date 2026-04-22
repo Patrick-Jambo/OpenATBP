@@ -47,7 +47,6 @@ public class MagicMan extends UserActor {
 
     public MagicMan(User u, ATBPExtension parentExt) {
         super(u, parentExt);
-        effectManager.addState(ActorState.INVISIBLE, "test", 0, 1000 * 60 * 15);
     }
 
     @Override
