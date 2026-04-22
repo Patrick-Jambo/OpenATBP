@@ -262,7 +262,7 @@ public class Tower extends Actor {
         if (a.isTowerFocused()) a.setTowerFocused(false);
     }
 
-    private Actor getClosestActor(List<Actor> actors) {
+    private Actor getBestTarget(List<Actor> actors) {
         float minDistActor = 100000;
         Actor closestActorTarget = null;
 
@@ -356,6 +356,7 @@ public class Tower extends Actor {
 
         List<Actor> enemiesInRadius = Champion.getActorsInRadius(rh, location, TOWER_ATTACK_RANGE);
         enemiesInRadius.removeIf(a -> a.getTeam() == team);
+        enemiesInRadius.removeIf(a -> a instanceof Monster);
 
         if (enemiesInRadius.isEmpty()) {
             if (attackCooldown != TOWER_ATTACK_SPEED_FIRST_SHOT) {
@@ -377,7 +378,7 @@ public class Tower extends Actor {
         Actor focusTarget = getFocusTarget(enemiesInRadius);
 
         if (focusTarget != null) potentialTarget = focusTarget;
-        else potentialTarget = getClosestActor(enemiesInRadius);
+        else potentialTarget = getBestTarget(enemiesInRadius);
 
         if (potentialTarget == null) return;
 

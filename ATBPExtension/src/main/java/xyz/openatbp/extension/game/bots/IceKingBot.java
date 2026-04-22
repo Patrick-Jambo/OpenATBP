@@ -257,12 +257,11 @@ public class IceKingBot extends Bot {
     @Override
     public void useQ(Point2D destination) {
         lastQUse = System.currentTimeMillis();
-
         globalCooldown = qCastDelayMS;
 
+        stopMoving();
         ExtensionCommands.actorAnimate(this.parentExt, this.room, this.id, "spell1", 100, true);
         handleLastAbilityVar();
-        stopMoving();
         String freezeVO = SkinData.getIceKingQVO(avatar);
         ExtensionCommands.playSound(this.parentExt, this.room, this.id, freezeVO, this.location);
 

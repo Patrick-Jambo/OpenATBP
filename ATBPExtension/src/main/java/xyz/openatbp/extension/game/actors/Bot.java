@@ -413,10 +413,12 @@ public abstract class Bot extends Actor {
     }
 
     protected boolean fleeOnMinionsAttacked() {
-        if (level == 1) return true;
+        float hpScore = (float) getPHealth();
+        float armorScore = (float) Math.min(getPlayerStat("armor") / 100f, 0.3f);
+        float levelScore = level / 40f;
 
-        float basePHealth = 0.6f;
-        return getPHealth() <= basePHealth - (level * 0.05f);
+        float score = hpScore + armorScore + levelScore;
+        return score < 1.0f;
     }
 
     public void addBotExp(int xpWorth) {
@@ -995,17 +997,6 @@ public abstract class Bot extends Actor {
         return monsters.stream().anyMatch(m -> m.getId().contains("keeoth"));
     }
 
-    private boolean anyDefenseAltarNotCaptured(RoomHandler rh) {
-        List<Point2D> defAltars = new ArrayList<>();
-        defAltars.add(mapConfig.defenseAltar);
-        if (mapConfig.defenseAltar2 != null) defAltars.add(mapConfig.defenseAltar2);
-
-        for (Point2D altarLocation : defAltars) {
-            if (rh.getAltarStatus(altarLocation) != 10) return true;
-        }
-        return false;
-    }
-
     private List<Actor> getEnemies(RoomHandler rh, float distance) {
         return Champion.getEnemyActorsInRadius(rh, team, location, distance);
     }
@@ -1032,7 +1023,37 @@ public abstract class Bot extends Actor {
         }
     }
 
-    protected BotAction evaluateBotAction() {
+    private boolean canAttackGnomes(RoomHandler rh) {
+        if (GameManager.getMap(mapConfig.roomGroup) == GameMap.CANDY_STREETS) {
+            List<Monster> gnomes = rh.getCampMonsters();
+
+            gnomes.removeIf(m -> !m.getId().contains("gnome"));
+            if (gnomes.isEmpty()) return false;
+
+            Monster gnome = gnomes.get(0);
+            List<Actor> towers = Champion.getActorsInRadius(rh, gnome.getLocation(), 20f);
+            towers.removeIf(a -> !(a instanceof Tower));
+            towers.removeIf(t -> t instanceof BaseTower);
+            return towers.isEmpty();
+        }
+        return true;
+    }
+
+    private boolean canSurviveJungle() {
+        float hpScore = (float) getPHealth(); // 0.0 to 1.0
+        float armorScore = (float) Math.min(getPlayerStat("armor") / 100f, 0.4f);
+        float levelScore = level / 20f;
+
+        float jungleScore = hpScore + armorScore + levelScore;
+
+        // At a 1.0 threshold:
+        // - A Level 1 bot with 0 armor needs 95% HP to jungle.
+        // - A Level 5 bot with 20 armor needs 55% HP to jungle.
+        // - A Level 10 bot with 40 armor only needs 10% HP to jungle.
+        return jungleScore > 1.0f;
+    }
+
+    private BotAction evaluateBotAction() {
         if (getHealth() <= 0 || isDead()) return null;
 
         altarToCapture = new HashMap<>();
@@ -1043,7 +1064,9 @@ public abstract class Bot extends Actor {
 
         // LOW HP
         if (lowHp()) {
-            if (!enemies.isEmpty() && canWinFight(rh, enemies, FightContext.LOW_HP_RETALIATE)) {
+            if (!enemies.isEmpty()
+                    && lastPlayerAttacker != null
+                    && canWinFight(rh, enemies, FightContext.LOW_HP_RETALIATE)) {
                 target = getClosestActor(enemies, true);
                 return BotAction.FIGHTING;
             }
@@ -1054,9 +1077,11 @@ public abstract class Bot extends Actor {
 
         // FLEE
         if (!commitSideAltar && !commitJungleCamp) {
-            if (System.currentTimeMillis() - lastTargetedByTower <= 2000
-                    || System.currentTimeMillis() - lastAttackedByMinions <= 1000)
+            boolean recentTower = System.currentTimeMillis() - lastTargetedByTower <= 2000;
+            boolean recentMinion = System.currentTimeMillis() - lastAttackedByMinions <= 1000;
+            if (recentTower || (recentMinion && fleeOnMinionsAttacked()) || retreatFromSiege(rh)) {
                 return BotAction.FLEEING;
+            }
         }
 
         // RETALIATE
@@ -1099,10 +1124,12 @@ public abstract class Bot extends Actor {
         }
 
         // ATTACK MONSTERS
-        if ((commitJungleCamp && target instanceof Monster)
-                || (tryJungle(rh) && !commitSideAltar)) {
-            commitJungleCamp = true;
-            return BotAction.JUNGLING;
+        if (level < 10) {
+            if ((commitJungleCamp && target instanceof Monster)
+                    || (tryJungle(rh) && !commitSideAltar)) {
+                commitJungleCamp = true;
+                return BotAction.JUNGLING;
+            }
         }
 
         // PUSH LANE
@@ -1118,13 +1145,18 @@ public abstract class Bot extends Actor {
                 return BotAction.FIGHTING;
             }
 
+            // FARM MINIONS
             if (!enemyMinions.isEmpty()) {
                 Actor closestEnemyMinion = getClosestActor(enemyMinions, false);
-
                 if (closestEnemyMinion != null) {
                     // Console.debugLog("CLOSEST ENEMY MINION IS NOT NULL");
-                    Point2D minionLocation = closestEnemyMinion.getLocation();
 
+                    if (!isPointInTowerRadius(location, team) && withinRange(closestEnemyMinion)) {
+                        target = closestEnemyMinion;
+                        return BotAction.FIGHTING;
+                    }
+
+                    Point2D minionLocation = closestEnemyMinion.getLocation();
                     boolean towerCheck =
                             isPointInTowerRadius(minionLocation, closestEnemyMinion.getTeam());
 
@@ -1142,7 +1174,6 @@ public abstract class Bot extends Actor {
                             }
                         }
                     }
-
                     if (safe) {
                         target = closestEnemyMinion;
                         return BotAction.FIGHTING;
@@ -1157,6 +1188,24 @@ public abstract class Bot extends Actor {
         }
 
         return null;
+    }
+
+    private boolean retreatFromSiege(RoomHandler rh) {
+        if (target != null) {
+            if (target.getActorType() == ActorType.TOWER) {
+                List<Actor> allyMinions =
+                        Champion.getActorsInRadius(rh, target.getLocation(), TOWER_ATTACK_RANGE);
+                allyMinions.removeIf(a -> !(a instanceof Minion));
+                allyMinions.removeIf(a -> a.getTeam() != team);
+
+                if (getPlayerStat("attackRange") < 3) return allyMinions.size() == 1;
+                else if (allyMinions.size() == 1) {
+                    Actor allyMinion = allyMinions.get(0);
+                    return allyMinion.getPHealth() < 0.5;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean tryAttackStructures(
@@ -1207,7 +1256,7 @@ public abstract class Bot extends Actor {
             }
         }
 
-        if (getPHealth() > 0.9) {
+        if (canSurviveJungle()) {
             List<Monster> monsters = rh.getCampMonsters();
             monsters.removeIf(m -> m.getHealth() <= 0 || m.isDead());
             if (!canFightGoo(rh)) monsters.removeIf(m -> m.getId().contains("goo"));
@@ -1215,8 +1264,12 @@ public abstract class Bot extends Actor {
 
             Actor closestMonster = getClosestActor(new ArrayList<>(monsters), false);
             if (closestMonster != null) {
-                target = closestMonster;
-                return true;
+                boolean isGnome = closestMonster.getId().contains("gnome");
+                if (!isGnome || canAttackGnomes(rh)) {
+                    Console.debugLog("Can attack gnome: " + canAttackGnomes(rh));
+                    target = closestMonster;
+                    return true;
+                }
             }
         }
         return false;
