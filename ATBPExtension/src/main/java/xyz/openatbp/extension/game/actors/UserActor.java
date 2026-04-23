@@ -261,6 +261,7 @@ public class UserActor extends Actor {
     @Override
     public void applyStopMovingDuringAttack() {
         super.applyStopMovingDuringAttack();
+        preventStealth();
     }
 
     @Override
@@ -448,6 +449,7 @@ public class UserActor extends Actor {
     public void attack(Actor a) {
         if (this.attackCooldown == 0) {
             this.applyStopMovingDuringAttack();
+            preventStealth();
             this.setLastAuto();
             double critChance = this.getPlayerStat("criticalChance") / 100d;
             double random = Math.random();
@@ -530,6 +532,7 @@ public class UserActor extends Actor {
                     critAnimation,
                     true);
             this.attackCooldown = this.getPlayerStat("attackSpeed");
+            preventStealth();
             this.setLastAuto();
             if (this.attackCooldown < BASIC_ATTACK_DELAY) this.attackCooldown = BASIC_ATTACK_DELAY;
             return crit;
@@ -539,7 +542,6 @@ public class UserActor extends Actor {
 
     public void autoAttack(Actor a) {
         this.attack(a);
-        preventStealth();
     }
 
     public void reduceAttackCooldown() {
@@ -598,9 +600,9 @@ public class UserActor extends Actor {
                 removeCyclopsHealing();
             }
 
-            if (a.getActorType() != ActorType.PLAYER) {
+            if (!a.isChampion()) {
                 ExtensionCommands.playSound(
-                        parentExt, this.getUser(), "global", "announcer/you_are_defeated");
+                        parentExt, getUser(), "global", "announcer/you_are_defeated");
             }
 
             this.setHealth(0, (int) this.maxHealth);

@@ -1268,7 +1268,6 @@ public abstract class Bot extends Actor {
             if (closestMonster != null) {
                 boolean isGnome = closestMonster.getId().contains("gnome");
                 if (!isGnome || canAttackGnomes(rh)) {
-                    Console.debugLog("Can attack gnome: " + canAttackGnomes(rh));
                     target = closestMonster;
                     return true;
                 }
