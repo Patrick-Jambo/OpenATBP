@@ -317,6 +317,7 @@ public abstract class Bot extends Actor {
     @Override
     public void attack(Actor a) {
         if (this.attackCooldown == 0) {
+            preventStealth();
             applyStopMovingDuringAttack();
             double critChance = this.getPlayerStat("criticalChance") / 100d;
             double random = Math.random();
@@ -409,6 +410,7 @@ public abstract class Bot extends Actor {
             removeCyclopsHealing();
         }
         processHitData(a, attackData, damage);
+        preventStealth();
         return super.damaged(a, damage, attackData);
     }
 
@@ -1299,8 +1301,9 @@ public abstract class Bot extends Actor {
         if (mapConfig.defenseAltar2 != null) defAltars.add(mapConfig.defenseAltar2);
 
         for (Point2D sideAltarLocation : defAltars) {
-            if (rh.getAltarStatus(sideAltarLocation) != 10) {
-                if (location.distance(sideAltarLocation) < 50) {
+            if (rh.getAltarStatus(sideAltarLocation) != 10
+                    && location.distance(sideAltarLocation) <= 20f) {
+                if (location.distance(sideAltarLocation) <= aggroRange) {
                     commitSideAltar = true;
                 }
                 altarToCapture.put(AltarType.SIDE, sideAltarLocation);

@@ -19,6 +19,7 @@ import xyz.openatbp.extension.game.champions.Keeoth;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
 import xyz.openatbp.extension.game.effects.ModifierType;
+import xyz.openatbp.extension.pathfinding.PathFinder;
 
 public class UserActor extends Actor {
     public static final int DEMON_SWORD_AD_BUFF = 15;
@@ -144,15 +145,17 @@ public class UserActor extends Actor {
         abilityDebug = Boolean.parseBoolean(props.getProperty("abilityDebug", "false"));
         speedDebug = Boolean.parseBoolean(props.getProperty("speedDebug", "false"));
         damageDebug = Boolean.parseBoolean(props.getProperty("damageDebug", "false"));
-        if (movementDebug)
+        if (movementDebug) {
             ExtensionCommands.createActor(
-                    this.parentExt,
-                    this.room,
-                    this.id + "_movementDebug",
-                    "creep1",
-                    this.location,
-                    0f,
-                    2);
+                    parentExt, room, id + "_movementDebug", "creep1", location, 0f, 2);
+
+            RoomHandler rh = parentExt.getRoomHandler(room.getName());
+            PathFinder pf = rh.getPathFinder();
+
+            pf.displayMapObstacles(parentExt, room, id, team);
+            pf.displayMapBoundaries(parentExt, room, id, team);
+        }
+
         if (speedDebug) this.setStat("speed", 20);
         if (damageDebug) this.setStat("attackDamage", 1000);
 
@@ -258,7 +261,6 @@ public class UserActor extends Actor {
     @Override
     public void applyStopMovingDuringAttack() {
         super.applyStopMovingDuringAttack();
-        preventStealth();
     }
 
     @Override
@@ -446,7 +448,6 @@ public class UserActor extends Actor {
     public void attack(Actor a) {
         if (this.attackCooldown == 0) {
             this.applyStopMovingDuringAttack();
-            this.preventStealth();
             this.setLastAuto();
             double critChance = this.getPlayerStat("criticalChance") / 100d;
             double random = Math.random();
@@ -529,7 +530,6 @@ public class UserActor extends Actor {
                     critAnimation,
                     true);
             this.attackCooldown = this.getPlayerStat("attackSpeed");
-            this.preventStealth();
             this.setLastAuto();
             if (this.attackCooldown < BASIC_ATTACK_DELAY) this.attackCooldown = BASIC_ATTACK_DELAY;
             return crit;
@@ -539,6 +539,7 @@ public class UserActor extends Actor {
 
     public void autoAttack(Actor a) {
         this.attack(a);
+        preventStealth();
     }
 
     public void reduceAttackCooldown() {
