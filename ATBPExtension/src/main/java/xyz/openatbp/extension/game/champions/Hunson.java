@@ -323,15 +323,6 @@ public class Hunson extends UserActor {
                 try {
                     this.resetTarget();
                     this.stopMoving(castDelay);
-
-                    effectManager.addEffect(
-                            E_SLOW_ID,
-                            "speed",
-                            E_SLOW_PERCENT,
-                            ModifierType.MULTIPLICATIVE,
-                            ModifierIntent.DEBUFF,
-                            E_DURATION);
-
                     ExtensionCommands.playSound(
                             parentExt, room, id, "sfx_hunson_scream1", location);
                     Runnable soundDelay =
@@ -467,6 +458,14 @@ public class Hunson extends UserActor {
                     E_SPELLVAMP_VALUE,
                     ModifierType.ADDITIVE,
                     ModifierIntent.BUFF,
+                    E_DURATION);
+
+            effectManager.addEffect(
+                    E_SLOW_ID,
+                    "speed",
+                    E_SLOW_PERCENT,
+                    ModifierType.MULTIPLICATIVE,
+                    ModifierIntent.DEBUFF,
                     E_DURATION);
 
             ultActivated = true;

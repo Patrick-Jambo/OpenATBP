@@ -446,8 +446,9 @@ public class BMO extends UserActor {
         ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_pixels_aoe");
         ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_bmo_remote");
         ExtensionCommands.removeFx(this.parentExt, this.room, this.id + "_target_ring_4.5");
-        ExtensionCommands.playSound(
-                this.parentExt, this.room, this.id, "vo/vo_bmo_yay", this.location);
+
+        playSoundWithChance("vo/vo_bmo_yay", 50);
+
         ExtensionCommands.playSound(
                 this.parentExt, this.room, this.id, "sfx_bmo_pixels_explode", this.location);
         ExtensionCommands.createActorFX(

@@ -12,7 +12,6 @@ import com.smartfoxserver.v2.entities.User;
 import xyz.openatbp.extension.*;
 import xyz.openatbp.extension.game.*;
 import xyz.openatbp.extension.game.actors.Actor;
-import xyz.openatbp.extension.game.actors.Bot;
 import xyz.openatbp.extension.game.actors.UserActor;
 import xyz.openatbp.extension.game.effects.ActorState;
 import xyz.openatbp.extension.game.effects.ModifierIntent;
@@ -164,7 +163,7 @@ public class Finn extends UserActor {
     @Override
     public void handleKill(Actor a, JsonNode attackData) {
         super.handleKill(a, attackData);
-        if (a instanceof UserActor || a instanceof Bot) {
+        if (a.isChampion()) {
             this.canCast[1] = true;
             ExtensionCommands.actorAbilityResponse(this.parentExt, this.player, "w", true, 0, 0);
             if (getHealth() > 0) {
@@ -354,6 +353,10 @@ public class Finn extends UserActor {
                         true,
                         false,
                         this.team);
+
+                String[] wVOS = {"vo/vo_finn_w", "vo/vo_finn_w_2"};
+                String vo = wVOS[random.nextInt(2)];
+                playSoundWithChance(vo, 50);
 
                 ExtensionCommands.playSound(parentExt, room, id, dashSFX, location);
 
