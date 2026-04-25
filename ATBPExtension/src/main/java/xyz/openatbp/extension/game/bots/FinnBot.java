@@ -182,6 +182,7 @@ public class FinnBot extends Bot {
         String shieldFX = SkinData.getFinnQFX(avatar);
         String shieldSFX = SkinData.getFinnQSFX(avatar);
         ExtensionCommands.playSound(this.parentExt, this.room, this.id, shieldSFX, this.location);
+        playSoundWithChance("vo/vo_finn_q", 50);
         ExtensionCommands.createActorFX(
                 this.parentExt,
                 this.room,
@@ -261,6 +262,7 @@ public class FinnBot extends Bot {
                 false,
                 team);
         ExtensionCommands.playSound(parentExt, room, id, dashSFX, location);
+        playSoundWithChance("vo/vo_finn_w", 50);
 
         JsonNode spellData = parentExt.getAttackData(avatar, "spell2");
 
@@ -295,6 +297,7 @@ public class FinnBot extends Bot {
         scheduleTask(enableDashCasting, E_SELF_CRIPPLE_DURATION);
 
         ExtensionCommands.actorAnimate(parentExt, room, id, "spell3", eCastDelayMS, true);
+        ExtensionCommands.playSound(parentExt, room, id, "vo/vo_finn_e", location);
 
         Runnable cast =
                 () -> {
