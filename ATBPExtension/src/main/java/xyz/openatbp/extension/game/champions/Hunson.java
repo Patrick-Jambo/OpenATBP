@@ -279,6 +279,7 @@ public class Hunson extends UserActor {
                     wStartTime = System.currentTimeMillis();
 
                     ExtensionCommands.playSound(parentExt, room, id, "hunson_power2a", location);
+                    playSoundWithChance("vo/vo_hunson_w", 50);
                     ExtensionCommands.createActorFX(
                             parentExt,
                             room,

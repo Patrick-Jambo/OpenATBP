@@ -376,6 +376,8 @@ public class PeppermintButler extends UserActor {
                 canCast[0] = false;
                 qActive = true;
                 try {
+                    playSoundWithChance("vo/vo_pepbut.q", 50);
+
                     this.qStartTime = System.currentTimeMillis();
                     ExtensionCommands.createActorFX(
                             this.parentExt,

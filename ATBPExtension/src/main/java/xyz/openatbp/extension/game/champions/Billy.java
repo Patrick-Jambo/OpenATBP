@@ -213,6 +213,8 @@ public class Billy extends UserActor {
                                 .build();
                 startDash(ctx);
 
+                playSoundWithChance("vo/vo_billy_w", 50);
+
                 ExtensionCommands.playSound(parentExt, room, id, "sfx_billy_jump", location);
                 ExtensionCommands.createActorFX(
                         parentExt,

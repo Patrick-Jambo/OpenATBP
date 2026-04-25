@@ -237,37 +237,38 @@ public class Finn extends UserActor {
                     this.qActive = true;
                     String shieldFX = SkinData.getFinnQFX(avatar);
                     String shieldSFX = SkinData.getFinnQSFX(avatar);
-                    ExtensionCommands.playSound(
-                            this.parentExt, this.room, this.id, shieldSFX, this.location);
+                    ExtensionCommands.playSound(parentExt, room, id, shieldSFX, location);
+                    playSoundWithChance("vo/vo_finn_q", 50);
+
                     ExtensionCommands.createActorFX(
-                            this.parentExt,
-                            this.room,
-                            this.id,
+                            parentExt,
+                            room,
+                            id,
                             shieldFX,
                             3000,
-                            this.id + "_shield",
+                            id + "_shield",
                             true,
                             "Bip001 Pelvis",
                             true,
                             false,
-                            this.team);
+                            team);
 
                     effectManager.addEffect(
-                            this.id + "_finn_q_speed",
+                            id + "_finn_q_speed",
                             "speed",
                             Q_SPEED_PERCENT,
                             ModifierType.MULTIPLICATIVE,
                             ModifierIntent.BUFF,
                             Q_SPEED_DURATION);
                     effectManager.addEffect(
-                            this.id + "_finn_q_armor",
+                            id + "_finn_q_armor",
                             "armor",
                             Q_ARMOR_PERCENT,
                             ModifierType.MULTIPLICATIVE,
                             ModifierIntent.BUFF,
                             Q_ARMOR_DURATION);
                     effectManager.addEffect(
-                            this.id + "_finn_q_attack_speed",
+                            id + "_finn_q_attack_speed",
                             "attackSpeed",
                             Q_ATTACK_SPEED_PERCENT,
                             ModifierType.MULTIPLICATIVE,
@@ -342,21 +343,18 @@ public class Finn extends UserActor {
                 String dashFX = SkinData.getFinnWFX(avatar);
                 String dashSFX = SkinData.getFinnWSFX(avatar);
                 ExtensionCommands.createActorFX(
-                        this.parentExt,
-                        this.room,
-                        this.id,
+                        parentExt,
+                        room,
+                        id,
                         dashFX,
                         wDuration,
-                        this.id + "finnWTrail",
+                        id + "finnWTrail",
                         true,
                         "",
                         true,
                         false,
-                        this.team);
-
-                String[] wVOS = {"vo/vo_finn_w", "vo/vo_finn_w_2"};
-                String vo = wVOS[random.nextInt(2)];
-                playSoundWithChance(vo, 50);
+                        team);
+                playSoundWithChance("vo/vo_finn_w", 50);
 
                 ExtensionCommands.playSound(parentExt, room, id, dashSFX, location);
 
@@ -378,6 +376,8 @@ public class Finn extends UserActor {
                                 this.canCast[1] = true;
                             };
                     scheduleTask(enableDashCasting, E_SELF_CRIPPLE_DURATION);
+
+                    ExtensionCommands.playSound(parentExt, room, id, "vo/vo_finn_e", location);
 
                     Runnable cast =
                             () -> {

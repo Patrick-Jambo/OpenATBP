@@ -189,6 +189,9 @@ public class Neptr extends UserActor {
             case 1:
                 this.canCast[0] = false;
                 try {
+                    ExtensionCommands.playSound(parentExt, room, id, "sfx_neptr_q", location);
+                    playSoundWithChance("vo/vo_neptr_q", 50);
+
                     Line2D abilityLine = Champion.createLineTowards(this.location, dest, 8f);
                     this.fireProjectile(
                             new NeptrProjectile(
