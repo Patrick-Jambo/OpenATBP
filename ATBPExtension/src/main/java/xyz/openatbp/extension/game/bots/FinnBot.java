@@ -262,7 +262,8 @@ public class FinnBot extends Bot {
                 false,
                 team);
         ExtensionCommands.playSound(parentExt, room, id, dashSFX, location);
-        playSoundWithChance("vo/vo_finn_w", 50);
+        String[] wVOS = {"vo/vo_finn_w", "vo/vo_finn_w_2"};
+        playSoundWithChance(wVOS[random.nextInt(2)], 50);
 
         JsonNode spellData = parentExt.getAttackData(avatar, "spell2");
 
@@ -297,8 +298,6 @@ public class FinnBot extends Bot {
         scheduleTask(enableDashCasting, E_SELF_CRIPPLE_DURATION);
 
         ExtensionCommands.actorAnimate(parentExt, room, id, "spell3", eCastDelayMS, true);
-        ExtensionCommands.playSound(parentExt, room, id, "vo/vo_finn_e", location);
-
         Runnable cast =
                 () -> {
                     this.ultActivated = true;
@@ -361,6 +360,11 @@ public class FinnBot extends Bot {
                             this.team);
                     ExtensionCommands.playSound(
                             this.parentExt, this.room, this.id, wallDropSFX, this.location);
+
+                    String[] eVOS = {"vo/vo_finn_e", "vo/vo_finn_e_2"};
+
+                    ExtensionCommands.playSound(
+                            parentExt, room, id, eVOS[random.nextInt(3)], location);
                     ExtensionCommands.createWorldFX(
                             this.parentExt,
                             this.room,
